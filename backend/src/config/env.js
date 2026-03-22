@@ -1,0 +1,58 @@
+require("dotenv").config();
+
+const env = {
+  nodeEnv: process.env.NODE_ENV || "development",
+  port: Number(process.env.PORT || 8081),
+  frontendOrigin: String(process.env.FRONTEND_ORIGIN || "http://localhost:8080").trim().replace(/\/$/, ""),
+
+  db: {
+    host: process.env.DB_HOST,
+    port: Number(process.env.DB_PORT || 3306),
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    name: process.env.DB_NAME,
+    sslMode: process.env.DB_SSL_MODE || "DISABLED",
+    // Either provide DB_SSL_CA (paste PEM text) or DB_SSL_CA_PATH (path to a .pem file)
+    sslCa: process.env.DB_SSL_CA || "",
+    sslCaPath: process.env.DB_SSL_CA_PATH || "",
+    sslRejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED || "true",
+  },
+
+  jwt: {
+    secret: process.env.JWT_SECRET || "change_me",
+    expiresIn: process.env.JWT_EXPIRES_IN || "7d",
+  },
+
+  smtp: {
+    host: process.env.SMTP_HOST,
+    port: Number(process.env.SMTP_PORT || 587),
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+    from: process.env.SMTP_FROM,
+  },
+
+  google: {
+    clientId: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    callbackUrl: process.env.GOOGLE_CALLBACK_URL,
+  },
+
+  cloudinary: {
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME,
+    apiKey: process.env.CLOUDINARY_API_KEY,
+    apiSecret: process.env.CLOUDINARY_API_SECRET,
+    folder: process.env.CLOUDINARY_FOLDER || "hpc-alumni",
+  },
+};
+
+function assertRequired(value, label) {
+  if (!value) {
+    throw new Error(`[env] Missing required: ${label}`);
+  }
+}
+
+// Note: we intentionally do NOT hard-fail at boot when DB credentials are missing.
+// This keeps `/health` usable while you configure your environment.
+
+module.exports = env;
+

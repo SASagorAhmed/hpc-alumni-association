@@ -1,0 +1,252 @@
+const express = require("express");
+const { getOrCreatePool } = require("../db/pool");
+const { ensureAchievementSettingsRow } = require("../utils/achievementSettings");
+
+const router = express.Router();
+
+async function loadStructuredCommittee(pool, termId = null) {
+  let term;
+  if (termId) {
+    const [trows] = await pool.query("SELECT * FROM committee_terms WHERE id = ? LIMIT 1", [termId]);
+    term = trows?.[0];
+    if (!term || term.status !== "published") return null;
+  } else {
+    let [rows] = await pool.query(
+      `SELECT * FROM committee_terms WHERE status = 'published' AND is_current = 1 LIMIT 1`
+    );
+    if (!rows?.length) {
+      [rows] = await pool.query(
+        `SELECT * FROM committee_terms WHERE status = 'published' ORDER BY updated_at DESC LIMIT 1`
+      );
+    }
+    term = rows?.[0];
+    if (!term) return null;
+  }
+
+  const [posts] = await pool.query(
+    `SELECT * FROM committee_posts WHERE term_id = ? ORDER BY display_order ASC`,
+    [term.id]
+  );
+  const [members] = await pool.query(
+    `SELECT * FROM committee_members
+     WHERE term_id = ? AND is_active = 1
+     ORDER BY display_order ASC`,
+    [term.id]
+  );
+  const postsWith = posts.map((p) => ({
+    ...p,
+    members: members.filter((m) => m.post_id === p.id),
+  }));
+  return { term, posts: postsWith };
+}
+
+/** Published committee for alumni UI (structured by term → posts → members) */
+router.get("/committee/active", async (req, res) => {
+  try {
+    const pool = getOrCreatePool();
+    if (!pool) return res.status(503).json({ ok: false, error: "MySQL not configured" });
+    try {
+      const data = await loadStructuredCommittee(pool);
+      return res.status(200).json(data);
+    } catch (e) {
+      return res.status(200).json(null);
+    }
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message || "Failed to load committee" });
+  }
+});
+
+/** Historical / list: published terms only */
+router.get("/committee/terms", async (req, res) => {
+  try {
+    const pool = getOrCreatePool();
+    if (!pool) return res.status(503).json({ ok: false, error: "MySQL not configured" });
+    const [rows] = await pool.query(
+      `SELECT id, name, description, is_current, created_at, updated_at
+       FROM committee_terms WHERE status = 'published'
+       ORDER BY is_current DESC, updated_at DESC`
+    );
+    return res.status(200).json(rows || []);
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message || "Failed to list terms" });
+  }
+});
+
+router.get("/committee/terms/:id", async (req, res) => {
+  try {
+    const pool = getOrCreatePool();
+    if (!pool) return res.status(503).json({ ok: false, error: "MySQL not configured" });
+    const data = await loadStructuredCommittee(pool, req.params.id);
+    if (!data) return res.status(404).json({ ok: false, error: "Not found" });
+    return res.status(200).json(data);
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message || "Failed to load term" });
+  }
+});
+
+router.get("/committee-members", async (req, res) => {
+  try {
+    const pool = getOrCreatePool();
+    if (!pool) return res.status(503).json({ ok: false, error: "MySQL not configured" });
+
+    const activeOnly = String(req.query.active || "").toLowerCase() === "true";
+    const [rows] = await pool.query(
+      `SELECT * FROM committee_members
+       ${activeOnly ? "WHERE is_active = true" : ""}
+       ORDER BY category ASC, display_order ASC`
+    );
+    return res.status(200).json(rows || []);
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message || "Failed to load committee members" });
+  }
+});
+
+router.get("/committee-members/:id", async (req, res) => {
+  try {
+    const pool = getOrCreatePool();
+    if (!pool) return res.status(503).json({ ok: false, error: "MySQL not configured" });
+    const [rows] = await pool.query("SELECT * FROM committee_members WHERE id = ? LIMIT 1", [req.params.id]);
+    return res.status(200).json(rows?.[0] || null);
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message || "Failed to load member" });
+  }
+});
+
+router.get("/achievement-settings", async (req, res) => {
+  try {
+    const pool = getOrCreatePool();
+    if (!pool) return res.status(503).json({ ok: false, error: "MySQL not configured" });
+    const [rows] = await pool.query("SELECT * FROM achievement_settings LIMIT 1");
+    return res.status(200).json(rows?.[0] || null);
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message || "Failed to load settings" });
+  }
+});
+
+router.get("/achievements", async (req, res) => {
+  try {
+    const pool = getOrCreatePool();
+    if (!pool) return res.status(503).json({ ok: false, error: "MySQL not configured" });
+    const activeOnly = String(req.query.active || "").toLowerCase() === "true";
+    const [rows] = await pool.query(
+      `SELECT * FROM achievements
+       ${activeOnly ? "WHERE IFNULL(is_active, 1) = 1" : ""}
+       ORDER BY is_pinned DESC, display_order ASC`
+    );
+    return res.status(200).json(rows || []);
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message || "Failed to load achievements" });
+  }
+});
+
+router.get("/memories", async (req, res) => {
+  try {
+    const pool = getOrCreatePool();
+    if (!pool) return res.status(503).json({ ok: false, error: "MySQL not configured" });
+    const publishedOnly = String(req.query.published || "").toLowerCase() === "true";
+    const [rows] = await pool.query(
+      `SELECT * FROM memories
+       ${publishedOnly ? "WHERE published = true" : ""}
+       ORDER BY display_order ASC, created_at DESC`
+    );
+    return res.status(200).json(rows || []);
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message || "Failed to load memories" });
+  }
+});
+
+router.get("/members/:id", async (req, res) => {
+  try {
+    const pool = getOrCreatePool();
+    if (!pool) return res.status(503).json({ ok: false, error: "MySQL not configured" });
+    const [rows] = await pool.query("SELECT * FROM committee_members WHERE id = ? LIMIT 1", [req.params.id]);
+    return res.status(200).json(rows?.[0] || null);
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message || "Failed to load member detail" });
+  }
+});
+
+router.get("/documents", async (req, res) => {
+  try {
+    const pool = getOrCreatePool();
+    if (!pool) return res.status(503).json({ ok: false, error: "MySQL not configured" });
+    const [rows] = await pool.query(
+      `SELECT id, title, description, category, file_url, file_name, file_type, file_size, visibility, published, pinned, uploaded_by, created_at, updated_at
+       FROM documents
+       WHERE published = true
+       ORDER BY pinned DESC, created_at DESC`
+    );
+    return res.status(200).json(rows || []);
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message || "Failed to load documents" });
+  }
+});
+
+router.get("/elections", async (req, res) => {
+  try {
+    const pool = getOrCreatePool();
+    if (!pool) return res.status(503).json({ ok: false, error: "MySQL not configured" });
+    const [rows] = await pool.query("SELECT * FROM elections ORDER BY created_at DESC");
+    return res.status(200).json(rows || []);
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message || "Failed to load elections" });
+  }
+});
+
+router.get("/elections/:id", async (req, res) => {
+  try {
+    const pool = getOrCreatePool();
+    if (!pool) return res.status(503).json({ ok: false, error: "MySQL not configured" });
+    const [rows] = await pool.query("SELECT * FROM elections WHERE id = ? LIMIT 1", [req.params.id]);
+    return res.status(200).json(rows?.[0] || null);
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message || "Failed to load election" });
+  }
+});
+
+router.get("/elections/:id/posts", async (req, res) => {
+  try {
+    const pool = getOrCreatePool();
+    if (!pool) return res.status(503).json({ ok: false, error: "MySQL not configured" });
+    const [rows] = await pool.query("SELECT * FROM election_posts WHERE election_id = ? ORDER BY display_order ASC", [req.params.id]);
+    return res.status(200).json(rows || []);
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message || "Failed to load election posts" });
+  }
+});
+
+router.get("/elections/:id/candidates", async (req, res) => {
+  try {
+    const pool = getOrCreatePool();
+    if (!pool) return res.status(503).json({ ok: false, error: "MySQL not configured" });
+    const [rows] = await pool.query("SELECT * FROM candidates WHERE election_id = ? ORDER BY candidate_number ASC, created_at ASC", [req.params.id]);
+    return res.status(200).json(rows || []);
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message || "Failed to load candidates" });
+  }
+});
+
+router.get("/elections/:id/votes", async (req, res) => {
+  try {
+    const pool = getOrCreatePool();
+    if (!pool) return res.status(503).json({ ok: false, error: "MySQL not configured" });
+    const [rows] = await pool.query("SELECT * FROM votes WHERE election_id = ?", [req.params.id]);
+    return res.status(200).json(rows || []);
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message || "Failed to load votes" });
+  }
+});
+
+router.get("/elections/:id/winners", async (req, res) => {
+  try {
+    const pool = getOrCreatePool();
+    if (!pool) return res.status(503).json({ ok: false, error: "MySQL not configured" });
+    const [rows] = await pool.query("SELECT * FROM election_winners WHERE election_id = ?", [req.params.id]);
+    return res.status(200).json(rows || []);
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message || "Failed to load winners" });
+  }
+});
+
+module.exports = router;
+

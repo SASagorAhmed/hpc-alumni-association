@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Frontend build
+frontend/dist/
+
+# Environment & secrets (never commit)
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+logs/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Uploads / local data (if used)
+backend/uploads/
+*.local
