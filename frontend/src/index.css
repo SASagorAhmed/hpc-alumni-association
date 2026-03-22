@@ -1,0 +1,1096 @@
+@import url('https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    font-size: 16px;
+  }
+
+  @media (max-width: 1279px) {
+    html { font-size: 15px; }
+  }
+
+  @media (max-width: 1023px) {
+    html { font-size: 14.5px; }
+  }
+
+  section[id] {
+    scroll-margin-top: 80px;
+  }
+
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 210 12% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 210 12% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 12% 12%;
+
+    --primary: 152 62% 40%;
+    --primary-foreground: 210 20% 10%;
+
+    --secondary: 160 20% 96%;
+    --secondary-foreground: 210 12% 12%;
+
+    --muted: 180 8% 96%;
+    --muted-foreground: 210 8% 42%;
+
+    --accent: 150 50% 55%;
+    --accent-foreground: 210 20% 10%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 195 10% 90%;
+    --input: 195 10% 90%;
+    --ring: 152 62% 40%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 180 15% 98%;
+    --sidebar-foreground: 210 12% 26%;
+    --sidebar-primary: 152 62% 40%;
+    --sidebar-primary-foreground: 210 20% 10%;
+    --sidebar-accent: 170 15% 95%;
+    --sidebar-accent-foreground: 210 12% 12%;
+    --sidebar-border: 195 10% 91%;
+    --sidebar-ring: 152 62% 40%;
+
+    /* HPC Custom tokens */
+    --hpc-cyan: 192 100% 50%;
+    --hpc-cyan-light: 192 100% 65%;
+    --hpc-cyan-dark: 192 100% 38%;
+    --hpc-mint: 145 98% 76%;
+    --hpc-mint-dark: 150 80% 45%;
+    --hpc-green: 152 62% 40%;
+    --hpc-green-light: 150 50% 55%;
+    --hpc-green-dark: 155 70% 30%;
+    --hpc-gold: 43 96% 56%;
+    --hpc-gold-light: 45 100% 65%;
+    --hpc-gold-dark: 40 90% 45%;
+    --hpc-red: 0 72% 51%;
+    --hpc-red-dark: 3 68% 44%;
+    --hpc-yellow: 45 100% 51%;
+    --hpc-cream: 180 30% 97%;
+    --hpc-offwhite: 180 10% 96%;
+
+    --shadow-card: 0 0 0 1px rgba(0,0,0,.04), 0 2px 4px rgba(0,0,0,.02), 0 8px 16px rgba(0,0,0,.02);
+    --shadow-card-hover: 0 0 0 1px rgba(0,0,0,.04), 0 4px 8px rgba(0,0,0,.04), 0 12px 24px rgba(0,0,0,.04);
+    --shadow-hero: 0 20px 60px -15px hsl(152 62% 40% / 0.32);
+
+    /* Theme-specific nav/header gradients (overridden per theme) */
+    --theme-navbar-bg: linear-gradient(to bottom, #064e3b, #0f5132, #047857);
+    --theme-header-bg: linear-gradient(90deg, #064e3b 0%, #047857 50%, #059669 100%);
+    --theme-accent-border: hsl(43, 96%, 56%);
+
+    /* Light-minimal landing navbar tokens (Night theme overrides below) */
+    --navbar-bg: #ffffff;
+    --navbar-border: #e5e7eb;
+    --navbar-text: #1f2937;
+    --navbar-text-muted: #6b7280;
+
+  /* Achievement banner mood (theme-aware overrides below) */
+  --achievement-banner-side-bg: linear-gradient(135deg, #050d1a, #0a1628, #112240);
+  --achievement-banner-side-overlay: linear-gradient(to left, #050d1a, transparent);
+  --achievement-banner-eyebrow: #fcd34d; /* amber-300-ish */
+  --achievement-banner-line: #fbbf24; /* amber-400-ish */
+  --achievement-banner-progress: #fbbf24; /* amber-400-ish */
+  --achievement-banner-tag-fg: #fde68a; /* amber-200-ish */
+  --achievement-banner-tag-bg: rgba(251, 191, 36, 0.20);
+  --achievement-banner-tag-border: rgba(251, 191, 36, 0.40);
+
+  /* Achievements card mood */
+  --achievement-card-bg: linear-gradient(
+    135deg,
+    rgba(255,255,255,1) 0%,
+    rgba(236,253,245,0.30) 55%,
+    rgba(240,253,244,0.20) 100%
+  );
+  --achievement-card-photo-bg: linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 100%);
+  --achievement-card-accent-bar: linear-gradient(90deg, #b91c1c 0%, #10b981 55%, #f59e0b 100%);
+
+  /* Committee (Executive) preview mood */
+  --committee-president-bg: linear-gradient(135deg, #b91c1c 0%, #047857 55%, #374151 100%);
+  --committee-president-border: rgba(248, 113, 113, 0.4); /* red-400/40 */
+  --committee-president-chip-bg: rgba(251, 191, 36, 0.2); /* amber-500/20 */
+  --committee-president-chip-border: rgba(251, 191, 36, 0.4); /* amber-400/40 */
+  --committee-president-crown: #fbbf24; /* amber-400 */
+  --committee-president-badge-bg: linear-gradient(to right, #fcd34d, #fbbf24); /* amber-300 -> amber-400 */
+  --committee-president-icon-batch: #fbbf24; /* amber-400 */
+  --committee-president-icon-job: #34d399; /* emerald-400 */
+  --committee-president-icon-location: #f87171; /* red-400 */
+  --committee-president-photo-fallback-bg: linear-gradient(135deg, #991b1b 0%, #064e3b 100%); /* red-800 -> emerald-800 */
+  --committee-president-photo-fallback-icon: rgba(253, 230, 138, 0.5); /* amber-300/50 */
+  --committee-president-view-link: rgba(253, 230, 138, 0.9); /* amber-200/90 */
+  --committee-intro-eyebrow: #d97706; /* amber-600 */
+
+  --committee-member-bg: linear-gradient(135deg, rgba(255,255,255,1) 0%, rgba(236,253,245,0.3) 55%, rgba(220,252,231,0.2) 100%); /* white -> emerald-50/30 -> green-50/20 */
+  --committee-member-border: rgba(153, 27, 27, 0.4); /* red-800/40 */
+  --committee-member-serial: #d97706; /* amber-600 */
+  --committee-member-role-bg: #065f46; /* emerald-800-ish */
+  --committee-member-photo-fallback: linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 100%);
+  --committee-member-photo-icon: rgba(110, 231, 183, 0.5); /* emerald-300/50-ish */
+  --committee-member-icon-batch: #d97706; /* amber-600 */
+  --committee-member-icon-job: #059669; /* emerald-600 */
+  --committee-member-icon-location: #ef4444; /* red-500 */
+  --committee-member-about-bg: rgba(251, 191, 36, 0.8); /* amber-50/80-ish */
+  --committee-member-about-border: rgba(251, 191, 36, 0.6); /* amber-200/60-ish */
+
+  /* Hero / landing mood (CTA + motto chip) */
+  --hero-cta-primary-bg: #ffffff;
+  --hero-cta-primary-fg: #064e3b; /* emerald-800 */
+  --hero-motto-border: rgba(251, 191, 36, 0.3); /* amber-400/30 */
+  --hero-motto-text: #fde68a; /* amber-200-ish */
+
+  /* Join section mood */
+  --landing-join-bg: #065F46;
+
+  /* ──────────────────────────────────────────────
+     Role-name token aliases (from your token sheet)
+     These map to the existing CSS variable tokens so
+     components can be refactored to use role names.
+     ────────────────────────────────────────────── */
+  --bgApp: hsl(var(--background));
+  --bgSection: hsl(var(--muted));
+  --bgSurface: hsl(var(--card));
+  --bgCard: hsl(var(--card));
+  --bgElevated: hsl(var(--secondary));
+  --bgHover: hsl(var(--accent));
+
+  --navbarBg: var(--theme-navbar-bg);
+  --headerBg: var(--theme-header-bg);
+  --sidebarBg: hsl(var(--sidebar-background));
+  --sidebarActive: hsl(var(--sidebar-accent));
+  --sidebarHover: hsl(var(--sidebar-accent));
+
+  --textPrimary: hsl(var(--foreground));
+  --textSecondary: hsl(var(--secondary-foreground));
+  --textMuted: hsl(var(--muted-foreground));
+  --textInverse: hsl(var(--card));
+  --textAccent: hsl(var(--primary));
+
+  --borderStrong: hsl(var(--ring));
+  --focusRing: hsl(var(--ring));
+  --primaryHover: hsl(var(--ring));
+  --link: hsl(var(--primary));
+  --highlight: hsl(var(--accent));
+
+  --cardShadow: var(--shadow-card);
+  }
+}
+
+/* ──────────────────────────────────────────────
+   OCEAN BLUE  [data-theme="ocean"]
+   ────────────────────────────────────────────── */
+[data-theme="ocean"] {
+  /* Surfaces */
+  --background: 205 40% 98%;
+  --foreground: 210 12% 12%;
+  --card: 210 40% 100%;
+  --card-foreground: 210 12% 12%;
+  --popover: 210 40% 100%;
+  --popover-foreground: 210 12% 12%;
+
+  /* Brand */
+  --primary: 210 100% 50%;
+  --primary-foreground: 210 20% 10%;
+  --accent: 196 100% 68%;
+  --accent-foreground: 210 20% 10%;
+  --ring: 210 100% 50%;
+
+  /* Neutrals */
+  --secondary: 205 30% 95%;
+  --secondary-foreground: 210 12% 12%;
+  --muted: 210 20% 95%;
+  --muted-foreground: 210 8% 42%;
+
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 210 15% 86%;
+  --input: 210 15% 86%;
+  --shadow-hero: 0 20px 60px -15px hsl(210 100% 50% / 0.35);
+
+  /* Sidebar tokens */
+  --sidebar-background: 210 30% 97%;
+  --sidebar-foreground: 210 12% 26%;
+  --sidebar-primary: 210 100% 50%;
+  --sidebar-primary-foreground: 210 20% 10%;
+  --sidebar-accent: 206 25% 95%;
+  --sidebar-accent-foreground: 210 12% 12%;
+  --sidebar-border: 210 15% 89%;
+  --sidebar-ring: 210 100% 50%;
+
+  /* Nav/header gradients */
+  --theme-navbar-bg: linear-gradient(to bottom, #0c1445, #1e3a5f, #0c2a4a);
+  --theme-header-bg: linear-gradient(90deg, #0c1445 0%, #1565c0 50%, #0d47a1 100%);
+  --theme-accent-border: hsl(210 100% 50%);
+
+  --achievement-banner-side-bg: linear-gradient(135deg, #071528, #0b2a54, #112240);
+  --achievement-banner-side-overlay: linear-gradient(to left, #071528, transparent);
+  --achievement-banner-eyebrow: #93c5fd; /* blue-300-ish */
+  --achievement-banner-line: #60a5fa; /* blue-400-ish */
+  --achievement-banner-progress: #60a5fa;
+  --achievement-banner-tag-fg: #bfdbfe; /* blue-200-ish */
+  --achievement-banner-tag-bg: rgba(96, 165, 250, 0.20);
+  --achievement-banner-tag-border: rgba(96, 165, 250, 0.40);
+
+  --achievement-card-bg: linear-gradient(
+    135deg,
+    rgba(255,255,255,1) 0%,
+    rgba(147,197,253,0.30) 55%,
+    rgba(59,130,246,0.16) 100%
+  );
+  --achievement-card-photo-bg: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  --achievement-card-accent-bar: linear-gradient(90deg, #0d47a1 0%, #1d4ed8 55%, #60a5fa 100%);
+
+  --committee-president-bg: linear-gradient(135deg, #0d47a1 0%, #06b6d4 45%, #1f2937 100%);
+  --committee-president-border: rgba(96, 165, 250, 0.45);
+  --committee-president-chip-bg: rgba(96, 165, 250, 0.2);
+  --committee-president-chip-border: rgba(96, 165, 250, 0.4);
+  --committee-president-crown: #60a5fa;
+  --committee-president-badge-bg: linear-gradient(to right, #93c5fd, #60a5fa);
+  --committee-president-icon-batch: #60a5fa;
+  --committee-president-icon-job: #2dd4bf; /* teal */
+  --committee-president-icon-location: #60a5fa;
+  --committee-president-photo-fallback-bg: linear-gradient(135deg, #1d4ed8 0%, #0d9488 100%);
+  --committee-president-photo-fallback-icon: rgba(191, 219, 254, 0.45);
+  --committee-president-view-link: rgba(147, 197, 253, 0.95);
+  --committee-intro-eyebrow: #1d4ed8;
+
+  --committee-member-bg: linear-gradient(135deg, rgba(255,255,255,1) 0%, rgba(219,234,254,0.35) 55%, rgba(224,231,255,0.2) 100%);
+  --committee-member-border: rgba(13, 71, 161, 0.35);
+  --committee-member-serial: #1d4ed8;
+  --committee-member-role-bg: #0d47a1;
+  --committee-member-photo-fallback: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  --committee-member-photo-icon: rgba(147, 197, 253, 0.45);
+  --committee-member-icon-batch: #1d4ed8;
+  --committee-member-icon-job: #0ea5e9;
+  --committee-member-icon-location: #1d4ed8;
+  --committee-member-about-bg: rgba(59, 130, 246, 0.12);
+  --committee-member-about-border: rgba(59, 130, 246, 0.22);
+
+  --hero-cta-primary-bg: #ffffff;
+  --hero-cta-primary-fg: #0d47a1;
+  --hero-motto-border: rgba(96, 165, 250, 0.30);
+  --hero-motto-text: #bfdbfe;
+
+  --landing-join-bg: #0c1445;
+}
+
+/* ──────────────────────────────────────────────
+   ROYAL PURPLE  [data-theme="purple"]
+   ────────────────────────────────────────────── */
+[data-theme="purple"] {
+  /* Surfaces */
+  --background: 270 35% 98%;
+  --foreground: 270 15% 12%;
+  --card: 0 0% 100%;
+  --card-foreground: 270 15% 12%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 270 15% 12%;
+
+  /* Brand */
+  --primary: 270 72% 56%;
+  --primary-foreground: 270 60% 15%;
+  --accent: 280 50% 74%;
+  --accent-foreground: 270 60% 15%;
+  --ring: 270 72% 56%;
+
+  /* Neutrals */
+  --secondary: 270 25% 95%;
+  --secondary-foreground: 270 15% 12%;
+  --muted: 270 20% 93%;
+  --muted-foreground: 270 10% 42%;
+
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 270 15% 88%;
+  --input: 270 15% 88%;
+  --shadow-hero: 0 20px 60px -15px hsl(270 72% 56% / 0.35);
+
+  /* Sidebar tokens */
+  --sidebar-background: 270 25% 97%;
+  --sidebar-foreground: 270 15% 26%;
+  --sidebar-primary: 270 72% 56%;
+  --sidebar-primary-foreground: 270 60% 15%;
+  --sidebar-accent: 280 20% 95%;
+  --sidebar-accent-foreground: 270 15% 12%;
+  --sidebar-border: 270 15% 90%;
+  --sidebar-ring: 270 72% 56%;
+
+  /* Nav/header gradients */
+  --theme-navbar-bg: linear-gradient(to bottom, #1a0533, #3b1054, #1a0533);
+  --theme-header-bg: linear-gradient(90deg, #1a0533 0%, #6d28d9 50%, #4c1d95 100%);
+  --theme-accent-border: hsl(270 72% 56%);
+
+  --achievement-banner-side-bg: linear-gradient(135deg, #18061f, #34105a, #112240);
+  --achievement-banner-side-overlay: linear-gradient(to left, #18061f, transparent);
+  --achievement-banner-eyebrow: #c4b5fd; /* violet-300-ish */
+  --achievement-banner-line: #8b5cf6; /* violet-500-ish */
+  --achievement-banner-progress: #8b5cf6;
+  --achievement-banner-tag-fg: #ddd6fe; /* violet-200-ish */
+  --achievement-banner-tag-bg: rgba(139, 92, 246, 0.20);
+  --achievement-banner-tag-border: rgba(139, 92, 246, 0.40);
+
+  --achievement-card-bg: linear-gradient(
+    135deg,
+    rgba(255,255,255,1) 0%,
+    rgba(196,181,253,0.30) 55%,
+    rgba(139,92,246,0.16) 100%
+  );
+  --achievement-card-photo-bg: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+  --achievement-card-accent-bar: linear-gradient(90deg, #4c1d95 0%, #6d28d9 55%, #8b5cf6 100%);
+
+  --committee-president-bg: linear-gradient(135deg, #4c1d95 0%, #7c3aed 55%, #1f2937 100%);
+  --committee-president-border: rgba(139, 92, 246, 0.45);
+  --committee-president-chip-bg: rgba(139, 92, 246, 0.2);
+  --committee-president-chip-border: rgba(139, 92, 246, 0.4);
+  --committee-president-crown: #8b5cf6;
+  --committee-president-badge-bg: linear-gradient(to right, #c4b5fd, #8b5cf6);
+  --committee-president-icon-batch: #c4b5fd;
+  --committee-president-icon-job: #34d399;
+  --committee-president-icon-location: #c4b5fd;
+  --committee-president-photo-fallback-bg: linear-gradient(135deg, #6d28d9 0%, #10b981 100%);
+  --committee-president-photo-fallback-icon: rgba(221, 214, 254, 0.45);
+  --committee-president-view-link: rgba(196, 181, 253, 0.95);
+  --committee-intro-eyebrow: #6d28d9;
+
+  --committee-member-bg: linear-gradient(135deg, rgba(255,255,255,1) 0%, rgba(237,233,254,0.35) 55%, rgba(221,214,254,0.22) 100%);
+  --committee-member-border: rgba(76, 29, 149, 0.35);
+  --committee-member-serial: #6d28d9;
+  --committee-member-role-bg: #4c1d95;
+  --committee-member-photo-fallback: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+  --committee-member-photo-icon: rgba(196, 181, 253, 0.45);
+  --committee-member-icon-batch: #6d28d9;
+  --committee-member-icon-job: #8b5cf6;
+  --committee-member-icon-location: #6d28d9;
+  --committee-member-about-bg: rgba(109, 40, 217, 0.10);
+  --committee-member-about-border: rgba(109, 40, 217, 0.22);
+
+  --hero-cta-primary-bg: #ffffff;
+  --hero-cta-primary-fg: #4c1d95;
+  --hero-motto-border: rgba(139, 92, 246, 0.30);
+  --hero-motto-text: #ddd6fe;
+
+  --landing-join-bg: #1a0533;
+}
+
+/* ──────────────────────────────────────────────
+   AMBER GOLD  [data-theme="amber"]
+   ────────────────────────────────────────────── */
+[data-theme="amber"] {
+  /* Surfaces */
+  --background: 45 95% 97%;
+  --foreground: 30 30% 10%;
+  --card: 48 95% 100%;
+  --card-foreground: 30 30% 10%;
+  --popover: 48 95% 100%;
+  --popover-foreground: 30 30% 10%;
+
+  /* Brand */
+  --primary: 38 92% 50%;
+  --primary-foreground: 30 10% 10%;
+  --accent: 48 97% 64%;
+  --accent-foreground: 30 10% 10%;
+  --ring: 38 92% 50%;
+
+  /* Neutrals */
+  --secondary: 45 90% 95%;
+  --secondary-foreground: 30 30% 10%;
+  --muted: 45 70% 94%;
+  --muted-foreground: 30 20% 42%;
+
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 35 90% 82%;
+  --input: 35 90% 82%;
+  --shadow-hero: 0 20px 60px -15px hsl(38 92% 50% / 0.35);
+
+  /* Sidebar tokens */
+  --sidebar-background: 45 90% 96%;
+  --sidebar-foreground: 30 30% 26%;
+  --sidebar-primary: 38 92% 50%;
+  --sidebar-primary-foreground: 30 10% 10%;
+  --sidebar-accent: 45 80% 95%;
+  --sidebar-accent-foreground: 30 30% 10%;
+  --sidebar-border: 35 90% 86%;
+  --sidebar-ring: 38 92% 50%;
+
+  /* Nav/header gradients */
+  --theme-navbar-bg: linear-gradient(to bottom, #451a03, #78350f, #451a03);
+  --theme-header-bg: linear-gradient(90deg, #451a03 0%, #b45309 50%, #92400e 100%);
+  --theme-accent-border: hsl(38 92% 50%);
+
+  --achievement-banner-side-bg: linear-gradient(135deg, #2a1203, #7c2d12, #112240);
+  --achievement-banner-side-overlay: linear-gradient(to left, #2a1203, transparent);
+  --achievement-banner-eyebrow: #fcd34d; /* amber-300 */
+  --achievement-banner-line: #fbbf24; /* amber-400 */
+  --achievement-banner-progress: #fbbf24;
+  --achievement-banner-tag-fg: #fde68a; /* amber-200 */
+  --achievement-banner-tag-bg: rgba(251, 191, 36, 0.20);
+  --achievement-banner-tag-border: rgba(251, 191, 36, 0.40);
+
+  --achievement-card-bg: linear-gradient(
+    135deg,
+    rgba(255,255,255,1) 0%,
+    rgba(251,191,36,0.22) 55%,
+    rgba(180,83,9,0.10) 100%
+  );
+  --achievement-card-photo-bg: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  --achievement-card-accent-bar: linear-gradient(90deg, #92400e 0%, #b45309 55%, #f59e0b 100%);
+
+  --committee-president-bg: linear-gradient(135deg, #92400e 0%, #b45309 55%, #1f2937 100%);
+  --committee-president-border: rgba(245, 158, 11, 0.45);
+  --committee-president-chip-bg: rgba(251, 191, 36, 0.2);
+  --committee-president-chip-border: rgba(245, 158, 11, 0.4);
+  --committee-president-crown: #f59e0b;
+  --committee-president-badge-bg: linear-gradient(to right, #fcd34d, #f59e0b);
+  --committee-president-icon-batch: #f59e0b;
+  --committee-president-icon-job: #34d399;
+  --committee-president-icon-location: #f59e0b;
+  --committee-president-photo-fallback-bg: linear-gradient(135deg, #b45309 0%, #92400e 55%, #0f172a 100%);
+  --committee-president-photo-fallback-icon: rgba(253, 230, 138, 0.45);
+  --committee-president-view-link: rgba(253, 230, 138, 0.95);
+  --committee-intro-eyebrow: #b45309;
+
+  --committee-member-bg: linear-gradient(135deg, rgba(255,255,255,1) 0%, rgba(254,243,199,0.35) 55%, rgba(253,230,138,0.22) 100%);
+  --committee-member-border: rgba(146, 64, 14, 0.35);
+  --committee-member-serial: #b45309;
+  --committee-member-role-bg: #92400e;
+  --committee-member-photo-fallback: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  --committee-member-photo-icon: rgba(245, 158, 11, 0.35);
+  --committee-member-icon-batch: #b45309;
+  --committee-member-icon-job: #f59e0b;
+  --committee-member-icon-location: #b45309;
+  --committee-member-about-bg: rgba(245, 158, 11, 0.12);
+  --committee-member-about-border: rgba(245, 158, 11, 0.22);
+
+  --hero-cta-primary-bg: #ffffff;
+  --hero-cta-primary-fg: #92400e;
+  --hero-motto-border: rgba(245, 158, 11, 0.32);
+  --hero-motto-text: #fde68a;
+
+  --landing-join-bg: #451a03;
+}
+
+/* ──────────────────────────────────────────────
+   NIGHT MODE  [data-theme="night"]
+   ────────────────────────────────────────────── */
+[data-theme="night"] {
+  --background: 222 47% 11%;
+  --foreground: 210 40% 98%;
+
+  --card: 222 47% 15%;
+  --card-foreground: 210 40% 98%;
+
+  --popover: 222 47% 15%;
+  --popover-foreground: 210 40% 98%;
+
+  --primary: 199 89% 48%;
+  --primary-foreground: 222 47% 11%;
+
+  --secondary: 217 33% 18%;
+  --secondary-foreground: 210 40% 98%;
+
+  --muted: 217 33% 18%;
+  --muted-foreground: 215 20% 65%;
+
+  --accent: 142 76% 36%;
+  --accent-foreground: 0 0% 100%;
+
+  --destructive: 0 62% 40%;
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 217 33% 24%;
+  --input: 217 33% 24%;
+  --ring: 199 89% 48%;
+
+  --sidebar-background: 222 47% 9%;
+  --sidebar-foreground: 210 40% 98%;
+  --sidebar-primary: 199 89% 48%;
+  --sidebar-primary-foreground: 222 47% 11%;
+  --sidebar-accent: 217 33% 18%;
+  --sidebar-accent-foreground: 210 40% 98%;
+  --sidebar-border: 217 33% 24%;
+  --sidebar-ring: 199 89% 48%;
+
+  --shadow-hero: 0 20px 60px -15px hsl(199 89% 48% / 0.35);
+
+  --theme-navbar-bg: linear-gradient(to bottom, #0f172a, #1e293b, #0f172a);
+  --theme-header-bg: linear-gradient(90deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+  --theme-accent-border: hsl(199, 89%, 48%);
+
+  /* Night-mode exception: dark navbar for testing */
+  --navbar-bg: #111827;
+  --navbar-border: #1f2937;
+  --navbar-text: #f8fafc;
+  --navbar-text-muted: #cbd5e1;
+
+  --achievement-banner-side-bg: linear-gradient(135deg, #0f172a, #1e293b, #0b2440);
+  --achievement-banner-side-overlay: linear-gradient(to left, #0f172a, transparent);
+  --achievement-banner-eyebrow: #7dd3fc; /* sky-300-ish */
+  --achievement-banner-line: #2dd4bf; /* teal/emerald-ish */
+  --achievement-banner-progress: #2dd4bf;
+  --achievement-banner-tag-fg: #99f6e4; /* teal-200-ish */
+  --achievement-banner-tag-bg: rgba(45, 212, 191, 0.20);
+  --achievement-banner-tag-border: rgba(45, 212, 191, 0.40);
+
+  --achievement-card-bg: linear-gradient(
+    135deg,
+    rgba(255,255,255,0.06) 0%,
+    rgba(45,212,191,0.14) 55%,
+    rgba(52,211,153,0.08) 100%
+  );
+  --achievement-card-photo-bg: linear-gradient(135deg, rgba(59,130,246,0.25) 0%, rgba(16,185,129,0.15) 100%);
+  --achievement-card-accent-bar: linear-gradient(90deg, rgba(56,189,248,0.9) 0%, rgba(45,212,191,0.9) 55%, rgba(52,211,153,0.9) 100%);
+
+  --committee-president-bg: linear-gradient(135deg, #0ea5e9 0%, #10b981 55%, #111827 100%);
+  --committee-president-border: rgba(56, 189, 248, 0.45);
+  --committee-president-chip-bg: rgba(56, 189, 248, 0.2);
+  --committee-president-chip-border: rgba(56, 189, 248, 0.4);
+  --committee-president-crown: #38bdf8;
+  --committee-president-badge-bg: linear-gradient(to right, #7dd3fc, #2dd4bf);
+  --committee-president-icon-batch: #38bdf8;
+  --committee-president-icon-job: #2dd4bf;
+  --committee-president-icon-location: #38bdf8;
+  --committee-president-photo-fallback-bg: linear-gradient(135deg, #0ea5e9 0%, #10b981 100%);
+  --committee-president-photo-fallback-icon: rgba(125, 211, 252, 0.45);
+  --committee-president-view-link: rgba(125, 211, 252, 0.95);
+  --committee-intro-eyebrow: #38bdf8;
+
+  --committee-member-bg: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(45,212,191,0.14) 55%, rgba(52,211,153,0.08) 100%);
+  --committee-member-border: rgba(45, 212, 191, 0.35);
+  --committee-member-serial: #38bdf8;
+  --committee-member-role-bg: #0ea5e9;
+  --committee-member-photo-fallback: linear-gradient(135deg, rgba(59,130,246,0.25) 0%, rgba(16,185,129,0.15) 100%);
+  --committee-member-photo-icon: rgba(125, 211, 252, 0.45);
+  --committee-member-icon-batch: #38bdf8;
+  --committee-member-icon-job: #2dd4bf;
+  --committee-member-icon-location: #38bdf8;
+  --committee-member-about-bg: rgba(56, 189, 248, 0.10);
+  --committee-member-about-border: rgba(56, 189, 248, 0.22);
+
+  --hero-cta-primary-bg: rgba(255,255,255,0.95);
+  --hero-cta-primary-fg: #0ea5e9;
+  --hero-motto-border: rgba(56, 189, 248, 0.30);
+  --hero-motto-text: #7dd3fc;
+
+  --landing-join-bg: #0f172a;
+}
+
+/* ──────────────────────────────────────────────
+   ZESTY LEMON  [data-theme="lemon"]
+   ────────────────────────────────────────────── */
+[data-theme="lemon"] {
+  /* Surfaces */
+  --background: 55 100% 96%; /* light lemon cream */
+  --foreground: 60 45% 20%; /* deep olive */
+
+  --card: 55 100% 98%;
+  --card-foreground: 60 45% 20%;
+
+  --popover: 55 100% 98%;
+  --popover-foreground: 60 45% 20%;
+
+  /* Brand */
+  --primary: 60 100% 70%; /* #FFFF66-ish */
+  --primary-foreground: 60 35% 15%;
+  --accent: 55 100% 75%;
+  --accent-foreground: 60 35% 15%;
+  --ring: 55 100% 68%;
+
+  /* Neutrals */
+  --secondary: 50 100% 92%;
+  --secondary-foreground: 60 45% 20%;
+  --muted: 55 60% 88%;
+  --muted-foreground: 60 35% 35%;
+
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 55 45% 75%;
+  --input: 55 45% 75%;
+  --ring: 55 100% 68%;
+
+  --sidebar-background: 55 100% 95%;
+  --sidebar-foreground: 60 45% 20%;
+  --sidebar-primary: 60 100% 70%;
+  --sidebar-primary-foreground: 60 35% 15%;
+  --sidebar-accent: 55 100% 88%;
+  --sidebar-accent-foreground: 60 35% 15%;
+  --sidebar-border: 55 45% 75%;
+  --sidebar-ring: 55 100% 68%;
+
+  --shadow-hero: 0 20px 60px -15px hsl(60 100% 68% / 0.35);
+
+  /* Nav/header gradients */
+  --theme-navbar-bg: linear-gradient(135deg, #B3B347 0%, #FFFF66 100%);
+  --theme-header-bg: linear-gradient(90deg, #B3B347 0%, #FFFF66 55%, #D6D58B 100%);
+  --theme-accent-border: #B3B347;
+
+  /* Achievement banner mood */
+  --achievement-banner-side-bg: linear-gradient(135deg, #4d4d12 0%, #7a7a22 55%, #B3B347 100%);
+  --achievement-banner-side-overlay: linear-gradient(to left, #4d4d12, transparent);
+  --achievement-banner-eyebrow: #FFFF66;
+  --achievement-banner-line: #FFE566;
+  --achievement-banner-progress: #FFE566;
+  --achievement-banner-tag-fg: #5a4a00;
+  --achievement-banner-tag-bg: rgba(255, 229, 102, 0.22);
+  --achievement-banner-tag-border: rgba(255, 229, 102, 0.40);
+
+  /* Achievements card mood */
+  --achievement-card-bg: linear-gradient(
+    135deg,
+    rgba(255,255,255,1) 0%,
+    rgba(255,255,102,0.22) 55%,
+    rgba(180,179,71,0.10) 100%
+  );
+  --achievement-card-photo-bg: linear-gradient(135deg, #FFF9C4 0%, #FFE566 100%);
+  --achievement-card-accent-bar: linear-gradient(90deg, #B45309 0%, #B3B347 55%, #FFFF66 100%);
+
+  /* Committee preview mood */
+  --committee-president-bg: linear-gradient(135deg, #B3B347 0%, #FFFF66 55%, #1f2937 100%);
+  --committee-president-border: rgba(179, 179, 71, 0.45);
+  --committee-president-chip-bg: rgba(255, 255, 102, 0.22);
+  --committee-president-chip-border: rgba(255, 255, 102, 0.40);
+  --committee-president-crown: #FFE566;
+  --committee-president-badge-bg: linear-gradient(to right, #FFFF66, #FFE566);
+  --committee-president-icon-batch: #FFE566;
+  --committee-president-icon-job: #34d399;
+  --committee-president-icon-location: #F59E0B;
+  --committee-president-photo-fallback-bg: linear-gradient(135deg, #B3B347 0%, #FFFF66 100%);
+  --committee-president-photo-fallback-icon: rgba(255, 255, 102, 0.5);
+  --committee-president-view-link: rgba(255, 255, 102, 0.95);
+
+  --committee-member-bg: linear-gradient(135deg, rgba(255,255,255,1) 0%, rgba(255,255,102,0.18) 55%, rgba(214,213,139,0.18) 100%);
+  --committee-member-border: rgba(179, 179, 71, 0.35);
+  --committee-member-serial: #B3B347;
+  --committee-member-role-bg: #B3B347;
+  --committee-member-photo-fallback: linear-gradient(135deg, #FFF9C4 0%, #FFE566 100%);
+  --committee-member-photo-icon: rgba(255, 255, 102, 0.35);
+  --committee-member-icon-batch: #B3B347;
+  --committee-member-icon-job: #10b981;
+  --committee-member-icon-location: #f59e0b;
+  --committee-member-about-bg: rgba(255, 229, 102, 0.12);
+  --committee-member-about-border: rgba(255, 229, 102, 0.22);
+
+  /* Hero / landing mood (CTA + motto chip) */
+  --hero-cta-primary-bg: #FFFF66;
+  --hero-cta-primary-fg: #3f3300;
+  --hero-motto-border: rgba(255, 229, 102, 0.35);
+  --hero-motto-text: #5a4a00;
+
+  /* Join section mood */
+  --committee-intro-eyebrow: #B3B347;
+  --landing-join-bg: #B3B347;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Public Sans', system-ui, -apple-system, sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Public Sans', system-ui, sans-serif;
+    @apply tracking-tight text-balance;
+  }
+}
+
+@layer utilities {
+  .layout-container {
+    width: 100%;
+    max-width: 1280px;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: clamp(0.875rem, 2.4vw, 1.5rem);
+    padding-right: clamp(0.875rem, 2.4vw, 1.5rem);
+  }
+
+  /* Responsive landing typography (fluid with viewport; caps on large screens) */
+  .fs-display {
+    font-size: clamp(1.625rem, 1.2rem + 1.75vw, 2.5rem);
+    line-height: 1.12;
+  }
+  .fs-title {
+    font-size: clamp(1.3rem, 1.05rem + 1.05vw, 1.875rem);
+    line-height: 1.22;
+  }
+  .fs-body {
+    font-size: clamp(0.9375rem, 0.87rem + 0.28vw, 1.0625rem);
+    line-height: 1.65;
+  }
+  .fs-eyebrow {
+    font-size: clamp(0.75rem, 0.7rem + 0.2vw, 0.8125rem);
+    line-height: 1.35;
+  }
+  .fs-card-title {
+    font-size: clamp(0.9375rem, 0.82rem + 0.45vw, 1.0625rem);
+    line-height: 1.3;
+  }
+  .fs-card-title-lg {
+    font-size: clamp(1rem, 0.88rem + 0.5vw, 1.1875rem);
+    line-height: 1.28;
+  }
+  .fs-ui {
+    font-size: clamp(0.8125rem, 0.76rem + 0.2vw, 0.9375rem);
+    line-height: 1.55;
+  }
+  .fs-button-text {
+    font-size: clamp(0.8125rem, 0.78rem + 0.2vw, 0.875rem);
+    line-height: 1.25;
+  }
+  .fs-caption {
+    font-size: clamp(0.6875rem, 0.64rem + 0.14vw, 0.75rem);
+    line-height: 1.4;
+  }
+  .fs-mono-stat {
+    font-size: clamp(0.8125rem, 0.76rem + 0.28vw, 0.9375rem);
+    line-height: 1.3;
+  }
+  .fs-stat-lg {
+    font-size: clamp(1.25rem, 1rem + 1.1vw, 1.75rem);
+    line-height: 1.15;
+  }
+  .fs-stat-xl {
+    font-size: clamp(1.5rem, 1.15rem + 1.35vw, 2.25rem);
+    line-height: 1.1;
+  }
+  /* Achievement spotlight banner — name scales in a tight strip */
+  .fs-banner-title {
+    font-size: clamp(0.8125rem, 0.72rem + 0.55vw, 1.65rem);
+    line-height: 1.15;
+  }
+  .fs-banner-tagline {
+    font-size: clamp(0.625rem, 0.52rem + 0.45vw, 1.125rem);
+    line-height: 1.25;
+  }
+  .fs-banner-pill {
+    font-size: clamp(0.5625rem, 0.5rem + 0.28vw, 0.875rem);
+    line-height: 1.2;
+  }
+  .fs-nav {
+    font-size: clamp(0.625rem, 0.55rem + 0.22vw, 0.75rem);
+    line-height: 1.2;
+  }
+
+  /**
+   * Landing page (except achievement banner): ~15% smaller type + icons vs default.
+   * Navbar + AchievementBanner stay outside `.landing-copy-scale`. Cards use the same scale.
+   */
+  .landing-copy-scale {
+    --fs-landing-mult: 0.85;
+  }
+
+  /* Lucide / SVG icons inside scaled landing content */
+  .landing-copy-scale svg {
+    transform: scale(0.85);
+    transform-origin: center;
+  }
+
+  /* Committee cards use their own tuned icon sizes; avoid double-shrinking */
+  .landing-copy-scale #committee svg {
+    transform: none;
+  }
+
+  .landing-copy-scale .fs-display {
+    font-size: clamp(
+      calc(1.625rem * var(--fs-landing-mult)),
+      calc(1.2rem * var(--fs-landing-mult) + 1.75vw * var(--fs-landing-mult)),
+      calc(2.5rem * var(--fs-landing-mult))
+    );
+    line-height: 1.12;
+  }
+
+  .landing-copy-scale .fs-title {
+    font-size: clamp(
+      calc(1.3rem * var(--fs-landing-mult)),
+      calc(1.05rem * var(--fs-landing-mult) + 1.05vw * var(--fs-landing-mult)),
+      calc(1.875rem * var(--fs-landing-mult))
+    );
+    line-height: 1.22;
+  }
+
+  .landing-copy-scale .fs-body {
+    font-size: clamp(
+      calc(0.9375rem * var(--fs-landing-mult)),
+      calc(0.87rem * var(--fs-landing-mult) + 0.28vw * var(--fs-landing-mult)),
+      calc(1.0625rem * var(--fs-landing-mult))
+    );
+    line-height: 1.65;
+  }
+
+  .landing-copy-scale .fs-eyebrow {
+    font-size: clamp(
+      calc(0.75rem * var(--fs-landing-mult)),
+      calc(0.7rem * var(--fs-landing-mult) + 0.2vw * var(--fs-landing-mult)),
+      calc(0.8125rem * var(--fs-landing-mult))
+    );
+    line-height: 1.35;
+  }
+
+  .landing-copy-scale .fs-card-title {
+    font-size: clamp(
+      calc(0.9375rem * var(--fs-landing-mult)),
+      calc(0.82rem * var(--fs-landing-mult) + 0.45vw * var(--fs-landing-mult)),
+      calc(1.0625rem * var(--fs-landing-mult))
+    );
+    line-height: 1.3;
+  }
+
+  .landing-copy-scale .fs-card-title-lg {
+    font-size: clamp(
+      calc(1rem * var(--fs-landing-mult)),
+      calc(0.88rem * var(--fs-landing-mult) + 0.5vw * var(--fs-landing-mult)),
+      calc(1.1875rem * var(--fs-landing-mult))
+    );
+    line-height: 1.28;
+  }
+
+  .landing-copy-scale .fs-ui {
+    font-size: clamp(
+      calc(0.8125rem * var(--fs-landing-mult)),
+      calc(0.76rem * var(--fs-landing-mult) + 0.2vw * var(--fs-landing-mult)),
+      calc(0.9375rem * var(--fs-landing-mult))
+    );
+    line-height: 1.55;
+  }
+
+  .landing-copy-scale .fs-button-text {
+    font-size: clamp(
+      calc(0.8125rem * var(--fs-landing-mult)),
+      calc(0.78rem * var(--fs-landing-mult) + 0.2vw * var(--fs-landing-mult)),
+      calc(0.875rem * var(--fs-landing-mult))
+    );
+    line-height: 1.25;
+  }
+
+  .landing-copy-scale .fs-caption {
+    font-size: clamp(
+      calc(0.6875rem * var(--fs-landing-mult)),
+      calc(0.64rem * var(--fs-landing-mult) + 0.14vw * var(--fs-landing-mult)),
+      calc(0.75rem * var(--fs-landing-mult))
+    );
+    line-height: 1.4;
+  }
+
+  .landing-copy-scale .fs-mono-stat {
+    font-size: clamp(
+      calc(0.8125rem * var(--fs-landing-mult)),
+      calc(0.76rem * var(--fs-landing-mult) + 0.28vw * var(--fs-landing-mult)),
+      calc(0.9375rem * var(--fs-landing-mult))
+    );
+    line-height: 1.3;
+  }
+
+  .landing-copy-scale .fs-stat-lg {
+    font-size: clamp(
+      calc(1.25rem * var(--fs-landing-mult)),
+      calc(1rem * var(--fs-landing-mult) + 1.1vw * var(--fs-landing-mult)),
+      calc(1.75rem * var(--fs-landing-mult))
+    );
+    line-height: 1.15;
+  }
+
+  .landing-copy-scale .fs-stat-xl {
+    font-size: clamp(
+      calc(1.5rem * var(--fs-landing-mult)),
+      calc(1.15rem * var(--fs-landing-mult) + 1.35vw * var(--fs-landing-mult)),
+      calc(2.25rem * var(--fs-landing-mult))
+    );
+    line-height: 1.1;
+  }
+
+  .landing-copy-scale .fs-banner-title {
+    font-size: clamp(
+      calc(0.8125rem * var(--fs-landing-mult)),
+      calc(0.72rem * var(--fs-landing-mult) + 0.55vw * var(--fs-landing-mult)),
+      calc(1.65rem * var(--fs-landing-mult))
+    );
+    line-height: 1.15;
+  }
+
+  .landing-copy-scale .fs-banner-tagline {
+    font-size: clamp(
+      calc(0.625rem * var(--fs-landing-mult)),
+      calc(0.52rem * var(--fs-landing-mult) + 0.45vw * var(--fs-landing-mult)),
+      calc(1.125rem * var(--fs-landing-mult))
+    );
+    line-height: 1.25;
+  }
+
+  .landing-copy-scale .fs-banner-pill {
+    font-size: clamp(
+      calc(0.5625rem * var(--fs-landing-mult)),
+      calc(0.5rem * var(--fs-landing-mult) + 0.28vw * var(--fs-landing-mult)),
+      calc(0.875rem * var(--fs-landing-mult))
+    );
+    line-height: 1.2;
+  }
+
+  /* Tailwind text steps used on landing (e.g. section links); respects --fs-landing-mult */
+  .landing-copy-scale .text-xs {
+    font-size: calc(0.75rem * var(--fs-landing-mult));
+  }
+
+  .landing-copy-scale .text-sm {
+    font-size: calc(0.875rem * var(--fs-landing-mult));
+  }
+
+  .landing-copy-scale .text-base {
+    font-size: calc(1rem * var(--fs-landing-mult));
+  }
+
+  .landing-copy-scale .text-lg {
+    font-size: calc(1.125rem * var(--fs-landing-mult));
+  }
+
+  .landing-copy-scale .text-xl {
+    font-size: calc(1.25rem * var(--fs-landing-mult));
+  }
+
+  .landing-copy-scale .text-2xl {
+    font-size: calc(1.5rem * var(--fs-landing-mult));
+  }
+
+  /*
+   * Phone & tablet (below lg): easier reading — slightly larger body, looser lines,
+   * display headline tuned for narrow columns. Desktop/laptop uses rules above as-is.
+   */
+  @media (max-width: 1023px) {
+    .landing-copy-scale {
+      --fs-landing-mult: 0.85;
+    }
+
+    .landing-copy-scale .fs-body {
+      font-size: clamp(
+        calc(0.9375rem * var(--fs-landing-mult)),
+        calc(0.86rem * var(--fs-landing-mult) + 0.55vw * var(--fs-landing-mult)),
+        calc(1.0625rem * var(--fs-landing-mult))
+      );
+      line-height: 1.72;
+    }
+
+    .landing-copy-scale .fs-display {
+      font-size: clamp(
+        calc(1.5rem * var(--fs-landing-mult)),
+        calc(1.05rem * var(--fs-landing-mult) + 2.15vw * var(--fs-landing-mult)),
+        calc(2.35rem * var(--fs-landing-mult))
+      );
+      line-height: 1.14;
+      letter-spacing: -0.012em;
+    }
+
+    .landing-copy-scale .fs-title {
+      line-height: 1.22;
+    }
+
+    .landing-copy-scale .fs-eyebrow {
+      line-height: 1.45;
+    }
+
+    .landing-copy-scale .fs-button-text {
+      font-size: clamp(
+        calc(0.875rem * var(--fs-landing-mult)),
+        calc(0.8rem * var(--fs-landing-mult) + 0.4vw * var(--fs-landing-mult)),
+        calc(0.9375rem * var(--fs-landing-mult))
+      );
+    }
+
+    .landing-copy-scale .fs-caption {
+      line-height: 1.45;
+    }
+  }
+
+  @media (max-width: 639px) {
+    .landing-copy-scale .fs-display {
+      font-size: clamp(
+        calc(1.42rem * var(--fs-landing-mult)),
+        calc(0.98rem * var(--fs-landing-mult) + 2.35vw * var(--fs-landing-mult)),
+        calc(1.95rem * var(--fs-landing-mult))
+      );
+      line-height: 1.12;
+    }
+
+    .landing-copy-scale .fs-body {
+      font-size: clamp(
+        calc(0.9375rem * var(--fs-landing-mult)),
+        calc(0.9rem * var(--fs-landing-mult) + 0.35vw * var(--fs-landing-mult)),
+        calc(1.03rem * var(--fs-landing-mult))
+      );
+      line-height: 1.75;
+    }
+  }
+
+  .text-pretty {
+    text-wrap: pretty;
+  }
+  .text-balance {
+    text-wrap: balance;
+  }
+  .font-mono-data {
+    font-family: 'Geist Mono', 'SF Mono', 'Fira Code', monospace;
+    font-variant-numeric: tabular-nums;
+  }
+  .bg-gradient-hpc {
+    background: linear-gradient(90deg, #00C9FF 0%, #92FE9D 100%);
+  }
+  .bg-gradient-hpc-full {
+    background: linear-gradient(90deg, #00C9FF 0%, #92FE9D 100%);
+  }
+  .text-gradient-hpc {
+    background: linear-gradient(90deg, #00C9FF 0%, #92FE9D 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .text-gradient-gold-shine {
+    background: linear-gradient(
+      90deg,
+      hsl(192 100% 50%),
+      hsl(165 80% 50%),
+      hsl(145 98% 60%),
+      hsl(165 80% 50%),
+      hsl(192 100% 50%)
+    );
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: gold-shine 3s linear infinite;
+  }
+
+  /* Section backgrounds */
+  .section-bg-features {
+    background:
+      radial-gradient(ellipse at 20% 0%, hsl(192 100% 50% / 0.04) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 100%, hsl(145 98% 76% / 0.04) 0%, transparent 60%),
+      hsl(var(--background));
+  }
+  .section-bg-dots {
+    background-image: radial-gradient(circle, hsl(192 100% 50% / 0.06) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+  .section-bg-subtle {
+    background:
+      linear-gradient(180deg, hsl(180 30% 97%) 0%, hsl(var(--background)) 100%);
+  }
+}
+
+@keyframes gold-shine {
+  0% { background-position: 200% center; }
+  100% { background-position: -200% center; }
+}
