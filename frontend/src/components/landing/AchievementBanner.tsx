@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, type CSSProperties } from "react";
+import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef, type CSSProperties } from "react";
 import { Award, ChevronLeft, ChevronRight, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BANNER_DEFAULT_PHOTO_TAGLINE } from "@/constants/bannerCopy";
@@ -125,20 +125,46 @@ function LogoCelebrationShape({ spec }: { spec: LogoCelebrationSpec }) {
   );
 }
 
+type BannerAlumniLogoBadgeVariant = "panel" | "fluid" | "corner";
+
 /**
  * Alumni logo: “starburst celebration” — SVG stars, outline stars, dots & curved sparks
  * bursting from the center (reference-style), in brand gold / white / primary.
  * Pauses under `.achievement-winner-paused` (banner hover).
+ *
+ * - `panel`: fixed max width (desktop / lg side column).
+ * - `fluid`: grows with available height in the bottom area (mobile / tablet).
+ * - `corner`: minimum footprint for top-right fallback when bottom slot is too tight.
  */
-function BannerAlumniLogoBadge() {
+function BannerAlumniLogoBadge({ variant = "panel" }: { variant?: BannerAlumniLogoBadgeVariant }) {
+  const isPanel = variant === "panel";
+  const isFluid = variant === "fluid";
+  const isCorner = variant === "corner";
+
   return (
     <div
-      className="pointer-events-none mx-auto flex w-full max-w-[6.5rem] items-center justify-center px-0.5 sm:max-w-[7.25rem] lg:max-w-[7.75rem]"
+      className={cn(
+        "pointer-events-none flex items-center justify-center",
+        isPanel && "mx-auto w-full max-w-[6.5rem] px-0.5 sm:max-w-[7.25rem] lg:max-w-[7.75rem]",
+        isFluid && "mx-auto h-full min-h-0 w-full max-w-full px-0.5 sm:px-1 md:px-1.5",
+        isCorner && "h-9 w-9 shrink-0 sm:h-10 sm:w-10"
+      )}
       aria-hidden
     >
-      <div className="relative flex aspect-square w-full max-w-[min(100%,5.5rem)] items-center justify-center sm:max-w-[6.25rem] lg:max-w-[6.75rem]">
+      <div
+        className={cn(
+          "relative flex aspect-square items-center justify-center",
+          isPanel && "w-full max-w-[min(100%,5.5rem)] sm:max-w-[6.25rem] lg:max-w-[6.75rem]",
+          isFluid &&
+            "min-h-0 min-w-0 aspect-square h-[min(100%,var(--achievement-fluid-logo,6.75rem))] w-[min(100%,var(--achievement-fluid-logo,6.75rem))] max-h-full max-w-full",
+          isCorner && "h-full w-full max-h-[2.35rem] max-w-[2.35rem] sm:max-h-[2.6rem] sm:max-w-[2.6rem]"
+        )}
+      >
         <div
-          className="pointer-events-none absolute left-1/2 top-1/2 z-0 h-[190%] w-[190%] -translate-x-1/2 -translate-y-1/2"
+          className={cn(
+            "pointer-events-none absolute left-1/2 top-1/2 z-0 -translate-x-1/2 -translate-y-1/2",
+            isCorner ? "h-[155%] w-[155%]" : "h-[190%] w-[190%]"
+          )}
           aria-hidden
         >
           <div className="hpc-banner-logo-celebrate-softglow hpc-banner-logo-fx-pauseable pointer-events-none absolute inset-[8%] rounded-full" />
@@ -266,7 +292,7 @@ function CongratulationsBurstReveal({
   return (
     <div
       className={cn(
-        "hpc-celebrate-root relative w-full min-w-0 max-w-full overflow-hidden rounded-md border bg-gradient-to-b from-white/[0.1] to-white/[0.04] px-2 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-[2px] sm:rounded-lg sm:px-3 sm:py-2.5",
+        "hpc-celebrate-root relative w-full min-w-0 max-w-full overflow-hidden rounded-md border bg-gradient-to-b from-white/[0.1] to-white/[0.04] px-2 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-[2px] max-lg:pl-0.5 max-lg:pr-0 sm:max-lg:pl-1 sm:max-lg:pr-0.5 sm:rounded-lg sm:px-3 sm:py-2.5",
         isPaused && "achievement-winner-paused"
       )}
       style={{ borderColor: "var(--achievement-banner-tag-border)" }}
@@ -275,7 +301,7 @@ function CongratulationsBurstReveal({
 
       {/* Burst + rays: centered on “Congratulations” (full-width box), not offset — matches previous visual balance */}
       <div
-        className="pointer-events-none absolute left-1/2 top-0 z-[1] h-[min(9rem,56%)] w-full max-w-[min(100%,24rem)] -translate-x-1/2 overflow-hidden sm:top-1 sm:h-[min(10rem,58%)]"
+        className="pointer-events-none absolute left-1/2 top-0 z-[1] h-[min(9rem,56%)] w-full max-lg:max-w-full lg:max-w-[min(100%,24rem)] -translate-x-1/2 overflow-hidden sm:top-1 sm:h-[min(10rem,58%)]"
         aria-hidden
       >
         <div className="hpc-celebrate-blast-ring hpc-celebrate-pauseable" />
@@ -309,7 +335,7 @@ function CongratulationsBurstReveal({
             Congratulations
           </span>
         </div>
-        <p className="mt-1 min-h-0 w-full max-w-full break-words text-pretty text-[clamp(0.72rem,calc(2.53cqw+0.184rem),0.863rem)] italic leading-snug text-white/85 line-clamp-[10] max-lg:line-clamp-[8] max-lg:text-justify max-lg:hyphens-auto">
+        <p className="mt-1 min-h-0 w-full max-w-full break-words text-pretty text-[clamp(0.612rem,calc(2.1505cqw+0.1564rem),0.734rem)] italic leading-snug text-white/85 line-clamp-[10] max-lg:line-clamp-none max-lg:text-justify max-lg:hyphens-auto lg:text-[clamp(0.72rem,calc(2.53cqw+0.184rem),0.863rem)]">
           &ldquo;{message}&rdquo;
         </p>
         <p
@@ -333,7 +359,7 @@ function AchievementWinnerOverlay({
   return (
     <div
       className={cn(
-        "pointer-events-none absolute inset-y-0 left-0 z-[2] w-1/2 max-w-[24rem] overflow-hidden rounded-l-[inherit]",
+        "pointer-events-none absolute inset-y-0 left-0 z-[2] w-[56%] max-w-[28rem] overflow-hidden rounded-l-[inherit]",
         isPaused && "achievement-winner-paused"
       )}
       aria-hidden
@@ -515,6 +541,120 @@ const AchievementBanner = () => {
   const [isPaused, setIsPaused] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [progressKey, setProgressKey] = useState(0);
+  const mobileLogoSlotRef = useRef<HTMLDivElement>(null);
+  const mobileTextColumnRef = useRef<HTMLDivElement>(null);
+  const mobileStackRef = useRef<HTMLDivElement>(null);
+  /** When the bottom logo row is too short (mobile / tablet), show a tiny logo top-right instead. */
+  const [mobileLogoCorner, setMobileLogoCorner] = useState(false);
+
+  const activeSlideItem = achievements[current];
+
+  /**
+   * Mobile/tablet only: logo is absolutely positioned in the right panel (no extra flex "section").
+   * Reserve scroll padding on the text column so content never sits under the logo.
+   * Top-right corner when the text viewport is full and there is no spare vertical room.
+   */
+  useLayoutEffect(() => {
+    const msg = activeSlideItem?.message?.trim();
+    const stackEl = mobileStackRef.current;
+    const textEl = mobileTextColumnRef.current;
+    if (!msg) {
+      setMobileLogoCorner(false);
+      stackEl?.style.removeProperty("--achievement-fluid-logo");
+      if (textEl) textEl.style.paddingBottom = "";
+      return;
+    }
+    const stack = stackEl;
+    const textCol = mobileTextColumnRef.current;
+    const slot = mobileLogoSlotRef.current;
+    if (!stack || !textCol || !slot) return;
+
+    const MIN_LOGO_PX = 42;
+    const MAX_LOGO_PX = 120;
+    /** Mobile / tablet only: render logo 15% smaller than measured fit (PC unchanged — effect exits above lg). */
+    const MOBILE_LOGO_SCALE = 0.85;
+    const CORNER_FREE_THRESHOLD = 40;
+
+    const parsePaddingBottomPx = (s: string): number => {
+      if (!s) return 0;
+      const n = parseFloat(s);
+      return Number.isFinite(n) ? n : 0;
+    };
+
+    const apply = () => {
+      if (typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches) {
+        stack.style.removeProperty("--achievement-fluid-logo");
+        textCol.style.paddingBottom = "";
+        return;
+      }
+
+      const sh = stack.clientHeight;
+      const ch = textCol.clientHeight;
+      const st = textCol.scrollTop;
+      /** JS-added reserve for bottom logo — must not count as “content height” or we flip to corner and show two logos. */
+      const logoPadPx = parsePaddingBottomPx(textCol.style.paddingBottom);
+      const thCore = Math.max(0, textCol.scrollHeight - logoPadPx);
+      /** Visible empty space below real content when scrolled to top (short copy). */
+      const freeBelowContent = Math.max(0, ch - (thCore - st));
+      /** Real content fills or overflows the scroll viewport — use top-right logo only. */
+      const textFillsViewport = thCore >= ch - 2;
+
+      const corner = textFillsViewport && freeBelowContent < CORNER_FREE_THRESHOLD;
+      setMobileLogoCorner(corner);
+
+      if (corner) {
+        stack.style.removeProperty("--achievement-fluid-logo");
+        textCol.style.paddingBottom = "";
+        return;
+      }
+
+      const sr = slot.getBoundingClientRect();
+      const usableW = Math.max(0, sr.width - 10);
+      let usableH = Math.max(0, sr.height - 10);
+      if (usableH < 36) usableH = Math.max(usableH, Math.round(sh * 0.22));
+      const fromFree = freeBelowContent > 8 ? freeBelowContent * 0.9 : usableH;
+      const side = Math.min(usableW * 0.9, fromFree, sh * 0.32, MAX_LOGO_PX);
+      const logoPx = Math.round(Math.max(MIN_LOGO_PX, side) * MOBILE_LOGO_SCALE);
+      stack.style.setProperty("--achievement-fluid-logo", `${logoPx}px`);
+
+      const pad = Math.round(logoPx * 1.2 + 12);
+      textCol.style.paddingBottom = `${pad}px`;
+    };
+
+    setMobileLogoCorner(false);
+    let raf1 = 0;
+    let raf2 = 0;
+    raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(apply);
+    });
+    const ro = new ResizeObserver(apply);
+    ro.observe(stack);
+    ro.observe(textCol);
+    ro.observe(slot);
+    return () => {
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+      ro.disconnect();
+      stack.style.removeProperty("--achievement-fluid-logo");
+      textCol.style.paddingBottom = "";
+    };
+  }, [activeSlideItem?.id, activeSlideItem?.message, current, achievements.length]);
+
+  useLayoutEffect(() => {
+    const onResize = () => setMobileLogoCorner(false);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  useLayoutEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const sync = () => {
+      if (mq.matches) setMobileLogoCorner(false);
+    };
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -601,9 +741,9 @@ const AchievementBanner = () => {
           onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
         >
-      {/* Photo: fixed max 24rem; right column = ~80% text + ~20% logo (lg+). Heights unchanged. */}
-      <div className="relative flex h-[clamp(220px,min(38svh,400px),400px)] min-h-[220px] w-full min-w-0 max-h-[min(400px,88svh)] flex-row overflow-x-hidden overflow-y-hidden rounded-b-[inherit] lg:h-[clamp(280px,min(50svh,540px),540px)] lg:min-h-[280px] lg:max-h-[min(540px,92svh)]">
-        <div className="relative z-0 h-full w-1/2 max-w-[24rem] min-h-[180px] min-w-0 shrink-0 overflow-hidden border-r border-border/50">
+      {/* Photo: wider panel for better visual emphasis; right area still manages text/logo layout. */}
+      <div className="hpc-achievement-banner-shell relative flex h-[clamp(220px,min(38svh,400px),400px)] min-h-[220px] w-full min-w-0 max-h-[min(400px,88svh)] flex-row overflow-x-hidden overflow-y-hidden rounded-b-[inherit] lg:h-[clamp(280px,min(50svh,540px),540px)] lg:min-h-[280px] lg:max-h-[min(540px,92svh)]">
+        <div className="relative z-0 h-full w-[56%] max-w-[28rem] min-h-[180px] min-w-0 shrink-0 overflow-hidden border-r border-border/50">
           <BannerPhotoPanel
             item={item}
             isTransitioning={isTransitioning}
@@ -614,13 +754,27 @@ const AchievementBanner = () => {
 
         <div
           className={cn(
-            "relative z-[10] box-border flex h-full min-h-0 min-w-0 flex-1 flex-col justify-start overflow-x-hidden overflow-y-hidden pt-4 sm:pt-[18px] md:pt-5 lg:pt-6",
+            "hpc-achievement-right-pane relative z-[10] box-border flex h-full min-h-0 min-w-0 flex-1 flex-col justify-start overflow-x-hidden overflow-y-hidden pt-4 sm:pt-[18px] md:pt-5 lg:pt-6",
             isPaused && "achievement-winner-paused"
           )}
           style={{ background: "var(--achievement-banner-side-bg)" }}
         >
           <div className="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-br from-primary/[0.07] via-transparent to-transparent hpc-banner-right-pauseable hpc-banner-right-bg-shimmer" />
+          {/* Mobile / tablet only: corner logo when bottom free space is too small (lg unchanged). */}
+          {item.message?.trim() ? (
+            <div
+              className={
+                mobileLogoCorner
+                  ? "pointer-events-none absolute right-1 top-0.5 z-[15] block origin-top-right scale-[0.85] sm:right-1.5 sm:top-1 lg:hidden"
+                  : "pointer-events-none absolute right-1 top-0.5 z-[15] hidden sm:right-1.5 sm:top-1 lg:hidden"
+              }
+              aria-hidden
+            >
+              <BannerAlumniLogoBadge variant="corner" />
+            </div>
+          ) : null}
           <div
+            ref={mobileStackRef}
             className={cn(
               "relative z-10 flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-hidden",
               item.message?.trim() && "lg:flex-row lg:items-stretch",
@@ -628,9 +782,12 @@ const AchievementBanner = () => {
             )}
           >
             <div
+              ref={mobileTextColumnRef}
               className={cn(
-                "flex min-h-0 min-w-0 flex-1 flex-col justify-start gap-1 overflow-x-hidden overflow-y-hidden border-l-[3px] border-primary px-2 pb-1.5 pt-0 sm:gap-1.5 sm:px-2.5 sm:pb-2 md:gap-1.5 md:px-3 md:pb-2 lg:px-3.5",
-                item.message?.trim() ? "lg:basis-[80%] lg:max-w-[80%]" : "w-full min-w-0 max-w-full"
+                "flex min-h-0 min-w-0 flex-col justify-start gap-1 overflow-x-hidden border-l-[3px] border-primary pb-1.5 pt-0 max-lg:border-r-2 max-lg:border-r-white/20 max-lg:pl-0.5 max-lg:pr-0 sm:max-lg:pl-1 sm:gap-1.5 sm:pb-2 md:gap-1.5 md:pb-2 lg:px-3.5",
+                item.message?.trim()
+                  ? "hpc-achievement-mobile-text-scroll w-full min-w-0 max-lg:z-[2] max-lg:flex-1 max-lg:min-h-0 max-lg:overflow-y-auto max-lg:overscroll-contain max-lg:[scrollbar-width:thin] max-lg:[scrollbar-color:rgba(255,255,255,0.25)_transparent] lg:max-h-none lg:flex-1 lg:overflow-visible lg:basis-[80%] lg:max-w-[80%]"
+                  : "w-full min-w-0 max-w-full flex-1 overflow-y-hidden px-2 sm:px-2.5 md:px-3 lg:px-3.5"
               )}
             >
               <div
@@ -653,11 +810,11 @@ const AchievementBanner = () => {
               {item.achievement_title?.trim() ? (
                 <div
                   key={`${item.id}-ach`}
-                  className="hpc-banner-right-enter w-full min-w-0 shrink-0"
+                  className="hpc-banner-right-enter w-full min-w-0 shrink-0 max-lg:pr-1 sm:max-lg:pr-1.5"
                   style={{ animationDelay: "0.12s" }}
                 >
                   <div
-                    className="hpc-banner-right-box-glow hpc-banner-right-pauseable w-full rounded-md border bg-white/[0.06] px-2 py-1 backdrop-blur-[2px] sm:rounded-lg sm:px-2 sm:py-1 md:px-2.5 md:py-1.5"
+                    className="hpc-banner-right-box-glow hpc-banner-right-pauseable w-full rounded-md border bg-white/[0.06] px-2 py-1 backdrop-blur-[2px] max-lg:pl-0.5 max-lg:pr-0 sm:max-lg:pl-1 sm:max-lg:pr-0.5 sm:rounded-lg sm:px-2 sm:py-1 md:px-2.5 md:py-1.5"
                     style={{ borderColor: "var(--achievement-banner-tag-border)" }}
                   >
                     <p className="text-[0.55rem] font-semibold uppercase tracking-widest text-white/50 sm:text-[0.58rem]">
@@ -676,7 +833,7 @@ const AchievementBanner = () => {
               {item.message?.trim() ? (
                 <div
                   key={`${item.id}-msg`}
-                  className="hpc-banner-right-enter min-w-0 w-full shrink-0"
+                  className="hpc-banner-right-enter min-w-0 w-full shrink-0 max-lg:pr-1 sm:max-lg:pr-1.5"
                   style={{ animationDelay: "0.2s" }}
                 >
                   <CongratulationsBurstReveal
@@ -689,9 +846,26 @@ const AchievementBanner = () => {
             </div>
 
             {item.message?.trim() ? (
-              <div className="flex min-h-0 w-full shrink-0 flex-col items-center justify-center overflow-visible border-t border-white/10 py-2 lg:w-[20%] lg:max-w-[20%] lg:flex-none lg:border-l lg:border-t-0 lg:border-white/15 lg:py-3 lg:pl-1 lg:pr-1">
-                <BannerAlumniLogoBadge />
-              </div>
+              <>
+                {/* Mobile / tablet: logo floats over the same right panel (no extra flex section). Text column gets JS padding-bottom so copy never sits under the badge. */}
+                <div
+                  ref={mobileLogoSlotRef}
+                  className={
+                    mobileLogoCorner
+                      ? "pointer-events-none absolute inset-x-0 bottom-0 z-[11] hidden lg:hidden"
+                      : "pointer-events-none absolute inset-x-0 bottom-0 z-[11] flex items-end justify-center lg:hidden"
+                  }
+                  aria-hidden
+                >
+                  <div className="flex w-full items-end justify-center px-0.5 pb-1.5 pt-0 sm:px-1 sm:pb-2 md:px-1.5 md:pb-2.5">
+                    <BannerAlumniLogoBadge variant="fluid" />
+                  </div>
+                </div>
+                {/* Desktop (lg+): original side column — unchanged. */}
+                <div className="hidden min-h-0 w-full shrink-0 flex-col items-center justify-center overflow-visible border-t border-white/10 py-2 lg:flex lg:w-[20%] lg:max-w-[20%] lg:flex-none lg:border-l lg:border-t-0 lg:border-white/15 lg:py-3 lg:pl-1 lg:pr-1">
+                  <BannerAlumniLogoBadge variant="panel" />
+                </div>
+              </>
             ) : null}
           </div>
         </div>
@@ -764,6 +938,17 @@ const AchievementBanner = () => {
         }
         .achievement-winner-paused .hpc-banner-logo-fx-pauseable {
           animation-play-state: paused !important;
+        }
+
+        /* Mobile / tablet: narrow scrollbar so achievement + congratulations can use column width */
+        @media (max-width: 1023px) {
+          .hpc-achievement-mobile-text-scroll::-webkit-scrollbar {
+            width: 5px;
+          }
+          .hpc-achievement-mobile-text-scroll::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.22);
+            border-radius: 9999px;
+          }
         }
 
         /* —— Banner alumni logo: sketch-style starburst (stars · dots · sparks) —— */

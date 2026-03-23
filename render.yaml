@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: hpc-alumni-backend
+    runtime: node
+    rootDir: backend
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
