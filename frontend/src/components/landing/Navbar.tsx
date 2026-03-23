@@ -1,11 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, type MouseEvent } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, LogOut } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import hpcLogo from "@/assets/hpc-logo.png";
 import { ThemeToggle } from "@/components/ThemeToggle";
+
+/** Matches scroll offset logic in Navbar (fixed bar ~40px + breathing room). */
+const LANDING_NAV_SCROLL_OFFSET = 72;
 
 const navLinks = [
   { label: "Home", href: "#" },
@@ -16,12 +19,51 @@ const navLinks = [
   { label: "Contact", href: "#contact" },
 ];
 
+function scrollToLandingSection(href: string) {
+  if (href === "#") {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    return;
+  }
+  const id = href.replace(/^#/, "");
+  if (!id) return;
+  const el = document.getElementById(id);
+  if (!el) return;
+  const y = el.getBoundingClientRect().top + window.scrollY - LANDING_NAV_SCROLL_OFFSET;
+  window.scrollTo({ top: Math.max(0, y), behavior: "smooth" });
+}
+
 const Navbar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeSection, setActiveSection] = useState("#");
   const { user, isLoading, logout } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
 
   const dashboardPath = user?.role === "admin" ? "/admin/dashboard" : "/dashboard";
+
+  /** SPA-safe: go to `/` + hash and scroll (hash-only links break off-home and often don’t scroll with RR). */
+  const handleLandingNavClick = useCallback(
+    (e: MouseEvent<HTMLAnchorElement>, href: string) => {
+      e.preventDefault();
+      setActiveSection(href === "#" ? "#" : href);
+      setMobileOpen(false);
+
+      const onHome = location.pathname === "/";
+      const hash = href === "#" ? undefined : href.replace(/^#/, "");
+
+      if (!onHome) {
+        navigate(href === "#" ? "/" : { pathname: "/", hash });
+        window.setTimeout(() => scrollToLandingSection(href), 200);
+        return;
+      }
+
+      navigate(href === "#" ? "/" : { pathname: "/", hash }, { replace: true });
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => scrollToLandingSection(href));
+      });
+    },
+    [location.pathname, navigate]
+  );
 
   useEffect(() => {
     if (!mobileOpen) return;
@@ -70,18 +112,23 @@ const Navbar = () => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const handleNavClick = (href: string) => {
-    setActiveSection(href);
-    setMobileOpen(false);
-  };
-
   return (
     <nav
       className="fixed top-0 left-0 right-0 z-50 border-b border-border/30 backdrop-blur-md"
       style={{ background: "var(--navbar-bg)" }}
     >
       <div className="layout-container flex h-10 items-center justify-between lg:h-11">
-        <a href="#" className="flex min-w-0 shrink-0 items-center gap-1 md:gap-1.5">
+        <Link
+          to="/"
+          className="flex min-w-0 shrink-0 items-center gap-1 md:gap-1.5"
+          onClick={(e) => {
+            if (location.pathname === "/") {
+              e.preventDefault();
+              setActiveSection("#");
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }
+          }}
+        >
           <img src={hpcLogo} alt="HPC Logo" className="h-7 w-7 shrink-0 md:h-8 md:w-8" />
           <div className="min-w-0 leading-none">
             <span
@@ -94,15 +141,15 @@ const Navbar = () => {
               ALUMNI ASSOCIATION
             </span>
           </div>
-        </a>
+        </Link>
 
         {/* Desktop — lg+ so 100% zoom matches tighter layouts (like ~125% zoom on the same monitor) */}
         <div className="hidden shrink-0 items-center gap-0 lg:flex">
           {navLinks.map((link) => (
-            <a
+            <Link
               key={link.href + link.label}
-              href={link.href}
-              onClick={() => handleNavClick(link.href)}
+              to={link.href === "#" ? "/" : { pathname: "/", hash: link.href.replace(/^#/, "") }}
+              onClick={(e) => handleLandingNavClick(e, link.href)}
               className={cn(
                 "fs-nav group relative inline-flex h-8 min-h-0 items-center whitespace-nowrap rounded-md px-2 font-semibold transition-colors lg:px-2.5",
                 activeSection === link.href
@@ -117,7 +164,7 @@ const Navbar = () => {
                   activeSection === link.href ? "w-3/4" : "group-hover:w-3/4"
                 )}
               />
-            </a>
+            </Link>
           ))}
 
           {isLoading ? (
@@ -188,10 +235,10 @@ const Navbar = () => {
           >
             <div className="flex max-h-[min(70vh,calc(100dvh-40px))] flex-col gap-0.5 overflow-y-auto overscroll-contain px-4 py-2.5">
               {navLinks.map((link) => (
-                <a
+                <Link
                   key={link.href + link.label}
-                  href={link.href}
-                  onClick={() => handleNavClick(link.href)}
+                  to={link.href === "#" ? "/" : { pathname: "/", hash: link.href.replace(/^#/, "") }}
+                  onClick={(e) => handleLandingNavClick(e, link.href)}
                   className={cn(
                     "fs-ui inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 font-semibold transition-colors",
                     activeSection === link.href
@@ -200,7 +247,7 @@ const Navbar = () => {
                   )}
                 >
                   {link.label}
-                </a>
+                </Link>
               ))}
 
               {isLoading ? (
