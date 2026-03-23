@@ -20,16 +20,34 @@ const adminCommitteeModuleRoutes = require("./routes/adminCommitteeModule");
 
 const app = express();
 
+const allowedOrigins = String(env.frontendOrigin || "")
+  .split(",")
+  .map((v) => v.trim().replace(/\/$/, ""))
+  .filter(Boolean);
+
+const vercelAppOriginPattern = /^https:\/\/[a-z0-9-]+\.vercel\.app$/i;
+
+const corsOptions = {
+  origin(origin, callback) {
+    // Allow non-browser requests (curl, server-to-server, health checks)
+    if (!origin) return callback(null, true);
+    const normalized = String(origin).trim().replace(/\/$/, "");
+    if (allowedOrigins.includes(normalized) || vercelAppOriginPattern.test(normalized)) {
+      return callback(null, true);
+    }
+    return callback(null, false);
+  },
+  credentials: true,
+  methods: ["GET", "HEAD", "PUT", "PATCH", "POST", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+};
+
 app.use(helmet());
 app.use(express.json({ limit: "2mb" }));
 app.use(cookieParser());
 app.use(passport.initialize());
-app.use(
-  cors({
-    origin: env.frontendOrigin,
-    credentials: true,
-  })
-);
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 
 app.get("/", (req, res) => {
   res.status(200).json({
