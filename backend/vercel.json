@@ -1,19 +1,5 @@
 {
   "version": 2,
-  "rewrites": [
-    {
-      "source": "/health",
-      "destination": "/api/index.js"
-    },
-    {
-      "source": "/db-health",
-      "destination": "/api/index.js"
-    },
-    {
-      "source": "/api/:path*",
-      "destination": "/api/index.js"
-    }
-  ],
   "functions": {
     "api/index.js": {
       "maxDuration": 60
