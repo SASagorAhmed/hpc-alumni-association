@@ -31,6 +31,14 @@ app.use(
   })
 );
 
+app.get("/", (req, res) => {
+  res.status(200).json({
+    ok: true,
+    message: "Backend is running.",
+    developedBy: "Sagor Ahmed, A Proud Alumni of HPC.",
+  });
+});
+
 // Healthcheck
 app.get("/health", healthRoute());
 app.use("/api/auth", authRoutes);
