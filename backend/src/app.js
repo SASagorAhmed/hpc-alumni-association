@@ -57,8 +57,8 @@ app.get("/", (req, res) => {
   });
 });
 
-// Healthcheck
-app.get("/health", healthRoute());
+// Healthcheck (supports both /health and /api/health)
+app.get(["/health", "/api/health"], healthRoute());
 app.use("/api/auth", authRoutes);
 app.use("/api/public", publicLandingRoutes);
 app.use("/api/public", publicNoticesEventsRoutes);
@@ -72,18 +72,22 @@ app.use("/api/admin", adminCommitteeModuleRoutes);
 // Configure Google OAuth strategy.
 configureGooglePassport();
 
-// Basic DB connectivity check (useful for debugging)
-app.get("/db-health", async (req, res) => {
+// Basic DB connectivity check (supports /db-health and /api/db-health)
+app.get(["/db-health", "/api/db-health"], async (req, res) => {
   try {
     const pool = getOrCreatePool();
     if (!pool) {
       return res.status(503).json({ ok: false, error: "MySQL not configured" });
     }
 
-    const [rows] = await pool.query("SELECT 1 AS ok");
+    const timeoutMs = 12000;
+    const [rows] = await Promise.race([
+      pool.query("SELECT 1 AS ok"),
+      new Promise((_, reject) => setTimeout(() => reject(new Error(`DB check timed out after ${timeoutMs}ms`)), timeoutMs)),
+    ]);
     return res.status(200).json({ ok: true, db: rows?.[0]?.ok ?? 1 });
   } catch (e) {
-    return res.status(500).json({ ok: false, error: e.message });
+    return res.status(500).json({ ok: false, error: e.message, hint: "Check DB host/port, SSL cert, and Aiven trusted sources." });
   }
 });
 

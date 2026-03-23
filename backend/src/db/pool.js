@@ -18,6 +18,7 @@ function getOrCreatePool() {
     user: env.db.user,
     password: env.db.password,
     database: env.db.name,
+    connectTimeout: 10000,
     waitForConnections: true,
     multipleStatements: true,
     connectionLimit: 10,
