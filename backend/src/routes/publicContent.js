@@ -155,6 +155,21 @@ router.get("/memories", async (req, res) => {
   }
 });
 
+router.get("/memories/:id", async (req, res) => {
+  try {
+    const pool = getOrCreatePool();
+    if (!pool) return res.status(503).json({ ok: false, error: "MySQL not configured" });
+    const [rows] = await pool.query(
+      "SELECT * FROM memories WHERE id = ? AND published = true LIMIT 1",
+      [req.params.id]
+    );
+    if (!rows || rows.length === 0) return res.status(404).json({ ok: false, error: "Memory not found" });
+    return res.status(200).json(rows[0]);
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message || "Failed to load memory" });
+  }
+});
+
 router.get("/members/:id", async (req, res) => {
   try {
     const pool = getOrCreatePool();

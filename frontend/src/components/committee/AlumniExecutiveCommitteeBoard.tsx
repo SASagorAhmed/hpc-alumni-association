@@ -184,14 +184,14 @@ export function PresidentHeroCard({
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ duration: 0.6 }}
-      className="relative mx-auto w-full max-w-full overflow-hidden rounded-[13px] border border-border/55 bg-card shadow-card transition-shadow hover:shadow-card-hover md:w-fit"
+      className="relative mx-auto w-fit max-w-full overflow-hidden rounded-[13px] border border-border/55 bg-card shadow-card transition-shadow hover:shadow-card-hover"
       style={{
         background: `linear-gradient(135deg, hsl(var(--primary) / 0.14) 0%, ${cardBg} 45%, ${cardBg} 100%)`,
       }}
     >
-      <div className="flex w-full max-w-full flex-col md:w-fit">
-        <div className="grid w-full max-w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 p-2.5 sm:gap-2.5 sm:p-[0.9rem] md:w-fit md:grid-cols-[minmax(0,28rem)_auto] md:gap-x-2 md:p-[1.08rem] lg:gap-x-2.5 lg:p-[1.26rem]">
-          <div className="flex min-w-0 w-full max-w-[min(100%,28rem)] flex-col justify-start gap-2 text-left md:max-w-[28rem]">
+      <div className="flex w-fit max-w-full flex-col">
+        <div className="grid w-full max-w-full grid-cols-[minmax(0,28rem)_auto] items-center gap-x-2.5 p-[1.26rem]">
+          <div className="flex min-w-0 w-full max-w-[28rem] flex-col justify-start gap-2 text-left">
           <div className="flex items-center gap-1">
             <div
               className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9.25px] font-bold tracking-wide"
@@ -210,7 +210,7 @@ export function PresidentHeroCard({
 
           <h3
             className="font-bold leading-tight text-foreground"
-            style={{ fontFamily: "'Outfit', sans-serif", fontSize: "clamp(16.5px, 1.62vw + 0.67rem, 23px)" }}
+            style={{ fontFamily: "'Outfit', sans-serif", fontSize: "23px" }}
           >
             {member.name}
           </h3>
@@ -222,8 +222,8 @@ export function PresidentHeroCard({
             {roleLine}
           </div>
 
-          <div className="mt-0.5 grid min-w-0 w-full max-w-full grid-cols-1 gap-y-1 text-[11.1px] text-muted-foreground sm:grid-cols-[auto_minmax(0,1fr)] sm:items-start sm:gap-x-1 sm:gap-y-0">
-            <div className="flex w-full min-w-0 flex-col gap-y-0.5 sm:w-auto sm:shrink-0">
+          <div className="mt-0.5 grid min-w-0 w-full max-w-full grid-cols-[auto_minmax(0,1fr)] items-start gap-x-1 gap-y-0 text-[11.1px] text-muted-foreground">
+            <div className="flex w-auto min-w-0 shrink-0 flex-col gap-y-0.5">
               <span className="inline-flex min-w-0 max-w-full items-start gap-1 break-words">
                 <GraduationCap className="mt-0.5 h-[12.9px] w-[12.9px] shrink-0" style={{ color: primary }} />
                 <span className="min-w-0">
@@ -254,7 +254,7 @@ export function PresidentHeroCard({
               </span>
             </div>
 
-            <div className="flex min-w-0 flex-col gap-y-0.5 sm:mt-0">
+            <div className="flex min-w-0 flex-col gap-y-0.5">
               <span className="inline-flex min-w-0 max-w-full items-start gap-1 break-words">
                 <Hash className="mt-0.5 h-[12.9px] w-[12.9px] shrink-0" style={{ color: primary }} />
                 <span className="min-w-0">
@@ -340,7 +340,7 @@ export function PresidentHeroCard({
           </div>
 
           <div
-            className="relative aspect-square w-[min(100%,10.5rem)] shrink-0 self-center overflow-hidden rounded-md border sm:w-[min(100%,12.6rem)] md:w-[14.04rem] md:max-w-none lg:w-[15.12rem]"
+            className="relative aspect-square w-[15.12rem] shrink-0 self-center overflow-hidden rounded-md border"
             style={{ borderColor: primaryBorder }}
           >
             <div
@@ -409,10 +409,10 @@ export function ExecutiveMemberCard({
       }}
     >
       <div className="flex w-full flex-col">
-        <div className="p-2.5 sm:p-3.5">
-          <div className="flex items-start gap-2.5 sm:gap-3.5">
+        <div className="p-3.5">
+          <div className="flex items-start gap-3.5">
             <div
-              className="relative h-[133px] w-[133px] shrink-0 overflow-hidden rounded-md border border-border/45 sm:h-[151px] sm:w-[151px]"
+              className="relative h-[151px] w-[151px] shrink-0 overflow-hidden rounded-md border border-border/45"
             >
               <div
                 className="absolute inset-0"
@@ -437,7 +437,7 @@ export function ExecutiveMemberCard({
               )}
             </div>
 
-            <div className="flex min-w-0 flex-1 flex-col justify-start gap-1.5 pt-0.5 pl-1.5 text-left sm:pl-2.5">
+            <div className="flex min-w-0 flex-1 flex-col justify-start gap-1.5 pt-0.5 pl-2.5 text-left">
               <div
                 className="inline-flex w-fit items-center rounded-full border border-primary/20 px-2 py-0.5 text-[9.25px] font-bold tracking-wide"
                 style={{ backgroundColor: primaryTint, color: primary }}
@@ -451,7 +451,7 @@ export function ExecutiveMemberCard({
                 className="block w-full min-w-0 whitespace-nowrap font-bold leading-tight text-foreground"
                 style={{
                   fontFamily: "'Outfit', sans-serif",
-                  fontSize: "clamp(16.5px, 1.62vw + 0.67rem, 23px)",
+                  fontSize: "23px",
                 }}
               >
                 {member.name}
@@ -560,7 +560,7 @@ export function ExecutiveMemberCard({
         </div>
 
         {wishingYouText ? (
-          <div className="space-y-1 px-2 pb-2 sm:px-2.5 sm:pb-2.5">
+          <div className="space-y-1 px-2.5 pb-2.5">
             <div
               className="committee-member-wishing-box w-full rounded-md border p-2"
               style={{ backgroundColor: primaryTint, borderColor: primaryBorder }}
@@ -623,7 +623,11 @@ export function AlumniExecutiveCommitteeIntro({
 
 /**
  * President special card on top + standard member cards for everyone else (Alumni Executive Committee).
+ * Below the laptop reference width the entire board is proportionally scaled down so it looks like
+ * a zoomed-out version of the desktop layout (same approach as AchievementBanner).
  */
+const COMMITTEE_DESIGN_W = 1024; // reference = laptop viewport
+
 export function AlumniExecutiveCommitteeBoard({
   data,
   showAll = false,
@@ -634,6 +638,31 @@ export function AlumniExecutiveCommitteeBoard({
   compactIntro?: boolean;
 }) {
   const [visibleCount, setVisibleCount] = useState(6);
+  const outerRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
+  const [boardScale, setBoardScale] = useState(1);
+  const [boardWrapH, setBoardWrapH] = useState<number | undefined>(undefined);
+
+  // Measure outer container width vs design width → compute scale + wrapper height.
+  useLayoutEffect(() => {
+    const outer = outerRef.current;
+    const inner = innerRef.current;
+    if (!outer || !inner) return;
+    const update = () => {
+      const w = outer.getBoundingClientRect().width;
+      if (!w) return;
+      const s = Math.min(1, w / COMMITTEE_DESIGN_W);
+      setBoardScale(s);
+      setBoardWrapH(s < 1 ? Math.round(inner.offsetHeight * s) : undefined);
+    };
+    let r1 = 0, r2 = 0;
+    r1 = requestAnimationFrame(() => { r2 = requestAnimationFrame(update); });
+    const ro = new ResizeObserver(update);
+    ro.observe(outer);
+    ro.observe(inner);
+    return () => { cancelAnimationFrame(r1); cancelAnimationFrame(r2); ro.disconnect(); };
+  }, [visibleCount]); // re-measure when card count changes
+
   const totalMembers = data.posts.reduce((n, p) => n + (p.members?.length || 0), 0);
   const presidentPick = pickPresidentFromStructured(data);
 
@@ -657,6 +686,8 @@ export function AlumniExecutiveCommitteeBoard({
   const restPairs = restMembersExceptPresident(data, presidentPick.member.id);
   const displayCount = showAll ? restPairs.length : visibleCount;
 
+  const scaled = boardScale < 1;
+
   return (
     <>
       <AlumniExecutiveCommitteeIntro
@@ -665,54 +696,76 @@ export function AlumniExecutiveCommitteeBoard({
         termDescription={data.term.description}
         compact={compactIntro}
       />
-      <div className="mx-auto flex w-full min-w-0 max-w-7xl flex-col gap-6 sm:gap-8 lg:gap-10">
-        {/* President: shrink-wrap to content, centered */}
-        <div className="mx-auto flex w-full min-w-0 justify-center px-0">
-          <PresidentHeroCard member={presidentDb} roleLabel={presidentPick.postTitle} />
-        </div>
-        {/* Members: 1 col phone → 2 col tablet → 3 col laptop+; min-w-0 prevents grid blowout */}
-        <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 lg:gap-5">
-          {restPairs.slice(0, displayCount).map((item, i) => (
-            <div key={item.row.id} className="min-w-0">
-              <ExecutiveMemberCard
-                member={committeeRowToDBMember(item.row)}
-                serial={i + 2}
-                postTitle={item.postTitle}
-              />
+
+      {/* Outer: measures available width; reserves the scaled height */}
+      <div ref={outerRef} className="w-full min-w-0">
+        <div
+          className="relative overflow-hidden"
+          style={scaled && boardWrapH ? { height: boardWrapH } : undefined}
+        >
+          {/* Inner canvas: fixed at COMMITTEE_DESIGN_W, scaled to fit outer */}
+          <div
+            ref={innerRef}
+            className="flex flex-col origin-top-left"
+            style={scaled
+              ? { width: `${COMMITTEE_DESIGN_W}px`, transform: `scale(${boardScale})`, gap: "40px" }
+              : { width: "100%", gap: "40px" }
+            }
+          >
+            {/* President: centred, fills reference width */}
+            <div className="mx-auto flex w-full min-w-0 justify-center px-0">
+              <PresidentHeroCard member={presidentDb} roleLabel={presidentPick.postTitle} />
             </div>
-          ))}
-        </div>
-        {!showAll && (visibleCount < restPairs.length || visibleCount > 6) && (
-          <div className="flex items-center justify-center gap-4 mt-2">
-            {visibleCount < restPairs.length && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setVisibleCount((prev) => prev + 6)}
-                  className="px-5 py-2 rounded-full border border-primary text-primary text-sm font-medium hover:bg-primary/10 transition-colors"
-                >
-                  See more ({restPairs.length - visibleCount} remaining)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setVisibleCount(restPairs.length)}
-                  className="text-sm font-medium text-primary underline underline-offset-4 hover:text-primary/80 transition-colors"
-                >
-                  See all
-                </button>
-              </>
-            )}
-            {visibleCount > 6 && (
-              <button
-                type="button"
-                onClick={() => setVisibleCount(6)}
-                className="px-5 py-2 rounded-full border border-muted-foreground/30 text-muted-foreground text-sm font-medium hover:bg-muted transition-colors"
-              >
-                Show less
-              </button>
+
+            {/* Member grid: always 3 columns when scaled, responsive otherwise */}
+            <div
+              className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 lg:gap-5"
+              style={scaled ? { gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "20px" } : undefined}
+            >
+              {restPairs.slice(0, displayCount).map((item, i) => (
+                <div key={item.row.id} className="min-w-0">
+                  <ExecutiveMemberCard
+                    member={committeeRowToDBMember(item.row)}
+                    serial={i + 2}
+                    postTitle={item.postTitle}
+                  />
+                </div>
+              ))}
+            </div>
+
+            {!showAll && (visibleCount < restPairs.length || visibleCount > 6) && (
+              <div className="flex items-center justify-center gap-4 mt-2">
+                {visibleCount < restPairs.length && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setVisibleCount((prev) => prev + 6)}
+                      className="px-5 py-2 rounded-full border border-primary text-primary text-sm font-medium hover:bg-primary/10 transition-colors"
+                    >
+                      See more ({restPairs.length - visibleCount} remaining)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setVisibleCount(restPairs.length)}
+                      className="text-sm font-medium text-primary underline underline-offset-4 hover:text-primary/80 transition-colors"
+                    >
+                      See all
+                    </button>
+                  </>
+                )}
+                {visibleCount > 6 && (
+                  <button
+                    type="button"
+                    onClick={() => setVisibleCount(6)}
+                    className="px-5 py-2 rounded-full border border-muted-foreground/30 text-muted-foreground text-sm font-medium hover:bg-muted transition-colors"
+                  >
+                    Show less
+                  </button>
+                )}
+              </div>
             )}
           </div>
-        )}
+        </div>
       </div>
     </>
   );

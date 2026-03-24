@@ -1,8 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { motion } from "framer-motion";
-import { Badge } from "@/components/ui/badge";
-import { Award, MapPin, Calendar, GraduationCap, PartyPopper, Camera } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Award, Calendar, GraduationCap, PartyPopper, Camera, Building2 } from "lucide-react";
 import { API_BASE_URL } from "@/api-production/api.js";
 
 interface Achievement {
@@ -18,20 +16,42 @@ interface Achievement {
   achievement_date: string | null;
 }
 
-const tagColors: Record<string, string> = {
-  "New Job": "bg-blue-100 text-blue-700 border-blue-200",
-  "Scholarship": "bg-emerald-100 text-emerald-700 border-emerald-200",
-  "Award": "bg-amber-100 text-amber-700 border-amber-200",
-};
+
+/** Desktop reference width for the achievements grid (3-col layout). */
+const ACHIEVEMENTS_DESIGN_W = 1024;
 
 const AchievementsSection = () => {
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [visibleCount, setVisibleCount] = useState(6);
+  const gridOuterRef = useRef<HTMLDivElement>(null);
+  const gridInnerRef = useRef<HTMLDivElement>(null);
+  const [gridScale, setGridScale] = useState(1);
+  const [gridWrapH, setGridWrapH] = useState<number | undefined>(undefined);
+
+  // Re-run when data loads (same pattern as banner — refs are null on first null-render).
+  const gridReady = achievements.length > 0;
+  useLayoutEffect(() => {
+    const outer = gridOuterRef.current;
+    const inner = gridInnerRef.current;
+    if (!outer || !inner) return;
+    const update = () => {
+      const w = outer.getBoundingClientRect().width;
+      if (!w) return;
+      const s = Math.min(1, w / ACHIEVEMENTS_DESIGN_W);
+      setGridScale(s);
+      setGridWrapH(s < 1 ? Math.round(inner.offsetHeight * s) : undefined);
+    };
+    let r1 = 0, r2 = 0;
+    r1 = requestAnimationFrame(() => { r2 = requestAnimationFrame(update); });
+    const ro = new ResizeObserver(update);
+    ro.observe(outer);
+    ro.observe(inner);
+    return () => { cancelAnimationFrame(r1); cancelAnimationFrame(r2); ro.disconnect(); };
+  }, [gridReady, visibleCount]);
 
   useEffect(() => {
     const fetchData = async () => {
       const now = new Date().toISOString();
-      // API example: `${API_BASE_URL}/path` (base from src/api-production/api.js + .env VITE_API_URL)
       const res = await fetch(`${API_BASE_URL}/api/public/achievements?active=true`);
       const data = res.ok ? await res.json().catch(() => []) : [];
       if (Array.isArray(data)) {
@@ -47,6 +67,8 @@ const AchievementsSection = () => {
   }, []);
 
   if (achievements.length === 0) return null;
+
+  const scaled = gridScale < 1;
 
   return (
     <section id="achievements" className="border-t border-border/60 bg-background py-10 sm:py-20">
@@ -70,89 +92,105 @@ const AchievementsSection = () => {
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-          {achievements.slice(0, visibleCount).map((a, i) => (
-            <motion.div
-              key={a.id}
-              initial={{ opacity: 0, y: 12 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5 }}
-              className="group relative overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all duration-300 hover:shadow-lg hover:border-primary/50 flex flex-col"
-              style={{ background: "var(--achievement-card-bg)" }}
+        {/* Scale canvas — same pattern as committee board and banner */}
+        <div ref={gridOuterRef} className="w-full min-w-0">
+          <div
+            className="relative overflow-hidden"
+            style={scaled && gridWrapH ? { height: gridWrapH } : undefined}
+          >
+            <div
+              ref={gridInnerRef}
+              className="origin-top-left"
+              style={scaled
+                ? { width: `${ACHIEVEMENTS_DESIGN_W}px`, transform: `scale(${gridScale})`, display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "16px" }
+                : { width: "100%", display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "16px" }
+              }
             >
-              {/* Top accent bar */}
-              <div className="h-1" style={{ background: "var(--achievement-card-accent-bar)" }} />
+              {achievements.slice(0, visibleCount).map((a, i) => (
+                <motion.div
+                  key={a.id}
+                  initial={{ opacity: 0, y: 12 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.5 }}
+                  className="group relative overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all duration-300 hover:shadow-lg hover:border-primary/50 flex flex-col"
+                  style={{ background: "var(--achievement-card-bg)" }}
+                >
+                  {/* Top accent bar */}
+                  <div className="h-1" style={{ background: "var(--achievement-card-accent-bar)" }} />
 
-              {/* Photo — full-width top */}
-              <div className="w-full aspect-square sm:aspect-[4/3] overflow-hidden">
-                {a.photo_url ? (
-                  <img src={a.photo_url} alt={a.name} className="h-full w-full object-cover" />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center" style={{ background: "var(--achievement-card-photo-bg)" }}>
-                    <Camera className="h-7 w-7 text-primary/40 sm:h-10 sm:w-10" />
+                  {/* Photo — desktop aspect ratio always */}
+                  <div className="w-full aspect-[4/3] overflow-hidden">
+                    {a.photo_url ? (
+                      <img src={a.photo_url} alt={a.name} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center" style={{ background: "var(--achievement-card-photo-bg)" }}>
+                        <Camera className="h-10 w-10 text-primary/40" />
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
 
-              {/* Right — Content */}
-              <div className="flex flex-col items-center text-center p-2 sm:p-3 flex-1">
-                <span className="fs-caption mb-0.5 font-semibold tracking-wider text-amber-600 uppercase" style={{ fontFamily: "'Outfit', sans-serif" }}>
-                  #{String(i + 1).padStart(2, "0")} — Achievement
-                </span>
-                <h3 className="fs-ui font-bold leading-tight text-foreground" style={{ fontFamily: "'Outfit', sans-serif" }}>
-                  {a.name}
-                </h3>
-                <div className="mt-1.5">
-                  <span className="inline-flex items-center rounded-full bg-primary px-2 py-0.5 text-xs font-semibold text-primary-foreground">
-                    {a.achievement_title}
-                  </span>
-                </div>
+                  {/* Content */}
+                  <div className="flex flex-col items-center text-center p-3 flex-1 gap-2">
 
-                {a.tag && (
-                  <div className="mt-1">
-                    <Badge variant="outline" className={cn("text-xs", tagColors[a.tag] || "bg-muted text-muted-foreground border-border")}>
-                      {a.tag}
-                    </Badge>
-                  </div>
-                )}
+                    {/* 1 — Serial */}
+                    <span className="text-[0.68rem] font-semibold tracking-wider text-amber-600 uppercase">
+                      #{String(i + 1).padStart(2, "0")} Achievement
+                    </span>
 
-                <div className="mt-2 flex flex-col gap-1 items-center">
-                  {a.batch && (
-                    <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <GraduationCap size={12} className="text-primary" /> Batch: {a.batch}
-                    </span>
-                  )}
-                  {a.institution && (
-                    <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                      🏫 {a.institution}
-                    </span>
-                  )}
-                  {a.location && (
-                    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                      <MapPin className="h-3 w-3 text-primary" /> {a.location}
-                    </span>
-                  )}
-                  {a.achievement_date && (
-                    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                      <Calendar className="h-3 w-3 text-primary" /> {new Date(a.achievement_date).toLocaleDateString()}
-                    </span>
-                  )}
-                </div>
+                    {/* 2 — Name */}
+                    <h3 className="font-bold text-sm leading-snug text-foreground" style={{ fontFamily: "'Outfit', sans-serif" }}>
+                      {a.name}
+                    </h3>
 
-                {a.message && (
-                  <div className="mt-2 hidden w-full border-t border-border pt-2 sm:block">
-                    <div className="flex items-start gap-1.5 rounded-lg border border-border bg-muted/40 p-2 text-left">
-                      <PartyPopper className="mt-0.5 h-3 w-3 shrink-0 text-primary" />
-                      <p className="text-xs text-foreground/80 leading-relaxed line-clamp-2">
-                        {a.message}
-                      </p>
+                    {/* 3 — Achievement title */}
+                    {a.achievement_title && (
+                      <span className="inline-flex items-center rounded-full bg-primary px-2.5 py-0.5 text-xs font-semibold text-primary-foreground">
+                        {a.achievement_title}
+                      </span>
+                    )}
+
+                    {/* 4 — Batch · Date · Institution (horizontal row, centered) */}
+                    <div className="flex flex-wrap justify-center items-center gap-x-3 gap-y-1">
+                      {a.batch && (
+                        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                          <GraduationCap size={11} className="text-primary shrink-0" />
+                          Batch {a.batch}
+                        </span>
+                      )}
+                      {a.achievement_date && (
+                        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                          <Calendar className="h-2.5 w-2.5 text-primary shrink-0" />
+                          {new Date(a.achievement_date).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
+                        </span>
+                      )}
+                      {a.institution && (
+                        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                          <Building2 className="h-2.5 w-2.5 text-primary shrink-0" />
+                          {a.institution}
+                        </span>
+                      )}
                     </div>
+
+                    {/* 5 — Full congratulations message */}
+                    {a.message && (
+                      <div className="mt-auto w-full pt-2 border-t border-border">
+                        <div className="rounded-lg border border-primary/20 bg-primary/5 p-2.5 text-left">
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <PartyPopper className="h-3 w-3 shrink-0 text-primary" />
+                            <span className="text-[0.6rem] font-semibold uppercase tracking-wider text-primary">Congratulations</span>
+                          </div>
+                          <p className="text-xs text-foreground/85 leading-relaxed whitespace-pre-wrap">
+                            {a.message}
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            </motion.div>
-          ))}
+                </motion.div>
+              ))}
+            </div>
+          </div>
         </div>
 
         {(visibleCount < achievements.length || visibleCount > 6) && (

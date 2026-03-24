@@ -61,6 +61,7 @@ function validateAchievementBannerWordLimits(fields) {
     ["message", fields.message],
     ["banner_photo_batch_text", fields.banner_photo_batch_text],
     ["banner_photo_tagline", fields.banner_photo_tagline],
+    ["banner_congratulations_text", fields.banner_congratulations_text],
   ];
   for (const [key, val] of map) {
     if (val != null && wordCount(val) > BANNER_TEXT_MAX_WORDS) {
@@ -74,6 +75,7 @@ async function ensureAchievementBannerOverlayColumns(pool) {
   const fragments = [
     "ADD COLUMN `banner_photo_batch_text` TEXT NULL",
     "ADD COLUMN `banner_photo_tagline` TEXT NULL",
+    "ADD COLUMN `banner_congratulations_text` VARCHAR(120) NULL",
   ];
   for (const frag of fragments) {
     try {
@@ -107,6 +109,7 @@ function achievementInsertRow(body, id) {
     is_pinned: b.is_pinned === true || b.is_pinned === 1 || b.is_pinned === "1" ? 1 : 0,
     banner_photo_batch_text: nullableTrim(b.banner_photo_batch_text),
     banner_photo_tagline: nullableTrim(b.banner_photo_tagline),
+    banner_congratulations_text: nullableTrim(b.banner_congratulations_text),
   };
 }
 
@@ -136,6 +139,7 @@ function achievementUpdatePatch(body) {
   }
   if ("banner_photo_batch_text" in b) patch.banner_photo_batch_text = nullableTrim(b.banner_photo_batch_text);
   if ("banner_photo_tagline" in b) patch.banner_photo_tagline = nullableTrim(b.banner_photo_tagline);
+  if ("banner_congratulations_text" in b) patch.banner_congratulations_text = nullableTrim(b.banner_congratulations_text);
   return patch;
 }
 

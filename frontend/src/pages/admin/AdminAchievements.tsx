@@ -38,6 +38,7 @@ interface Achievement {
   created_at: string;
   banner_photo_batch_text?: string | null;
   banner_photo_tagline?: string | null;
+  banner_congratulations_text?: string | null;
 }
 
 interface AchievementSettings {
@@ -61,6 +62,7 @@ const emptyForm = {
   end_date: "",
   banner_photo_batch_text: "",
   banner_photo_tagline: "",
+  banner_congratulations_text: "",
 };
 
 const AdminAchievements = () => {
@@ -208,6 +210,7 @@ const AdminAchievements = () => {
       end_date: a.end_date ? a.end_date.slice(0, 16) : "",
       banner_photo_batch_text: a.banner_photo_batch_text ?? "",
       banner_photo_tagline: a.banner_photo_tagline ?? "",
+      banner_congratulations_text: a.banner_congratulations_text ?? "",
     });
     setDialogOpen(true);
   };
@@ -222,6 +225,7 @@ const AdminAchievements = () => {
       { label: "Message", value: form.message },
       { label: "Batch line on image", value: form.banner_photo_batch_text },
       { label: "Alumni line on image", value: form.banner_photo_tagline },
+      { label: "Congratulations heading", value: form.banner_congratulations_text },
     ];
     for (const { label, value } of bannerFields) {
       if (countWords(value) > BANNER_MAX_WORDS) {
@@ -249,6 +253,7 @@ const AdminAchievements = () => {
       updated_at: new Date().toISOString(),
       banner_photo_batch_text: form.banner_photo_batch_text.trim() || null,
       banner_photo_tagline: form.banner_photo_tagline.trim() || null,
+      banner_congratulations_text: form.banner_congratulations_text.trim() || null,
     };
 
     const readErr = async (res: Response) => {
@@ -615,6 +620,20 @@ const AdminAchievements = () => {
                   <p className="text-xs text-muted-foreground">
                     {countWords(form.banner_photo_tagline)} / {BANNER_MAX_WORDS} words — leave empty for default:{" "}
                     <span className="font-medium text-foreground">{BANNER_DEFAULT_PHOTO_TAGLINE}</span>
+                  </p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Congratulations heading (banner)</Label>
+                  <Input
+                    value={form.banner_congratulations_text}
+                    onChange={(e) =>
+                      setForm({ ...form, banner_congratulations_text: clampToWordLimit(e.target.value, BANNER_MAX_WORDS) })
+                    }
+                    placeholder='e.g. "Well Done!" — leave empty to use "Congratulations"'
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {countWords(form.banner_congratulations_text)} / {BANNER_MAX_WORDS} words — leave empty for default:{" "}
+                    <span className="font-medium text-foreground">Congratulations</span>
                   </p>
                 </div>
               </div>

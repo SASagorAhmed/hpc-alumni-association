@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, type CSSProperties } from "react";
+import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef, type CSSProperties } from "react";
 import { Award, ChevronLeft, ChevronRight, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BANNER_DEFAULT_PHOTO_TAGLINE } from "@/constants/bannerCopy";
@@ -222,6 +222,7 @@ interface Achievement {
   is_pinned: boolean;
   banner_photo_batch_text?: string | null;
   banner_photo_tagline?: string | null;
+  banner_congratulations_text?: string | null;
 }
 
 function bannerPhotoBatchLine(item: Achievement): string | null {
@@ -280,10 +281,12 @@ function celebrateParticlesFor(slideKey: string): { dx: number; dy: number; dela
 /** Premium “Congratulations” reveal: radial burst + particles; right column only. */
 function CongratulationsBurstReveal({
   message,
+  heading,
   slideKey,
   isPaused,
 }: {
   message: string;
+  heading?: string | null;
   slideKey: string;
   isPaused: boolean;
 }) {
@@ -332,7 +335,7 @@ function CongratulationsBurstReveal({
       <div className="relative z-10 flex w-full min-w-0 flex-col">
         <div className="flex w-full justify-center px-0.5 pt-0.5">
           <span className="hpc-celebrate-title hpc-celebrate-pauseable inline-block text-center bg-gradient-to-r from-amber-100 via-white to-amber-200/95 bg-clip-text text-[clamp(0.72rem,4.5cqw+0.28rem,1.08rem)] font-extrabold uppercase tracking-[0.12em] text-transparent sm:tracking-[0.14em]">
-            Congratulations
+            {heading?.trim() || "Congratulations"}
           </span>
         </div>
         <p className="mt-1 min-h-0 w-full max-w-full break-words text-pretty text-[clamp(0.7rem,2.3cqw+0.2rem,0.86rem)] italic leading-snug text-white/85 line-clamp-[10] max-lg:line-clamp-none max-lg:text-justify max-lg:hyphens-auto">
@@ -359,7 +362,7 @@ function AchievementWinnerOverlay({
   return (
     <div
       className={cn(
-        "pointer-events-none absolute inset-y-0 left-0 z-[2] w-[56%] max-w-[28rem] overflow-hidden rounded-l-[inherit]",
+        "pointer-events-none absolute inset-0 z-[2] w-[56%] max-w-[28rem] overflow-hidden rounded-l-[inherit]",
         isPaused && "achievement-winner-paused"
       )}
       aria-hidden
@@ -422,30 +425,34 @@ function BannerPhotoPanel({
   return (
     <div
       className={cn(
-        "relative h-full w-full overflow-hidden bg-neutral-950 transition-all duration-700 ease-out",
+        "relative w-full overflow-hidden bg-neutral-950 transition-all duration-700 ease-out",
         isTransitioning ? "scale-[1.02] opacity-0" : "scale-100 opacity-100"
       )}
     >
       {item.photo_url ? (
         <>
+          {/*
+            Natural-ratio layout: the img is block-level with auto height so it
+            stretches to its intrinsic aspect ratio. No letterboxing, no cropping.
+            The photo column (parent) is also auto-height; the right column
+            stretches to match via flex's default align-items:stretch.
+          */}
           <img
             src={item.photo_url}
             alt={item.name}
-            className="absolute inset-0 h-full w-full object-contain object-center"
+            className="block w-full h-auto object-center"
             decoding="async"
           />
-          {/* Light bottom fade only — keeps photo clear; text still readable */}
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] h-[min(42%,11rem)] bg-gradient-to-t from-black/70 via-black/25 to-transparent sm:h-[min(44%,12rem)]" />
-          {/* Left-aligned overlay; font sizes scale with banner width (@container on parent card) */}
+          {/* Light bottom fade — keeps overlay text readable */}
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] h-[min(42%,11rem)] bg-gradient-to-t from-black/70 via-black/25 to-transparent" />
+          {/* Name / batch / tagline pinned to the bottom of the photo */}
           <div className="absolute inset-x-0 bottom-0 z-[2] flex flex-col items-start gap-1 px-2 pb-2 pt-8 text-left sm:gap-1.5 sm:px-2.5 sm:pb-2.5 sm:pt-10 md:px-3 md:pb-3 md:pt-12">
-            {/* 1. Name — achievement copy is on the right column */}
             <p
               className="max-w-full break-words font-bold leading-tight text-white [font-size:clamp(0.78rem,5.5cqw+0.32rem,1.12rem)]"
               style={{ textShadow }}
             >
               {item.name}
             </p>
-            {/* 2. Batch */}
             {batchLine ? (
               <span
                 className="inline-flex max-w-full break-words rounded-md border px-1.5 py-0.5 font-bold uppercase tracking-wide shadow-md sm:px-2 sm:py-0.5 [font-size:clamp(0.58rem,2.8cqw+0.2rem,0.75rem)]"
@@ -459,20 +466,20 @@ function BannerPhotoPanel({
                 {batchLine}
               </span>
             ) : null}
-            {/* 3. Alumni of HPC */}
             <p
               className="max-w-full break-words font-bold leading-snug [font-size:clamp(0.62rem,3.4cqw+0.22rem,0.82rem)]"
-              style={{
-                color: "var(--achievement-banner-line)",
-                textShadow,
-              }}
+              style={{ color: "var(--achievement-banner-line)", textShadow }}
             >
               {tagline}
             </p>
           </div>
         </>
       ) : (
-        <div className="relative flex h-full w-full flex-col justify-end" style={{ background: "var(--achievement-banner-side-bg)" }}>
+        /* No-photo fallback: fixed minimum height so the banner isn't a sliver */
+        <div
+          className="relative flex min-h-[220px] w-full flex-col justify-end sm:min-h-[280px] lg:min-h-[340px]"
+          style={{ background: "var(--achievement-banner-side-bg)" }}
+        >
           <Award
             className={cn(awardClassName, "pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 opacity-25")}
             aria-hidden
@@ -534,9 +541,9 @@ function normalizeAchievementSettings(raw: unknown): Settings | null {
   return { banner_enabled, slide_duration, max_display_count };
 }
 
-/** Fixed “design canvas” for the achievement strip; below `lg` the whole shell scales down with width (see wrapper). */
-const ACHIEVEMENT_BANNER_DESIGN_W = 960;
-const ACHIEVEMENT_BANNER_DESIGN_H = 540;
+
+/** Desktop reference width: the shell is rendered at this width then scaled to fit. */
+const DESIGN_W = 960;
 
 const AchievementBanner = () => {
   const [achievements, setAchievements] = useState<Achievement[]>([]);
@@ -545,6 +552,37 @@ const AchievementBanner = () => {
   const [isPaused, setIsPaused] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [progressKey, setProgressKey] = useState(0);
+  const bannerCardRef = useRef<HTMLDivElement>(null);
+  const bannerShellRef = useRef<HTMLDivElement>(null);
+  const [bannerScale, setBannerScale] = useState(1);
+  const [bannerWrapperH, setBannerWrapperH] = useState<number | undefined>(undefined);
+
+  // Re-run when banner DOM first appears (achievements go from 0 → loaded).
+  // Without this, refs are null on the initial null-render and the ResizeObserver
+  // never gets set up, so scaling never kicks in.
+  const bannerReady = achievements.length > 0 && !!settings?.banner_enabled;
+  useLayoutEffect(() => {
+    const card = bannerCardRef.current;
+    const shell = bannerShellRef.current;
+    if (!card || !shell) return;
+    const update = () => {
+      const cardW = card.getBoundingClientRect().width;
+      if (!cardW) return;
+      const s = Math.min(1, cardW / DESIGN_W);
+      setBannerScale(s);
+      setBannerWrapperH(s < 1 ? Math.round(shell.offsetHeight * s) : undefined);
+    };
+    let raf1 = 0, raf2 = 0;
+    raf1 = requestAnimationFrame(() => { raf2 = requestAnimationFrame(update); });
+    const ro = new ResizeObserver(update);
+    ro.observe(card);
+    ro.observe(shell);
+    return () => {
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+      ro.disconnect();
+    };
+  }, [bannerReady]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -627,128 +665,127 @@ const AchievementBanner = () => {
           ) : null}
 
         <div
-          className="@container/achievement-banner relative min-w-0 w-full flex-1 overflow-x-hidden overflow-y-hidden rounded-xl border border-border/90 bg-background shadow-md ring-1 ring-border/40"
+          ref={bannerCardRef}
+          className="@container/achievement-banner relative min-w-0 w-full flex-1 max-w-[960px] overflow-hidden rounded-xl border border-border/90 bg-background shadow-md ring-1 ring-border/40"
           onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
         >
       {/*
-        Below lg: fixed design canvas (see ACHIEVEMENT_BANNER_DESIGN_*); scale = min(1, 100cqw / design width).
-        Height follows width via aspect-ratio so the strip stays a proportional “zoom” of desktop.
+        Transform-scale canvas: the shell is always DESIGN_W (960px) wide internally.
+        On screens narrower than DESIGN_W, JS sets scale = cardWidth/960 and applies
+        transform:scale on the shell. A wrapper reserves the correctly-scaled height.
+        The whole banner looks like a proportionally zoomed version of the desktop layout.
       */}
+      {/* Wrapper: clips and reserves the scaled height */}
       <div
-        className="relative w-full overflow-hidden rounded-b-[inherit] max-lg:[container-type:inline-size] max-lg:[aspect-ratio:var(--achievement-banner-design-w-num)/var(--achievement-banner-design-h-num)] lg:aspect-auto"
-        style={
-          {
-            ["--achievement-banner-design-w-num" as string]: String(ACHIEVEMENT_BANNER_DESIGN_W),
-            ["--achievement-banner-design-h-num" as string]: String(ACHIEVEMENT_BANNER_DESIGN_H),
-            ["--achievement-banner-design-w-px" as string]: `${ACHIEVEMENT_BANNER_DESIGN_W}px`,
-            ["--achievement-banner-design-h-px" as string]: `${ACHIEVEMENT_BANNER_DESIGN_H}px`,
-          } as CSSProperties
-        }
+        className="relative overflow-hidden rounded-b-[inherit]"
+        style={bannerScale < 1 && bannerWrapperH ? { height: bannerWrapperH } : undefined}
       >
+        {/* Shell: fixed at DESIGN_W, scaled down to fit card width */}
         <div
-          className={cn(
-            "hpc-achievement-banner-shell relative flex min-h-0 min-w-0 flex-row overflow-x-hidden overflow-y-hidden rounded-b-[inherit]",
-            "max-lg:absolute max-lg:left-1/2 max-lg:top-0 max-lg:h-[var(--achievement-banner-design-h-px)] max-lg:w-[var(--achievement-banner-design-w-px)] max-lg:origin-top",
-            "max-lg:[transform:translateX(-50%)_scale(min(1,calc(100cqw/var(--achievement-banner-design-w-px))))]",
-            "lg:relative lg:left-auto lg:top-auto lg:h-[clamp(280px,min(50svh,540px),540px)] lg:min-h-[280px] lg:w-full lg:max-h-[min(540px,92svh)] lg:transform-none"
-          )}
+          ref={bannerShellRef}
+          className="hpc-achievement-banner-shell flex flex-row overflow-hidden rounded-b-[inherit] origin-top-left"
+          style={bannerScale < 1 ? { width: `${DESIGN_W}px`, transform: `scale(${bannerScale})` } : { width: "100%" }}
         >
-        <div className="relative z-0 h-full w-[56%] max-w-[28rem] min-h-0 min-w-0 shrink-0 overflow-hidden border-r border-border/50">
-          <BannerPhotoPanel
-            item={item}
-            isTransitioning={isTransitioning}
-            awardClassName="h-16 w-16 text-white/20 sm:h-20 sm:w-20 md:h-28 md:w-28"
-          />
-        </div>
-        <AchievementWinnerOverlay key={item.id} slideKey={item.id} isPaused={isPaused} />
+          {/* Photo column — 56% of DESIGN_W; height comes from image's natural ratio */}
+          <div className="relative z-0 w-[56%] max-w-[28rem] min-w-0 shrink-0 overflow-hidden border-r border-border/50">
+            <BannerPhotoPanel
+              item={item}
+              isTransitioning={isTransitioning}
+              awardClassName="h-28 w-28 text-white/20"
+            />
+          </div>
 
-        <div
-          className={cn(
-            "hpc-achievement-right-pane relative z-[10] box-border flex h-full min-h-0 min-w-0 flex-1 flex-col justify-start overflow-x-hidden overflow-y-hidden pt-4 sm:pt-[18px] md:pt-5 lg:pt-6",
-            isPaused && "achievement-winner-paused"
-          )}
-          style={{ background: "var(--achievement-banner-side-bg)" }}
-        >
-          <div className="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-br from-primary/[0.07] via-transparent to-transparent hpc-banner-right-pauseable hpc-banner-right-bg-shimmer" />
+          <AchievementWinnerOverlay key={item.id} slideKey={item.id} isPaused={isPaused} />
+
+          {/* Right column — stretches to photo height via flex align-items:stretch */}
           <div
             className={cn(
-              "relative z-10 flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-hidden",
-              item.message?.trim() && "flex-row items-stretch",
-              isTransitioning ? "opacity-0" : "opacity-100"
+              "hpc-achievement-right-pane relative z-[10] box-border flex min-w-0 flex-1 flex-col justify-start overflow-x-hidden overflow-y-hidden pt-6",
+              isPaused && "achievement-winner-paused"
             )}
+            style={{ background: "var(--achievement-banner-side-bg)" }}
           >
+            <div className="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-br from-primary/[0.07] via-transparent to-transparent hpc-banner-right-pauseable hpc-banner-right-bg-shimmer" />
             <div
               className={cn(
-                "flex min-h-0 min-w-0 flex-col justify-start gap-1 overflow-x-hidden border-l-[3px] border-primary sm:gap-1.5 sm:px-2.5 sm:pb-2 md:gap-1.5 md:px-3 md:pb-2 lg:px-3.5",
-                item.message?.trim()
-                  ? "hpc-achievement-mobile-text-scroll min-w-0 flex-1 basis-[80%] max-w-[80%] overflow-y-auto overscroll-contain px-2 pb-1.5 pt-0 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.25)_transparent]"
-                  : "w-full min-w-0 max-w-full flex-1 overflow-y-hidden px-2 sm:px-2.5 md:px-3 lg:px-3.5"
+                "relative z-10 flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-hidden",
+                item.message?.trim() && "flex-row items-stretch",
+                isTransitioning ? "opacity-0" : "opacity-100"
               )}
             >
               <div
-                key={`${item.id}-pill`}
-                className="hpc-banner-right-enter mx-auto inline-flex w-fit max-w-full shrink-0 items-center justify-center gap-1 rounded-full border px-1.5 py-0.5 text-[0.62rem] font-semibold uppercase tracking-[0.12em] sm:gap-1.5 sm:px-2 sm:text-[0.65rem] sm:tracking-[0.13em] md:py-0.5"
-                style={{
-                  borderColor: "var(--achievement-banner-tag-border)",
-                  backgroundColor: "var(--achievement-banner-tag-bg)",
-                  color: "var(--achievement-banner-eyebrow)",
-                  animationDelay: "0.04s",
-                }}
+                className={cn(
+                  "flex min-h-0 min-w-0 flex-col justify-start gap-1.5 overflow-x-hidden border-l-[3px] border-primary px-3.5 pb-2",
+                  item.message?.trim()
+                    ? "hpc-achievement-mobile-text-scroll min-w-0 flex-1 basis-[80%] max-w-[80%] overflow-y-auto overscroll-contain pt-0 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.25)_transparent]"
+                    : "w-full min-w-0 max-w-full flex-1 overflow-y-hidden"
+                )}
               >
-                <span
-                  className="h-1 w-1 shrink-0 rounded-full animate-pulse sm:h-1.5 sm:w-1.5"
-                  style={{ backgroundColor: "var(--achievement-banner-line)" }}
-                />
-                Alumni Spotlight
+                <div
+                  key={`${item.id}-pill`}
+                  className="hpc-banner-right-enter mx-auto inline-flex w-fit max-w-full shrink-0 items-center justify-center gap-1.5 rounded-full border px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-[0.13em]"
+                  style={{
+                    borderColor: "var(--achievement-banner-tag-border)",
+                    backgroundColor: "var(--achievement-banner-tag-bg)",
+                    color: "var(--achievement-banner-eyebrow)",
+                    animationDelay: "0.04s",
+                  }}
+                >
+                  <span
+                    className="h-1.5 w-1.5 shrink-0 rounded-full animate-pulse"
+                    style={{ backgroundColor: "var(--achievement-banner-line)" }}
+                  />
+                  Alumni Spotlight
+                </div>
+
+                {item.achievement_title?.trim() ? (
+                  <div
+                    key={`${item.id}-ach`}
+                    className="hpc-banner-right-enter w-full min-w-0 shrink-0"
+                    style={{ animationDelay: "0.12s" }}
+                  >
+                    <div
+                      className="hpc-banner-right-box-glow hpc-banner-right-pauseable w-full rounded-lg border bg-white/[0.06] px-2.5 py-1.5 backdrop-blur-[2px]"
+                      style={{ borderColor: "var(--achievement-banner-tag-border)" }}
+                    >
+                      <p className="text-[0.58rem] font-semibold uppercase tracking-widest text-white/50">
+                        Achievement
+                      </p>
+                      <p
+                        className="mt-0.5 break-words font-semibold leading-snug text-[clamp(0.68rem,2.6cqw+0.18rem,0.8125rem)]"
+                        style={{ color: "var(--achievement-banner-line)" }}
+                      >
+                        {item.achievement_title.trim()}
+                      </p>
+                    </div>
+                  </div>
+                ) : null}
+
+                {item.message?.trim() ? (
+                  <div
+                    key={`${item.id}-msg`}
+                    className="hpc-banner-right-enter min-w-0 w-full shrink-0"
+                    style={{ animationDelay: "0.2s" }}
+                  >
+                    <CongratulationsBurstReveal
+                      message={item.message.trim()}
+                      heading={item.banner_congratulations_text}
+                      slideKey={item.id}
+                      isPaused={isPaused}
+                    />
+                  </div>
+                ) : null}
               </div>
 
-              {item.achievement_title?.trim() ? (
-                <div
-                  key={`${item.id}-ach`}
-                  className="hpc-banner-right-enter w-full min-w-0 shrink-0 max-lg:pr-1 sm:max-lg:pr-1.5"
-                  style={{ animationDelay: "0.12s" }}
-                >
-                  <div
-                    className="hpc-banner-right-box-glow hpc-banner-right-pauseable w-full rounded-md border bg-white/[0.06] px-2 py-1 backdrop-blur-[2px] sm:rounded-lg sm:px-2 sm:py-1 md:px-2.5 md:py-1.5"
-                    style={{ borderColor: "var(--achievement-banner-tag-border)" }}
-                  >
-                    <p className="text-[0.55rem] font-semibold uppercase tracking-widest text-white/50 sm:text-[0.58rem]">
-                      Achievement
-                    </p>
-                    <p
-                      className="mt-0.5 break-words font-semibold leading-snug text-[clamp(0.68rem,2.6cqw+0.18rem,0.8125rem)] max-lg:text-justify max-lg:hyphens-auto"
-                      style={{ color: "var(--achievement-banner-line)" }}
-                    >
-                      {item.achievement_title.trim()}
-                    </p>
-                  </div>
-                </div>
-              ) : null}
-
               {item.message?.trim() ? (
-                <div
-                  key={`${item.id}-msg`}
-                  className="hpc-banner-right-enter min-w-0 w-full shrink-0 max-lg:pr-1 sm:max-lg:pr-1.5"
-                  style={{ animationDelay: "0.2s" }}
-                >
-                  <CongratulationsBurstReveal
-                    message={item.message.trim()}
-                    slideKey={item.id}
-                    isPaused={isPaused}
-                  />
+                <div className="flex min-h-0 w-[20%] max-w-[20%] shrink-0 flex-col items-center justify-center overflow-visible border-l border-white/15 py-3 pl-1 pr-1">
+                  <BannerAlumniLogoBadge variant="panel" />
                 </div>
               ) : null}
             </div>
-
-            {item.message?.trim() ? (
-              <div className="flex min-h-0 w-[20%] max-w-[20%] shrink-0 flex-col items-center justify-center overflow-visible border-l border-white/15 py-3 pl-1 pr-1">
-                <BannerAlumniLogoBadge variant="panel" />
-              </div>
-            ) : null}
           </div>
         </div>
-      </div>
       </div>
 
       {/* Single slide counter */}
