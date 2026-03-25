@@ -71,24 +71,32 @@ export default function CommitteeMemberProfile() {
   const hasSensitive = member?.isApproved;
   const showLock = !hasSensitive;
 
+  const handleBackToCommittee = () => {
+    // Prefer real back navigation when available; otherwise go to landing committee section.
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate("/#committee");
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Navbar />
       <main className="flex-1">
-        {/* Back button */}
-        <div className="layout-container pt-6 pb-2">
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back
-          </button>
-        </div>
-
         {/* Content */}
-        <div className="layout-container pb-16">
+        <div className="layout-container pt-10 sm:pt-12 pb-16">
+          {/* Back button (in-flow). Extra top padding prevents navbar overlap. */}
+          <div className="mb-4">
+            <button
+              type="button"
+              onClick={handleBackToCommittee}
+              className="inline-flex items-center gap-2 rounded-full border bg-background px-4 py-2 text-sm font-semibold text-foreground shadow-sm transition-colors hover:bg-muted"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to Committee
+            </button>
+          </div>
           {loading && (
             <div className="flex items-center justify-center py-32 text-muted-foreground text-sm">
               Loading profile…

@@ -573,11 +573,6 @@ export function MobilePresidentCard({ member, roleLabel }: { member: DBMember; r
               <p className="mt-1 text-sm leading-relaxed text-muted-foreground italic">"{member.wishing_message}"</p>
             </div>
           )}
-
-          <div className="flex items-center gap-1.5 text-sm font-semibold" style={{ color: primary }}>
-            <ExternalLink className="h-3.5 w-3.5" />
-            See Full Profile
-          </div>
         </div>
       </motion.div>
     </Link>
@@ -674,8 +669,8 @@ export function MobileMemberCard({ member, serial, postTitle }: { member: DBMemb
 
           <span className="inline-flex items-start gap-1.5">
             <Building2 className="mt-0.5 h-3 w-3 shrink-0" style={{ color: primary }} />
-            <span className="min-w-0 truncate">
-              <span className="font-semibold" style={{ color: primary }}>University: </span>
+            <span className="min-w-0 truncate text-[10px] leading-snug">
+              <span className="font-semibold" style={{ color: primary }}>Uni: </span>
               {member.institution ?? "N/A"}
             </span>
           </span>
@@ -684,28 +679,17 @@ export function MobileMemberCard({ member, serial, postTitle }: { member: DBMemb
 
       {wishingText && (
         <div
-          className="mx-3 mb-2 max-h-[5.5rem] overflow-hidden rounded-md border p-2.5"
+          className="mx-3 mb-2 rounded-md border p-2.5"
           style={{ backgroundColor: primaryTint, borderColor: primaryBorder }}
         >
           <p className="text-[10px] font-semibold" style={{ color: primary }}>Message</p>
-          <p
-            className="mt-0.5 text-xs leading-relaxed text-muted-foreground italic overflow-hidden"
-            style={{ display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 4 }}
-          >
+          <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground italic break-words">
             "{wishingText}"
           </p>
         </div>
       )}
 
-      {/* Footer hint */} 
-      <div className="px-3 pb-3">
-        <div className="flex w-full items-center justify-center gap-1.5 rounded-full border py-1.5 text-xs font-semibold"
-          style={{ borderColor: primaryBorder, color: primary }}
-        >
-          <ExternalLink className="h-3 w-3" />
-          See Profile
-        </div>
-      </div>
+      <div className="pb-3" />
     </motion.div>
     </Link>
   );
@@ -823,7 +807,9 @@ export function AlumniExecutiveCommitteeBoard({
 
   const scaled = boardScale < 1;
   const isMobile = boardW < 540;
-  const twoColMobile = isMobile && boardW >= 360;
+  // Always render 2-column mobile layout for other members.
+  // The card contents are designed to fit (and for very narrow widths, they will truncate rather than collapsing to 1 column).
+  const twoColMobile = isMobile;
   const mobileZoom = isMobile && boardW < MOBILE_REF_W ? boardW / MOBILE_REF_W : 1;
 
   const seeMoreButtons = (total: number) =>
