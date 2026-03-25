@@ -579,6 +579,215 @@ export function ExecutiveMemberCard({
   );
 }
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   MOBILE CARDS — phone-friendly (<540 px), full native readable font sizes
+   ───────────────────────────────────────────────────────────────────────────── */
+
+export function MobilePresidentCard({ member, roleLabel }: { member: DBMember; roleLabel?: string }) {
+  const roleLine = roleLabel || member.designation || "President";
+  const primary = "hsl(var(--primary))";
+  const primaryTint = "hsl(var(--primary) / 0.12)";
+  const primaryBorder = "hsl(var(--primary) / 0.25)";
+  const gmailHref = member.email
+    ? `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(member.email)}`
+    : null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ duration: 0.6 }}
+      className="overflow-hidden rounded-[13px] border border-border/55 shadow-card"
+      style={{ background: `linear-gradient(135deg, hsl(var(--primary) / 0.14) 0%, hsl(var(--card)) 45%, hsl(var(--card)) 100%)` }}
+    >
+      {/* KING + #01 badges — above photo */}
+      <div className="flex items-center gap-1.5 px-4 pt-4 pb-2">
+        <span className="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-bold"
+          style={{ backgroundColor: primaryTint, borderColor: primaryBorder, color: primary }}>
+          <Crown className="h-3.5 w-3.5" /> KING
+        </span>
+        <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold"
+          style={{ backgroundColor: primaryTint, borderColor: primaryBorder, color: primary }}>
+          #01
+        </span>
+      </div>
+
+      {/* Photo */}
+      <div className="relative w-full overflow-hidden bg-muted" style={{ aspectRatio: "4/3" }}>
+        {member.photo_url ? (
+          <img src={member.photo_url} alt={member.name} className="absolute inset-0 h-full w-full object-cover object-center" />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${primaryTint} 0%, transparent 65%)` }}>
+            <Camera className="h-12 w-12" style={{ color: primary, opacity: 0.5 }} />
+          </div>
+        )}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/60 to-transparent" />
+      </div>
+
+      {/* Info */}
+      <div className="flex flex-col gap-3 p-4">
+        <h3 className="text-xl font-bold leading-tight text-foreground" style={{ fontFamily: "'Outfit', sans-serif" }}>
+          {member.name}
+        </h3>
+
+        <span className="inline-flex w-fit items-center rounded-full border px-3 py-1 text-sm font-semibold"
+          style={{ backgroundColor: primaryTint, borderColor: primaryBorder, color: primary }}>
+          {roleLine}
+        </span>
+
+        <div className="grid grid-cols-1 gap-y-1.5 text-sm text-muted-foreground">
+          <span className="inline-flex min-w-0 items-center gap-2">
+            <GraduationCap className="h-4 w-4 shrink-0" style={{ color: primary }} />
+            <span className="min-w-0 truncate"><span className="font-semibold" style={{ color: primary }}>Batch: </span>{member.batch ?? "N/A"}</span>
+          </span>
+          <span className="inline-flex min-w-0 items-center gap-2">
+            <Hash className="h-4 w-4 shrink-0" style={{ color: primary }} />
+            <span className="min-w-0 truncate"><span className="font-semibold" style={{ color: primary }}>Alumni Id: </span>{member.alumni_id ?? "N/A"}</span>
+          </span>
+          <span className="inline-flex min-w-0 items-center gap-2">
+            <Phone className="h-4 w-4 shrink-0" style={{ color: primary }} />
+            <span className="min-w-0 truncate"><span className="font-semibold" style={{ color: primary }}>Phone: </span>{member.phone ?? "N/A"}</span>
+          </span>
+          {member.email && gmailHref ? (
+            <a href={gmailHref} target="_blank" rel="noopener noreferrer" className="inline-flex min-w-0 items-center gap-2 text-muted-foreground hover:opacity-90">
+              <Mail className="h-4 w-4 shrink-0" style={{ color: primary }} />
+              <span className="min-w-0 truncate"><span className="font-semibold" style={{ color: primary }}>Email: </span><span className="underline-offset-2 hover:underline">{member.email}</span></span>
+            </a>
+          ) : (
+            <span className="inline-flex min-w-0 items-center gap-2">
+              <Mail className="h-4 w-4 shrink-0" style={{ color: primary }} />
+              <span className="min-w-0 truncate"><span className="font-semibold" style={{ color: primary }}>Email: </span>N/A</span>
+            </span>
+          )}
+          <span className="inline-flex min-w-0 items-center gap-2">
+            <Briefcase className="h-4 w-4 shrink-0" style={{ color: primary }} />
+            <span className="min-w-0 truncate"><span className="font-semibold" style={{ color: primary }}>Profession: </span>{member.profession ?? "N/A"}</span>
+          </span>
+          <span className="inline-flex min-w-0 items-center gap-2">
+            <Briefcase className="h-4 w-4 shrink-0" style={{ color: primary }} />
+            <span className="min-w-0 truncate"><span className="font-semibold" style={{ color: primary }}>Job: </span>{member.job_status ?? "N/A"}</span>
+          </span>
+          <span className="inline-flex min-w-0 items-center gap-2">
+            <Building2 className="h-4 w-4 shrink-0" style={{ color: primary }} />
+            <span className="min-w-0 truncate"><span className="font-semibold" style={{ color: primary }}>University: </span>{member.institution ?? "N/A"}</span>
+          </span>
+          <span className="inline-flex min-w-0 items-center gap-2">
+            <GraduationCap className="h-4 w-4 shrink-0" style={{ color: primary }} />
+            <span className="min-w-0 truncate"><span className="font-semibold" style={{ color: primary }}>College: </span>{member.college_name || "N/A"}</span>
+          </span>
+        </div>
+
+        {(member.facebook_url || member.instagram_url || member.linkedin_url) && (
+          <div className="flex items-center gap-3">
+            {member.facebook_url && <a href={member.facebook_url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground transition-colors hover:text-primary"><Facebook className="h-4 w-4" /></a>}
+            {member.instagram_url && <a href={member.instagram_url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground transition-colors hover:text-primary"><Instagram className="h-4 w-4" /></a>}
+            {member.linkedin_url && <a href={member.linkedin_url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground transition-colors hover:text-primary"><Linkedin className="h-4 w-4" /></a>}
+          </div>
+        )}
+
+        {member.wishing_message && (
+          <div className="rounded-md border p-3" style={{ backgroundColor: primaryTint, borderColor: primaryBorder }}>
+            <p className="text-xs font-semibold" style={{ color: primary }}>Wishing you</p>
+            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{member.wishing_message}</p>
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
+export function MobileMemberCard({ member, serial, postTitle }: { member: DBMember; serial: number; postTitle?: string }) {
+  const role = postTitle || member.designation;
+  const primary = "hsl(var(--primary))";
+  const primaryTint = "hsl(var(--primary) / 0.12)";
+  const primaryBorder = "hsl(var(--primary) / 0.25)";
+  const badgeText = `#${String(serial).padStart(2, "0")}`;
+  const gmailHref = member.email
+    ? `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(member.email)}`
+    : null;
+  const wishingText = member.wishing_message
+    ? truncateToWordCount(member.wishing_message, EXECUTIVE_WISHING_DISPLAY_WORDS)
+    : "";
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ duration: 0.5 }}
+      className="overflow-hidden rounded-[13px] border border-border/55 shadow-card"
+      style={{ background: `linear-gradient(135deg, hsl(var(--primary) / 0.14) 0%, hsl(var(--card)) 45%, hsl(var(--card)) 100%)` }}
+    >
+      <div className="flex gap-3 p-3">
+        {/* Photo */}
+        <div className="relative h-[88px] w-[88px] shrink-0 overflow-hidden rounded-md border" style={{ borderColor: primaryBorder }}>
+          <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, hsl(var(--primary) / 0.12) 0%, transparent 60%)` }} />
+          {member.photo_url ? (
+            <img src={member.photo_url} alt={member.name} className="absolute inset-0 z-10 h-full w-full object-cover object-center" />
+          ) : (
+            <div className="absolute inset-0 z-10 flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${primaryTint} 0%, transparent 65%)` }}>
+              <Camera className="h-8 w-8" style={{ color: primary, opacity: 0.5 }} />
+            </div>
+          )}
+        </div>
+
+        {/* Info */}
+        <div className="flex min-w-0 flex-1 flex-col gap-1 pt-0.5">
+          <span className="inline-flex w-fit items-center rounded-full border px-2 py-0.5 text-[11px] font-bold"
+            style={{ backgroundColor: primaryTint, borderColor: primaryBorder, color: primary }}>
+            {badgeText}
+          </span>
+          <h3 className="truncate font-bold leading-tight text-foreground text-base" style={{ fontFamily: "'Outfit', sans-serif" }}>
+            {member.name}
+          </h3>
+          <span className="inline-flex w-fit max-w-full items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold"
+            style={{ backgroundColor: primaryTint, borderColor: primaryBorder, color: primary }}>
+            {role}
+          </span>
+          <div className="mt-0.5 flex flex-col gap-0.5 text-xs text-muted-foreground">
+            <span className="truncate"><span className="font-semibold" style={{ color: primary }}>Batch: </span>{member.batch ?? "N/A"}</span>
+            <span className="truncate"><span className="font-semibold" style={{ color: primary }}>Alumni Id: </span>{member.alumni_id ?? "N/A"}</span>
+            <span className="truncate"><span className="font-semibold" style={{ color: primary }}>Profession: </span>{member.profession ?? "N/A"}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Contact */}
+      <div className="mx-3 mb-2 rounded-md border border-border/40 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+        <div className="flex flex-col gap-0.5">
+          <span className="truncate"><span className="font-semibold" style={{ color: primary }}>Phone: </span>{member.phone ?? "N/A"}</span>
+          {member.email && gmailHref ? (
+            <a href={gmailHref} target="_blank" rel="noopener noreferrer" className="truncate hover:opacity-90">
+              <span className="font-semibold" style={{ color: primary }}>Email: </span>
+              <span className="underline-offset-1 hover:underline">{member.email}</span>
+            </a>
+          ) : (
+            <span className="truncate"><span className="font-semibold" style={{ color: primary }}>Email: </span>N/A</span>
+          )}
+          <span className="truncate"><span className="font-semibold" style={{ color: primary }}>University: </span>{member.institution ?? "N/A"}</span>
+          <span className="truncate"><span className="font-semibold" style={{ color: primary }}>College: </span>{member.college_name || "N/A"}</span>
+        </div>
+      </div>
+
+      {(member.facebook_url || member.instagram_url || member.linkedin_url) && (
+        <div className="flex items-center gap-2.5 px-3 pb-2">
+          {member.facebook_url && <a href={member.facebook_url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground transition-colors hover:text-primary"><Facebook className="h-3.5 w-3.5" /></a>}
+          {member.instagram_url && <a href={member.instagram_url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground transition-colors hover:text-primary"><Instagram className="h-3.5 w-3.5" /></a>}
+          {member.linkedin_url && <a href={member.linkedin_url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground transition-colors hover:text-primary"><Linkedin className="h-3.5 w-3.5" /></a>}
+        </div>
+      )}
+
+      {wishingText && (
+        <div className="mx-3 mb-3 rounded-md border p-2.5" style={{ backgroundColor: primaryTint, borderColor: primaryBorder }}>
+          <p className="text-[10px] font-semibold" style={{ color: primary }}>Wishing you</p>
+          <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{wishingText}</p>
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
 /** Landing / page header for Alumni Executive Committee */
 export function AlumniExecutiveCommitteeIntro({
   totalMembers,
@@ -627,6 +836,7 @@ export function AlumniExecutiveCommitteeIntro({
  * a zoomed-out version of the desktop layout (same approach as AchievementBanner).
  */
 const COMMITTEE_DESIGN_W = 1024; // reference = laptop viewport
+const MOBILE_REF_W = 480;        // reference mobile width — cards zoom below this
 
 export function AlumniExecutiveCommitteeBoard({
   data,
@@ -642,6 +852,7 @@ export function AlumniExecutiveCommitteeBoard({
   const innerRef = useRef<HTMLDivElement>(null);
   const [boardScale, setBoardScale] = useState(1);
   const [boardWrapH, setBoardWrapH] = useState<number | undefined>(undefined);
+  const [boardW, setBoardW] = useState(COMMITTEE_DESIGN_W);
 
   // Measure outer container width vs design width → compute scale + wrapper height.
   useLayoutEffect(() => {
@@ -651,6 +862,7 @@ export function AlumniExecutiveCommitteeBoard({
     const update = () => {
       const w = outer.getBoundingClientRect().width;
       if (!w) return;
+      setBoardW(w);
       const s = Math.min(1, w / COMMITTEE_DESIGN_W);
       setBoardScale(s);
       setBoardWrapH(s < 1 ? Math.round(inner.offsetHeight * s) : undefined);
@@ -687,6 +899,32 @@ export function AlumniExecutiveCommitteeBoard({
   const displayCount = showAll ? restPairs.length : visibleCount;
 
   const scaled = boardScale < 1;
+  const isMobile = boardW < 540;
+  const mobileZoom = isMobile && boardW < MOBILE_REF_W ? boardW / MOBILE_REF_W : 1;
+
+  const seeMoreButtons = (total: number) =>
+    !showAll && (visibleCount < total || visibleCount > 6) ? (
+      <div className="flex items-center justify-center gap-4 mt-4">
+        {visibleCount < total && (
+          <>
+            <button type="button" onClick={() => setVisibleCount((prev) => prev + 6)}
+              className="px-5 py-2 rounded-full border border-primary text-primary text-sm font-medium hover:bg-primary/10 transition-colors">
+              See more ({total - visibleCount} remaining)
+            </button>
+            <button type="button" onClick={() => setVisibleCount(total)}
+              className="text-sm font-medium text-primary underline underline-offset-4 hover:text-primary/80 transition-colors">
+              See all
+            </button>
+          </>
+        )}
+        {visibleCount > 6 && (
+          <button type="button" onClick={() => setVisibleCount(6)}
+            className="px-5 py-2 rounded-full border border-muted-foreground/30 text-muted-foreground text-sm font-medium hover:bg-muted transition-colors">
+            Show less
+          </button>
+        )}
+      </div>
+    ) : null;
 
   return (
     <>
@@ -697,75 +935,81 @@ export function AlumniExecutiveCommitteeBoard({
         compact={compactIntro}
       />
 
-      {/* Outer: measures available width; reserves the scaled height */}
       <div ref={outerRef} className="w-full min-w-0">
-        <div
-          className="relative overflow-hidden"
-          style={scaled && boardWrapH ? { height: boardWrapH } : undefined}
-        >
-          {/* Inner canvas: fixed at COMMITTEE_DESIGN_W, scaled to fit outer */}
+        {isMobile ? (
+          /* ── MOBILE layout (<540 px): single-column, zooms on narrow phones ── */
           <div
-            ref={innerRef}
-            className="flex flex-col origin-top-left"
-            style={scaled
-              ? { width: `${COMMITTEE_DESIGN_W}px`, transform: `scale(${boardScale})`, gap: "40px" }
-              : { width: "100%", gap: "40px" }
-            }
+            className="flex flex-col gap-4"
+            style={mobileZoom < 1 ? { zoom: mobileZoom } : undefined}
           >
-            {/* President: centred, fills reference width */}
-            <div className="mx-auto flex w-full min-w-0 justify-center px-0">
-              <PresidentHeroCard member={presidentDb} roleLabel={presidentPick.postTitle} />
-            </div>
-
-            {/* Member grid: always 3 columns when scaled, responsive otherwise */}
-            <div
-              className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 lg:gap-5"
-              style={scaled ? { gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "20px" } : undefined}
-            >
-              {restPairs.slice(0, displayCount).map((item, i) => (
-                <div key={item.row.id} className="min-w-0">
-                  <ExecutiveMemberCard
-                    member={committeeRowToDBMember(item.row)}
-                    serial={i + 2}
-                    postTitle={item.postTitle}
-                  />
-                </div>
-              ))}
-            </div>
-
-            {!showAll && (visibleCount < restPairs.length || visibleCount > 6) && (
-              <div className="flex items-center justify-center gap-4 mt-2">
-                {visibleCount < restPairs.length && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => setVisibleCount((prev) => prev + 6)}
-                      className="px-5 py-2 rounded-full border border-primary text-primary text-sm font-medium hover:bg-primary/10 transition-colors"
-                    >
-                      See more ({restPairs.length - visibleCount} remaining)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setVisibleCount(restPairs.length)}
-                      className="text-sm font-medium text-primary underline underline-offset-4 hover:text-primary/80 transition-colors"
-                    >
-                      See all
-                    </button>
-                  </>
-                )}
-                {visibleCount > 6 && (
-                  <button
-                    type="button"
-                    onClick={() => setVisibleCount(6)}
-                    className="px-5 py-2 rounded-full border border-muted-foreground/30 text-muted-foreground text-sm font-medium hover:bg-muted transition-colors"
-                  >
-                    Show less
-                  </button>
-                )}
-              </div>
-            )}
+            <MobilePresidentCard member={presidentDb} roleLabel={presidentPick.postTitle} />
+            {restPairs.slice(0, displayCount).map((item, i) => (
+              <MobileMemberCard
+                key={item.row.id}
+                member={committeeRowToDBMember(item.row)}
+                serial={i + 2}
+                postTitle={item.postTitle}
+              />
+            ))}
+            {seeMoreButtons(restPairs.length)}
+            <div ref={innerRef} className="sr-only" />
           </div>
-        </div>
+        ) : (
+          /* ── DESKTOP / TABLET layout: transform-scale canvas (≥ 540 px) ── */
+          <div
+            className="relative overflow-hidden"
+            style={scaled && boardWrapH ? { height: boardWrapH } : undefined}
+          >
+            <div
+              ref={innerRef}
+              className="flex flex-col origin-top-left"
+              style={scaled
+                ? { width: `${COMMITTEE_DESIGN_W}px`, transform: `scale(${boardScale})`, gap: "40px" }
+                : { width: "100%", gap: "40px" }
+              }
+            >
+              <div className="mx-auto flex w-full min-w-0 justify-center px-0">
+                <PresidentHeroCard member={presidentDb} roleLabel={presidentPick.postTitle} />
+              </div>
+              <div
+                className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 lg:gap-5"
+                style={scaled ? { gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "20px" } : undefined}
+              >
+                {restPairs.slice(0, displayCount).map((item, i) => (
+                  <div key={item.row.id} className="min-w-0">
+                    <ExecutiveMemberCard
+                      member={committeeRowToDBMember(item.row)}
+                      serial={i + 2}
+                      postTitle={item.postTitle}
+                    />
+                  </div>
+                ))}
+              </div>
+              {!showAll && (visibleCount < restPairs.length || visibleCount > 6) && (
+                <div className="flex items-center justify-center gap-4 mt-2">
+                  {visibleCount < restPairs.length && (
+                    <>
+                      <button type="button" onClick={() => setVisibleCount((prev) => prev + 6)}
+                        className="px-5 py-2 rounded-full border border-primary text-primary text-sm font-medium hover:bg-primary/10 transition-colors">
+                        See more ({restPairs.length - visibleCount} remaining)
+                      </button>
+                      <button type="button" onClick={() => setVisibleCount(restPairs.length)}
+                        className="text-sm font-medium text-primary underline underline-offset-4 hover:text-primary/80 transition-colors">
+                        See all
+                      </button>
+                    </>
+                  )}
+                  {visibleCount > 6 && (
+                    <button type="button" onClick={() => setVisibleCount(6)}
+                      className="px-5 py-2 rounded-full border border-muted-foreground/30 text-muted-foreground text-sm font-medium hover:bg-muted transition-colors">
+                      Show less
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </>
   );

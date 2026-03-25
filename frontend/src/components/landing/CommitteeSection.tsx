@@ -7,12 +7,15 @@ import {
   AlumniExecutiveCommitteeIntro,
   PresidentHeroCard,
   ExecutiveMemberCard,
+  MobilePresidentCard,
+  MobileMemberCard,
   type DBMember,
 } from "@/components/committee/AlumniExecutiveCommitteeBoard";
 import { Skeleton } from "@/components/ui/skeleton";
 
 
 const COMMITTEE_DESIGN_W = 1024;
+const MOBILE_REF_W = 480;
 
 const CommitteeSection = ({ showAll = false }: { showAll?: boolean }) => {
   const [visibleCount, setVisibleCount] = useState(6);
@@ -20,6 +23,7 @@ const CommitteeSection = ({ showAll = false }: { showAll?: boolean }) => {
   const legacyInnerRef = useRef<HTMLDivElement>(null);
   const [legacyScale, setLegacyScale] = useState(1);
   const [legacyWrapH, setLegacyWrapH] = useState<number | undefined>(undefined);
+  const [legacyW, setLegacyW] = useState(COMMITTEE_DESIGN_W);
 
   useLayoutEffect(() => {
     const outer = legacyOuterRef.current;
@@ -28,6 +32,7 @@ const CommitteeSection = ({ showAll = false }: { showAll?: boolean }) => {
     const update = () => {
       const w = outer.getBoundingClientRect().width;
       if (!w) return;
+      setLegacyW(w);
       const s = Math.min(1, w / COMMITTEE_DESIGN_W);
       setLegacyScale(s);
       setLegacyWrapH(s < 1 ? Math.round(inner.offsetHeight * s) : undefined);
@@ -111,73 +116,99 @@ const CommitteeSection = ({ showAll = false }: { showAll?: boolean }) => {
   // No real data from DB — hide section entirely
   if (!presidentMember && otherMembers.length === 0) return null;
   const displayCount = showAll ? otherMembers.length : visibleCount;
+  const isLegacyMobile = legacyW < 540;
+  const legacyScaled = legacyScale < 1;
+  const legacyMobileZoom = isLegacyMobile && legacyW < MOBILE_REF_W ? legacyW / MOBILE_REF_W : 1;
 
   return (
     <section id="committee" className="relative overflow-hidden border-t border-border/60 bg-background py-10 sm:py-16">
       <div className="layout-container relative">
         <AlumniExecutiveCommitteeIntro totalMembers={1 + otherMembers.length} />
 
-        {/* Scale canvas — same pattern as AlumniExecutiveCommitteeBoard */}
         <div ref={legacyOuterRef} className="w-full min-w-0">
-          <div
-            className="relative overflow-hidden"
-            style={legacyScale < 1 && legacyWrapH ? { height: legacyWrapH } : undefined}
-          >
-            <div
-              ref={legacyInnerRef}
-              className="flex flex-col origin-top-left"
-              style={legacyScale < 1
-                ? { width: `${COMMITTEE_DESIGN_W}px`, transform: `scale(${legacyScale})`, gap: "40px" }
-                : { width: "100%", gap: "40px" }
-              }
-            >
-              <div className="mx-auto flex w-full min-w-0 justify-center px-0">
-                <PresidentHeroCard member={presidentMember} />
-              </div>
-              <div
-                className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 lg:gap-5"
-                style={legacyScale < 1 ? { gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "20px" } : undefined}
-              >
-                {otherMembers.slice(0, displayCount).map((member, i) => (
-                  <div key={member.id} className="min-w-0">
-                    <ExecutiveMemberCard member={member} serial={i + 2} />
-                  </div>
-                ))}
-              </div>
-
+          {isLegacyMobile ? (
+            /* ── MOBILE layout (<540 px): zooms on narrow phones ── */
+            <div className="flex flex-col gap-4" style={legacyMobileZoom < 1 ? { zoom: legacyMobileZoom } : undefined}>
+              {presidentMember && <MobilePresidentCard member={presidentMember} />}
+              {otherMembers.slice(0, displayCount).map((member, i) => (
+                <MobileMemberCard key={member.id} member={member} serial={i + 2} />
+              ))}
               {!showAll && (visibleCount < otherMembers.length || visibleCount > 6) && (
-                <div className="flex items-center justify-center gap-4 mt-8">
+                <div className="flex items-center justify-center gap-4 mt-2">
                   {visibleCount < otherMembers.length && (
                     <>
-                      <button
-                        type="button"
-                        onClick={() => setVisibleCount((prev) => prev + 6)}
-                        className="px-5 py-2 rounded-full border border-primary text-primary text-sm font-medium hover:bg-primary/10 transition-colors"
-                      >
+                      <button type="button" onClick={() => setVisibleCount((prev) => prev + 6)}
+                        className="px-5 py-2 rounded-full border border-primary text-primary text-sm font-medium hover:bg-primary/10 transition-colors">
                         See More ({otherMembers.length - visibleCount} remaining)
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => setVisibleCount(otherMembers.length)}
-                        className="text-sm font-medium text-primary underline underline-offset-4 hover:text-primary/80 transition-colors"
-                      >
+                      <button type="button" onClick={() => setVisibleCount(otherMembers.length)}
+                        className="text-sm font-medium text-primary underline underline-offset-4 hover:text-primary/80 transition-colors">
                         See All
                       </button>
                     </>
                   )}
                   {visibleCount > 6 && (
-                    <button
-                      type="button"
-                      onClick={() => setVisibleCount(6)}
-                      className="px-5 py-2 rounded-full border border-muted-foreground/30 text-muted-foreground text-sm font-medium hover:bg-muted transition-colors"
-                    >
+                    <button type="button" onClick={() => setVisibleCount(6)}
+                      className="px-5 py-2 rounded-full border border-muted-foreground/30 text-muted-foreground text-sm font-medium hover:bg-muted transition-colors">
                       Show Less
                     </button>
                   )}
                 </div>
               )}
+              <div ref={legacyInnerRef} className="sr-only" />
             </div>
-          </div>
+          ) : (
+            /* ── DESKTOP / TABLET layout: transform-scale canvas (≥ 540 px) ── */
+            <div
+              className="relative overflow-hidden"
+              style={legacyScaled && legacyWrapH ? { height: legacyWrapH } : undefined}
+            >
+              <div
+                ref={legacyInnerRef}
+                className="flex flex-col origin-top-left"
+                style={legacyScaled
+                  ? { width: `${COMMITTEE_DESIGN_W}px`, transform: `scale(${legacyScale})`, gap: "40px" }
+                  : { width: "100%", gap: "40px" }
+                }
+              >
+                <div className="mx-auto flex w-full min-w-0 justify-center px-0">
+                  <PresidentHeroCard member={presidentMember} />
+                </div>
+                <div
+                  className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 lg:gap-5"
+                  style={legacyScaled ? { gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "20px" } : undefined}
+                >
+                  {otherMembers.slice(0, displayCount).map((member, i) => (
+                    <div key={member.id} className="min-w-0">
+                      <ExecutiveMemberCard member={member} serial={i + 2} />
+                    </div>
+                  ))}
+                </div>
+                {!showAll && (visibleCount < otherMembers.length || visibleCount > 6) && (
+                  <div className="flex items-center justify-center gap-4 mt-8">
+                    {visibleCount < otherMembers.length && (
+                      <>
+                        <button type="button" onClick={() => setVisibleCount((prev) => prev + 6)}
+                          className="px-5 py-2 rounded-full border border-primary text-primary text-sm font-medium hover:bg-primary/10 transition-colors">
+                          See More ({otherMembers.length - visibleCount} remaining)
+                        </button>
+                        <button type="button" onClick={() => setVisibleCount(otherMembers.length)}
+                          className="text-sm font-medium text-primary underline underline-offset-4 hover:text-primary/80 transition-colors">
+                          See All
+                        </button>
+                      </>
+                    )}
+                    {visibleCount > 6 && (
+                      <button type="button" onClick={() => setVisibleCount(6)}
+                        className="px-5 py-2 rounded-full border border-muted-foreground/30 text-muted-foreground text-sm font-medium hover:bg-muted transition-colors">
+                        Show Less
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </section>
