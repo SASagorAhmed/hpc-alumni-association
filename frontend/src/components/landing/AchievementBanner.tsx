@@ -556,6 +556,7 @@ const AchievementBanner = () => {
   const bannerShellRef = useRef<HTMLDivElement>(null);
   const [bannerScale, setBannerScale] = useState(1);
   const [bannerWrapperH, setBannerWrapperH] = useState<number | undefined>(undefined);
+  const [bannerCardW, setBannerCardW] = useState(960);
 
   // Re-run when banner DOM first appears (achievements go from 0 → loaded).
   // Without this, refs are null on the initial null-render and the ResizeObserver
@@ -568,6 +569,7 @@ const AchievementBanner = () => {
     const update = () => {
       const cardW = card.getBoundingClientRect().width;
       if (!cardW) return;
+      setBannerCardW(cardW);
       const s = Math.min(1, cardW / DESIGN_W);
       setBannerScale(s);
       setBannerWrapperH(s < 1 ? Math.round(shell.offsetHeight * s) : undefined);
@@ -670,61 +672,192 @@ const AchievementBanner = () => {
           onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
         >
-      {/*
-        Transform-scale canvas: the shell is always DESIGN_W (960px) wide internally.
-        On screens narrower than DESIGN_W, JS sets scale = cardWidth/960 and applies
-        transform:scale on the shell. A wrapper reserves the correctly-scaled height.
-        The whole banner looks like a proportionally zoomed version of the desktop layout.
-      */}
-      {/* Wrapper: clips and reserves the scaled height */}
-      <div
-        className="relative overflow-hidden rounded-b-[inherit]"
-        style={bannerScale < 1 && bannerWrapperH ? { height: bannerWrapperH } : undefined}
-      >
-        {/* Shell: fixed at DESIGN_W, scaled down to fit card width */}
-        <div
-          ref={bannerShellRef}
-          className="hpc-achievement-banner-shell flex flex-row overflow-hidden rounded-b-[inherit] origin-top-left"
-          style={bannerScale < 1 ? { width: `${DESIGN_W}px`, transform: `scale(${bannerScale})` } : { width: "100%" }}
-        >
-          {/* Photo column — 56% of DESIGN_W; height comes from image's natural ratio */}
-          <div className="relative z-0 w-[56%] max-w-[28rem] min-w-0 shrink-0 overflow-hidden border-r border-border/50">
-            <BannerPhotoPanel
-              item={item}
-              isTransitioning={isTransitioning}
-              awardClassName="h-28 w-28 text-white/20"
-            />
+      {bannerCardW < 540 ? (
+        /* ── MOBILE layout (card < 540px): stacked, native font sizes, no logo ── */
+        <div className={cn("flex flex-col", isTransitioning ? "opacity-0" : "opacity-100")} style={{ transition: "opacity 0.3s" }}>
+          {/* Photo — full width, consistent aspect ratio on all screen sizes */}
+          <div className="relative w-full overflow-hidden bg-neutral-950" style={{ aspectRatio: "4/3" }}>
+            {item.photo_url ? (
+              <>
+                <img
+                  src={item.photo_url}
+                  alt={item.name}
+                  className="absolute inset-0 h-full w-full object-cover object-top"
+                  decoding="async"
+                />
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] h-[50%] bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+                <div className="absolute inset-x-0 bottom-0 z-[2] flex flex-col items-start gap-0.5 px-3 pb-2.5">
+                  <p className="font-bold leading-tight text-white text-sm drop-shadow-[0_1px_6px_rgba(0,0,0,0.9)]">
+                    {item.name}
+                  </p>
+                  {bannerPhotoBatchLine(item) && (
+                    <span
+                      className="inline-flex rounded-md border px-1.5 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide"
+                      style={{ borderColor: "var(--achievement-banner-tag-border)", backgroundColor: "var(--achievement-banner-tag-bg)", color: "var(--achievement-banner-eyebrow)" }}
+                    >
+                      {bannerPhotoBatchLine(item)}
+                    </span>
+                  )}
+                  <p className="text-[0.65rem] font-semibold leading-snug" style={{ color: "var(--achievement-banner-line)" }}>
+                    {bannerPhotoTagline(item)}
+                  </p>
+                </div>
+              </>
+            ) : (
+              <div className="flex h-full w-full items-center justify-center">
+                <Award className="h-16 w-16 text-white/20" aria-hidden />
+              </div>
+            )}
+
+            {/* Confetti falling over full photo width — same specs as desktop */}
+            {CONFETTI_SPECS.map((c, i) => {
+              const drift = -18 + (i % 6) * 7;
+              return (
+                <span
+                  key={`mob-c-${item.id}-${i}`}
+                  className={cn("hpc-win-anim absolute -top-3 rounded-[1px] shadow-sm will-change-transform", isPaused && "achievement-winner-paused")}
+                  style={{
+                    left: c.left,
+                    width: c.w,
+                    height: c.h,
+                    backgroundColor: confettiColor(c.hue),
+                    ["--drift" as string]: `${drift}px`,
+                    ["--rot" as string]: `${c.rot}deg`,
+                    animationName: "hpc-confetti-fall",
+                    animationDuration: `${c.dur}s`,
+                    animationDelay: `${c.delay}s`,
+                    animationTimingFunction: "cubic-bezier(0.28, 0.55, 0.37, 0.98)",
+                    animationIterationCount: "infinite",
+                  }}
+                />
+              );
+            })}
+
+            {/* Trophy — true top-right corner of photo; key restarts drop animation on each slide */}
+            <div
+              key={`mob-trophy-${item.id}`}
+              className="absolute right-2 top-2 z-[6]"
+              style={{
+                animation: "hpc-winner-trophy 1s cubic-bezier(0.34,1.56,0.64,1) 0.08s both",
+              }}
+            >
+              <Trophy className="h-6 w-6 text-amber-400/95 drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)]" strokeWidth={1.75} />
+            </div>
           </div>
 
-          <AchievementWinnerOverlay key={item.id} slideKey={item.id} isPaused={isPaused} />
+          {/* Alumni Spotlight pill — outside photo, between photo and text section */}
+          <div className="flex justify-center py-2" style={{ background: "var(--achievement-banner-side-bg)" }}>
+            <div
+              className="inline-flex items-center justify-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-[0.13em]"
+              style={{
+                borderColor: "var(--achievement-banner-tag-border)",
+                backgroundColor: "var(--achievement-banner-tag-bg)",
+                color: "var(--achievement-banner-eyebrow)",
+              }}
+            >
+              <Award className="h-3 w-3 shrink-0 text-amber-400" />
+              Alumni Spotlight
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full animate-pulse" style={{ backgroundColor: "var(--achievement-banner-line)" }} />
+            </div>
+          </div>
 
-          {/* Right column — stretches to photo height via flex align-items:stretch */}
+          {/* Text content — full width, readable native size */}
           <div
-            className={cn(
-              "hpc-achievement-right-pane relative z-[10] box-border flex min-w-0 flex-1 flex-col justify-start overflow-x-hidden overflow-y-hidden pt-6",
-              isPaused && "achievement-winner-paused"
-            )}
+            className={cn("relative flex flex-col gap-2.5 px-4 py-3", isPaused && "achievement-winner-paused")}
             style={{ background: "var(--achievement-banner-side-bg)" }}
           >
+            {/* Spotlight radial glow — same feel as achievement banner ambient */}
+            <div className="pointer-events-none absolute inset-0 z-[1] hpc-celebrate-ambient hpc-celebrate-pauseable" aria-hidden />
+            {/* Shimmer overlay — same as desktop right pane */}
             <div className="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-br from-primary/[0.07] via-transparent to-transparent hpc-banner-right-pauseable hpc-banner-right-bg-shimmer" />
             <div
-              className={cn(
-                "relative z-10 flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-hidden",
-                item.message?.trim() && "flex-row items-stretch",
-                isTransitioning ? "opacity-0" : "opacity-100"
-              )}
+              className={cn("relative z-10 flex flex-col gap-2", isTransitioning ? "opacity-0" : "opacity-100")}
+              style={{ transition: "opacity 0.3s" }}
             >
+              {/* Achievement title — staggered enter */}
+              {item.achievement_title?.trim() ? (
+                <div
+                  key={`mob-ach-${item.id}`}
+                  className="hpc-banner-right-enter rounded-lg border bg-white/[0.06] px-3 py-2 backdrop-blur-[2px]"
+                  style={{ borderColor: "var(--achievement-banner-tag-border)", animationDelay: "0.08s" }}
+                >
+                  <p className="text-[0.6rem] font-semibold uppercase tracking-widest text-white/50">Achievement</p>
+                  <p className="mt-0.5 break-words font-semibold leading-snug text-sm" style={{ color: "var(--achievement-banner-line)" }}>
+                    {item.achievement_title.trim()}
+                  </p>
+                </div>
+              ) : null}
+
+              {/* Message — with full CongratulationsBurstReveal animation */}
+              {item.message?.trim() ? (
+                <div
+                  key={`mob-msg-${item.id}`}
+                  className="hpc-banner-right-enter"
+                  style={{ animationDelay: "0.18s" }}
+                >
+                  <CongratulationsBurstReveal
+                    message={item.message.trim()}
+                    heading={item.banner_congratulations_text}
+                    slideKey={`mob-${item.id}`}
+                    isPaused={isPaused}
+                  />
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* ── DESKTOP / TABLET layout: transform-scale canvas (≥ 540px) ── */
+        <>
+        {/* Wrapper: clips and reserves the scaled height */}
+        <div
+          className="relative overflow-hidden rounded-b-[inherit]"
+          style={bannerScale < 1 && bannerWrapperH ? { height: bannerWrapperH } : undefined}
+        >
+          {/* Shell: fixed at DESIGN_W, scaled down to fit card width */}
+          <div
+            ref={bannerShellRef}
+            className="hpc-achievement-banner-shell flex flex-row overflow-hidden rounded-b-[inherit] origin-top-left"
+            style={bannerScale < 1 ? { width: `${DESIGN_W}px`, transform: `scale(${bannerScale})` } : { width: "100%" }}
+          >
+            {/* Photo column — 56% of DESIGN_W; height comes from image's natural ratio */}
+            <div className="relative z-0 w-[56%] max-w-[28rem] min-w-0 shrink-0 overflow-hidden border-r border-border/50">
+              <BannerPhotoPanel
+                item={item}
+                isTransitioning={isTransitioning}
+                awardClassName="h-28 w-28 text-white/20"
+              />
+            </div>
+
+            <AchievementWinnerOverlay key={item.id} slideKey={item.id} isPaused={isPaused} />
+
+            {/* Right column — stretches to photo height via flex align-items:stretch */}
+            <div
+              className={cn(
+                "hpc-achievement-right-pane relative z-[10] box-border flex min-w-0 flex-1 flex-col justify-start overflow-x-hidden overflow-y-hidden pt-6",
+                isPaused && "achievement-winner-paused"
+              )}
+              style={{ background: "var(--achievement-banner-side-bg)" }}
+            >
+              <div className="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-br from-primary/[0.07] via-transparent to-transparent hpc-banner-right-pauseable hpc-banner-right-bg-shimmer" />
               <div
                 className={cn(
-                  "flex min-h-0 min-w-0 flex-col justify-start gap-1.5 overflow-x-hidden border-l-[3px] border-primary px-3.5 pb-2",
-                  item.message?.trim()
-                    ? "hpc-achievement-mobile-text-scroll min-w-0 flex-1 basis-[80%] max-w-[80%] overflow-y-auto overscroll-contain pt-0 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.25)_transparent]"
-                    : "w-full min-w-0 max-w-full flex-1 overflow-y-hidden"
+                  "relative z-10 flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-hidden",
+                  item.message?.trim() && "flex-row items-stretch",
+                  isTransitioning ? "opacity-0" : "opacity-100"
                 )}
               >
                 <div
-                  key={`${item.id}-pill`}
-                  className="hpc-banner-right-enter mx-auto inline-flex w-fit max-w-full shrink-0 items-center justify-center gap-1.5 rounded-full border px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-[0.13em]"
+                  className={cn(
+                    "flex min-h-0 min-w-0 flex-col justify-start gap-1.5 overflow-x-hidden border-l-[3px] border-primary px-3.5 pb-2",
+                    item.message?.trim()
+                      ? "hpc-achievement-mobile-text-scroll min-w-0 flex-1 basis-[85%] max-w-[85%] overflow-y-auto overscroll-contain pt-0 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.25)_transparent]"
+                      : "w-full min-w-0 max-w-full flex-1 overflow-y-hidden"
+                  )}
+                >
+                  <div
+                    key={`${item.id}-pill`}
+                  className="hpc-banner-right-enter mx-auto inline-flex w-fit max-w-full shrink-0 items-center justify-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-[0.13em]"
                   style={{
                     borderColor: "var(--achievement-banner-tag-border)",
                     backgroundColor: "var(--achievement-banner-tag-bg)",
@@ -732,61 +865,64 @@ const AchievementBanner = () => {
                     animationDelay: "0.04s",
                   }}
                 >
+                  <Award className="h-3 w-3 shrink-0 text-amber-400" />
+                  Alumni Spotlight
                   <span
                     className="h-1.5 w-1.5 shrink-0 rounded-full animate-pulse"
                     style={{ backgroundColor: "var(--achievement-banner-line)" }}
                   />
-                  Alumni Spotlight
+                  </div>
+
+                  {item.achievement_title?.trim() ? (
+                    <div
+                      key={`${item.id}-ach`}
+                      className="hpc-banner-right-enter w-full min-w-0 shrink-0"
+                      style={{ animationDelay: "0.12s" }}
+                    >
+                      <div
+                        className="hpc-banner-right-box-glow hpc-banner-right-pauseable w-full rounded-lg border bg-white/[0.06] px-2.5 py-1.5 backdrop-blur-[2px]"
+                        style={{ borderColor: "var(--achievement-banner-tag-border)" }}
+                      >
+                        <p className="text-[0.58rem] font-semibold uppercase tracking-widest text-white/50">
+                          Achievement
+                        </p>
+                        <p
+                          className="mt-0.5 break-words font-semibold leading-snug text-[clamp(0.68rem,2.6cqw+0.18rem,0.8125rem)]"
+                          style={{ color: "var(--achievement-banner-line)" }}
+                        >
+                          {item.achievement_title.trim()}
+                        </p>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {item.message?.trim() ? (
+                    <div
+                      key={`${item.id}-msg`}
+                      className="hpc-banner-right-enter min-w-0 w-full shrink-0"
+                      style={{ animationDelay: "0.2s" }}
+                    >
+                      <CongratulationsBurstReveal
+                        message={item.message.trim()}
+                        heading={item.banner_congratulations_text}
+                        slideKey={item.id}
+                        isPaused={isPaused}
+                      />
+                    </div>
+                  ) : null}
                 </div>
 
-                {item.achievement_title?.trim() ? (
-                  <div
-                    key={`${item.id}-ach`}
-                    className="hpc-banner-right-enter w-full min-w-0 shrink-0"
-                    style={{ animationDelay: "0.12s" }}
-                  >
-                    <div
-                      className="hpc-banner-right-box-glow hpc-banner-right-pauseable w-full rounded-lg border bg-white/[0.06] px-2.5 py-1.5 backdrop-blur-[2px]"
-                      style={{ borderColor: "var(--achievement-banner-tag-border)" }}
-                    >
-                      <p className="text-[0.58rem] font-semibold uppercase tracking-widest text-white/50">
-                        Achievement
-                      </p>
-                      <p
-                        className="mt-0.5 break-words font-semibold leading-snug text-[clamp(0.68rem,2.6cqw+0.18rem,0.8125rem)]"
-                        style={{ color: "var(--achievement-banner-line)" }}
-                      >
-                        {item.achievement_title.trim()}
-                      </p>
-                    </div>
-                  </div>
-                ) : null}
-
                 {item.message?.trim() ? (
-                  <div
-                    key={`${item.id}-msg`}
-                    className="hpc-banner-right-enter min-w-0 w-full shrink-0"
-                    style={{ animationDelay: "0.2s" }}
-                  >
-                    <CongratulationsBurstReveal
-                      message={item.message.trim()}
-                      heading={item.banner_congratulations_text}
-                      slideKey={item.id}
-                      isPaused={isPaused}
-                    />
+                  <div className="flex min-h-0 w-[15%] max-w-[15%] shrink-0 flex-col items-center justify-center overflow-visible border-l border-white/15 py-3 pl-1 pr-1">
+                    <BannerAlumniLogoBadge variant="panel" />
                   </div>
                 ) : null}
               </div>
-
-              {item.message?.trim() ? (
-                <div className="flex min-h-0 w-[20%] max-w-[20%] shrink-0 flex-col items-center justify-center overflow-visible border-l border-white/15 py-3 pl-1 pr-1">
-                  <BannerAlumniLogoBadge variant="panel" />
-                </div>
-              ) : null}
             </div>
           </div>
         </div>
-      </div>
+        </>
+      )}
 
       {/* Single slide counter */}
       {achievements.length > 1 && (
