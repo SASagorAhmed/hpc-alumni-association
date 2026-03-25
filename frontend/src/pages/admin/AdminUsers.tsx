@@ -123,7 +123,7 @@ const AdminUsers = () => {
     updateUser(id, { profile_pending: false }, "Profile update rejected.");
 
   const verifyUser = (id: string) =>
-    updateUser(id, { verified: true }, "User verified.");
+    updateUser(id, { verified: true, approved: true }, "User verified.");
 
   const unverifyUser = (id: string) =>
     updateUser(id, { verified: false }, "User unverified.");

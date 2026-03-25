@@ -38,6 +38,7 @@ async function findOrCreateUserFromGoogle(profile) {
       isNewUser: false,
       needsProfile,
       approved: Boolean(p.approved),
+      verified: Boolean(p.verified),
       blocked: Boolean(p.blocked),
     };
   }
@@ -114,6 +115,7 @@ async function findOrCreateUserFromGoogle(profile) {
     isNewUser,
     needsProfile,
     approved: Boolean(p.approved),
+    verified: Boolean(p.verified),
     blocked: Boolean(p.blocked),
   };
 }

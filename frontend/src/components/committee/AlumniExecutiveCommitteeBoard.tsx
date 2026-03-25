@@ -745,6 +745,37 @@ export function AlumniExecutiveCommitteeIntro({
 const COMMITTEE_DESIGN_W = 1024; // reference = laptop viewport
 const MOBILE_REF_W = 480;        // reference mobile width — cards zoom below this
 
+const CORE_LEADERSHIP_TITLES = [
+  "সভাপতি",
+  "সাধারণ সম্পাদক",
+  "যুগ্ম-সাধারণ সম্পাদক",
+  "কোষাধ্যক্ষ",
+  "সাংগঠনিক সম্পাদক",
+];
+
+const COMMITTEE_HEAD_TITLES = [
+  "সহ-সাংগঠনিক সম্পাদক",
+  "সাহিত্য ও প্রকাশনা সম্পাদক",
+  "প্রচার ও গণসংযোগ সম্পাদক",
+  "শিক্ষা ও পাঠাগার সম্পাদক",
+  "সাংস্কৃতিক সম্পাদক",
+  "ক্রীড়া সম্পাদক",
+  "দপ্তর সম্পাদক",
+];
+
+function normalizeBanglaTitle(s: string | null | undefined) {
+  return String(s || "").trim().replace(/\s+/g, " ");
+}
+
+function pickSectionForPostTitle(postTitle: string | null | undefined): "core" | "heads" | "members" | "other" {
+  const t = normalizeBanglaTitle(postTitle);
+  if (!t) return "other";
+  if (CORE_LEADERSHIP_TITLES.includes(t)) return "core";
+  if (COMMITTEE_HEAD_TITLES.includes(t)) return "heads";
+  if (/নির্বাহী\s*সদস্য/i.test(t) || /executive\s*member/i.test(t)) return "members";
+  return "other";
+}
+
 export function AlumniExecutiveCommitteeBoard({
   data,
   showAll = false,
@@ -838,6 +869,20 @@ export function AlumniExecutiveCommitteeBoard({
 
   const mobileSeeMore = seeMoreButtons(restPairs.length);
 
+  // Group members into the 3 requested sections (hide any extra/unlisted posts).
+  const grouped = restPairs
+    .map((p, idx) => ({ ...p, serial: idx + 2, section: pickSectionForPostTitle(p.postTitle) as const }))
+    .filter((p) => p.section !== "other");
+
+  const coreLeadership = grouped.filter((p) => p.section === "core");
+  const committeeHeads = grouped.filter((p) => p.section === "heads");
+  const committeeMembers = grouped.filter((p) => p.section === "members");
+
+  const visibleGrouped = showAll ? grouped : grouped.slice(0, displayCount);
+  const visibleCore = visibleGrouped.filter((p) => p.section === "core");
+  const visibleHeads = visibleGrouped.filter((p) => p.section === "heads");
+  const visibleMembers = visibleGrouped.filter((p) => p.section === "members");
+
   return (
     <>
       <AlumniExecutiveCommitteeIntro
@@ -849,7 +894,7 @@ export function AlumniExecutiveCommitteeBoard({
 
       <div ref={outerRef} className="w-full min-w-0">
         {isMobile ? (
-          /* ── MOBILE layout (<540 px): single-column, zooms on narrow phones ── */
+          /* ── MOBILE layout (<540 px): 3 sections + 2-col cards ── */
           <div
             className={twoColMobile ? "grid grid-cols-2 gap-4" : "grid grid-cols-1 gap-4"}
             style={mobileZoom < 1 ? { zoom: mobileZoom } : undefined}
@@ -857,14 +902,59 @@ export function AlumniExecutiveCommitteeBoard({
             <div className={twoColMobile ? "col-span-2" : undefined}>
               <MobilePresidentCard member={presidentDb} roleLabel={presidentPick.postTitle} />
             </div>
-            {restPairs.slice(0, displayCount).map((item, i) => (
-              <MobileMemberCard
-                key={item.row.id}
-                member={committeeRowToDBMember(item.row)}
-                serial={i + 2}
-                postTitle={item.postTitle}
-              />
-            ))}
+
+            {/* Core Leadership Team */}
+            {visibleCore.length > 0 ? (
+              <>
+                <div className={twoColMobile ? "col-span-2" : undefined}>
+                  <h3 className="text-sm font-bold tracking-wide text-foreground/80 mt-1">Core Leadership Team</h3>
+                </div>
+                {visibleCore.map((item) => (
+                  <MobileMemberCard
+                    key={item.row.id}
+                    member={committeeRowToDBMember(item.row)}
+                    serial={item.serial}
+                    postTitle={item.postTitle}
+                  />
+                ))}
+              </>
+            ) : null}
+
+            {/* Committee Heads */}
+            {visibleHeads.length > 0 ? (
+              <>
+                <div className={twoColMobile ? "col-span-2" : undefined}>
+                  <h3 className="text-sm font-bold tracking-wide text-foreground/80 mt-2">Committee Heads</h3>
+                </div>
+                {visibleHeads.map((item) => (
+                  <MobileMemberCard
+                    key={item.row.id}
+                    member={committeeRowToDBMember(item.row)}
+                    serial={item.serial}
+                    postTitle={item.postTitle}
+                  />
+                ))}
+              </>
+            ) : null}
+
+            {/* Committee Members */}
+            {visibleMembers.length > 0 ? (
+              <>
+                <div className={twoColMobile ? "col-span-2" : undefined}>
+                  <h3 className="text-sm font-bold tracking-wide text-foreground/80 mt-2">Committee Members</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">নির্বাহী সদস্য</p>
+                </div>
+                {visibleMembers.map((item) => (
+                  <MobileMemberCard
+                    key={item.row.id}
+                    member={committeeRowToDBMember(item.row)}
+                    serial={item.serial}
+                    postTitle={item.postTitle}
+                  />
+                ))}
+              </>
+            ) : null}
+
             {mobileSeeMore ? (
               <div className={twoColMobile ? "col-span-2" : undefined}>{mobileSeeMore}</div>
             ) : null}
@@ -887,20 +977,75 @@ export function AlumniExecutiveCommitteeBoard({
               <div className="mx-auto flex w-full min-w-0 justify-center px-0">
                 <PresidentHeroCard member={presidentDb} roleLabel={presidentPick.postTitle} />
               </div>
-              <div
-                className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 lg:gap-5"
-                style={scaled ? { gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "20px" } : undefined}
-              >
-                {restPairs.slice(0, displayCount).map((item, i) => (
-                  <div key={item.row.id} className="min-w-0">
-                    <ExecutiveMemberCard
-                      member={committeeRowToDBMember(item.row)}
-                      serial={i + 2}
-                      postTitle={item.postTitle}
-                    />
+              {/* Core Leadership Team */}
+              {visibleCore.length > 0 ? (
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-lg font-bold text-foreground">Core Leadership Team</h3>
                   </div>
-                ))}
-              </div>
+                  <div
+                    className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 lg:gap-5"
+                    style={scaled ? { gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "20px" } : undefined}
+                  >
+                    {visibleCore.map((item) => (
+                      <div key={item.row.id} className="min-w-0">
+                        <ExecutiveMemberCard
+                          member={committeeRowToDBMember(item.row)}
+                          serial={item.serial}
+                          postTitle={item.postTitle}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {/* Committee Heads */}
+              {visibleHeads.length > 0 ? (
+                <div className="space-y-4">
+                  <div className="pt-2">
+                    <h3 className="text-lg font-bold text-foreground">Committee Heads</h3>
+                  </div>
+                  <div
+                    className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 lg:gap-5"
+                    style={scaled ? { gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "20px" } : undefined}
+                  >
+                    {visibleHeads.map((item) => (
+                      <div key={item.row.id} className="min-w-0">
+                        <ExecutiveMemberCard
+                          member={committeeRowToDBMember(item.row)}
+                          serial={item.serial}
+                          postTitle={item.postTitle}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {/* Committee Members */}
+              {visibleMembers.length > 0 ? (
+                <div className="space-y-4">
+                  <div className="pt-2">
+                    <h3 className="text-lg font-bold text-foreground">Committee Members</h3>
+                    <p className="text-sm text-muted-foreground">নির্বাহী সদস্য</p>
+                  </div>
+                  <div
+                    className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 lg:gap-5"
+                    style={scaled ? { gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "20px" } : undefined}
+                  >
+                    {visibleMembers.map((item) => (
+                      <div key={item.row.id} className="min-w-0">
+                        <ExecutiveMemberCard
+                          member={committeeRowToDBMember(item.row)}
+                          serial={item.serial}
+                          postTitle={item.postTitle}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
               {!showAll && (visibleCount < restPairs.length || visibleCount > 6) && (
                 <div className="flex items-center justify-center gap-4 mt-2">
                   {visibleCount < restPairs.length && (

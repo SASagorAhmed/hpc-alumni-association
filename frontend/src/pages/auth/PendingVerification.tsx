@@ -1,4 +1,5 @@
-import { Link } from "react-router-dom";
+import { useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, Clock3, UserCheck } from "lucide-react";
@@ -6,6 +7,14 @@ import { useAuth } from "@/contexts/AuthContext";
 
 const PendingVerification = () => {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!user) return;
+    if (user.approved || user.verified) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [user, navigate]);
 
   return (
     <div className="min-h-[70vh] flex items-center justify-center p-4">

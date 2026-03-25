@@ -23,6 +23,11 @@ async function getUserProfile(pool, userId) {
   const p = profileRows?.[0];
   if (!p) return null;
 
+  // In this app, "admin verified" (`profiles.verified`) is the canonical gate.
+  // Some older flows still rely on `profiles.approved`, so treat verified as approved to avoid false "pending" states.
+  const isVerified = Boolean(p.verified);
+  const isApproved = Boolean(p.approved) || isVerified;
+
   return {
     id: p.id,
     name: p.name || "",
@@ -48,8 +53,8 @@ async function getUserProfile(pool, userId) {
     photo: p.photo || null,
     socialLinks: p.social_links || null,
     role: isAdmin ? "admin" : "alumni",
-    verified: Boolean(p.verified),
-    approved: Boolean(p.approved),
+    verified: isVerified,
+    approved: isApproved,
     blocked: Boolean(p.blocked),
     profilePending: Boolean(p.profile_pending),
   };
@@ -271,6 +276,7 @@ router.get("/google/callback", (req, res, next) => {
       query.set("jwt", token);
 
       const approved = Boolean(user?.approved ?? info?.approved);
+      const profileVerified = Boolean(user?.verified ?? info?.verified);
       const blocked = Boolean(user?.blocked ?? info?.blocked);
       const isNewUser = Boolean(user?.isNewUser ?? info?.isNewUser);
       const needsProfile = Boolean(user?.needsProfile ?? info?.needsProfile);
@@ -278,7 +284,7 @@ router.get("/google/callback", (req, res, next) => {
       if (isNewUser) query.set("new_google_user", "1");
       if (needsProfile) query.set("needs_profile", "1");
       if (blocked) query.set("blocked", "1");
-      if (!approved) query.set("pending_approval", "1");
+      if (!approved && !profileVerified) query.set("pending_approval", "1");
       if (isNewUser) query.set("needs_password_setup", "1");
 
       const redirectUrl = `${env.frontendOrigin}/login?${query.toString()}`;

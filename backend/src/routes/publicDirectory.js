@@ -4,9 +4,8 @@ const { getOrCreatePool } = require("../db/pool");
 const router = express.Router();
 
 // GET /api/public/directory/alumni
-// Visibility rules (matches the current frontend Supabase query):
-// - verified = true
-// - approved = true
+// Visibility rules:
+// - verified = true OR approved = true (some deployments only set `verified`)
 // - blocked is false (or NULL)
 router.get("/directory/alumni", async (req, res) => {
   try {
@@ -39,8 +38,7 @@ router.get("/directory/alumni", async (req, res) => {
         created_at,
         social_links
       FROM profiles
-      WHERE verified = true
-        AND approved = true
+      WHERE (verified = true OR approved = true)
         AND (blocked = false OR blocked IS NULL)
       ORDER BY name ASC`
     );
