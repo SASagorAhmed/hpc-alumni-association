@@ -1,8 +1,9 @@
 import { useCallback, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { motion } from "framer-motion";
+import { Link } from "react-router-dom";
 import type { StructuredCommitteePayload } from "@/components/committee/StructuredCommitteeDisplay";
 import type { CommitteeMemberRow } from "@/components/committee/StructuredCommitteeDisplay";
-import { Briefcase, Camera, GraduationCap, Mail, Phone, Hash, Facebook, Instagram, Linkedin, Crown, Building2 } from "lucide-react";
+import { Briefcase, Camera, GraduationCap, Phone, Hash, Facebook, Instagram, Linkedin, Crown, Building2, ExternalLink } from "lucide-react";
 
 export interface DBMember {
   id: string;
@@ -174,22 +175,21 @@ export function PresidentHeroCard({
 
   const fallbackCollege = member.college_name || "N/A";
 
-  const gmailHref = member.email
-    ? `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(member.email)}`
-    : null;
+  const href = `/committee/member/${member.id}`;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ duration: 0.6 }}
-      className="relative mx-auto w-fit max-w-full overflow-hidden rounded-[13px] border border-border/55 bg-card shadow-card transition-shadow hover:shadow-card-hover"
-      style={{
-        background: `linear-gradient(135deg, hsl(var(--primary) / 0.14) 0%, ${cardBg} 45%, ${cardBg} 100%)`,
-      }}
-    >
-      <div className="flex w-fit max-w-full flex-col">
+    <Link to={href} aria-label={`Open profile: ${member.name}`} className="block max-w-full">
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.6 }}
+        className="relative mx-auto w-fit max-w-full cursor-pointer overflow-hidden rounded-[13px] border border-border/55 bg-card shadow-card transition-shadow hover:shadow-card-hover"
+        style={{
+          background: `linear-gradient(135deg, hsl(var(--primary) / 0.14) 0%, ${cardBg} 45%, ${cardBg} 100%)`,
+        }}
+      >
+        <div className="flex w-fit max-w-full flex-col">
         <div className="grid w-full max-w-full grid-cols-[minmax(0,28rem)_auto] items-center gap-x-2.5 p-[1.26rem]">
           <div className="flex min-w-0 w-full max-w-[28rem] flex-col justify-start gap-2 text-left">
           <div className="flex items-center gap-1">
@@ -225,17 +225,17 @@ export function PresidentHeroCard({
           <div className="mt-0.5 grid min-w-0 w-full max-w-full grid-cols-[auto_minmax(0,1fr)] items-start gap-x-1 gap-y-0 text-[11.1px] text-muted-foreground">
             <div className="flex w-auto min-w-0 shrink-0 flex-col gap-y-0.5">
               <span className="inline-flex min-w-0 max-w-full items-start gap-1 break-words">
+                <Hash className="mt-0.5 h-[12.9px] w-[12.9px] shrink-0" style={{ color: primary }} />
+                <span className="min-w-0">
+                  <span className="font-bold" style={{ color: primary }}>Alumni Id: </span>
+                  {member.alumni_id ?? "N/A"}
+                </span>
+              </span>
+              <span className="inline-flex min-w-0 max-w-full items-start gap-1 break-words">
                 <GraduationCap className="mt-0.5 h-[12.9px] w-[12.9px] shrink-0" style={{ color: primary }} />
                 <span className="min-w-0">
                   <span className="font-bold" style={{ color: primary }}>Batch: </span>
                   {member.batch ?? "N/A"}
-                </span>
-              </span>
-              <span className="inline-flex min-w-0 max-w-full items-start gap-1 break-words">
-                <Phone className="mt-0.5 h-[12.9px] w-[12.9px] shrink-0" style={{ color: primary }} />
-                <span className="min-w-0">
-                  <span className="font-bold" style={{ color: primary }}>Phone: </span>
-                  {member.phone ?? "N/A"}
                 </span>
               </span>
               <span className="inline-flex min-w-0 max-w-full items-start gap-1 break-words">
@@ -245,52 +245,9 @@ export function PresidentHeroCard({
                   {member.profession ?? "N/A"}
                 </span>
               </span>
-              <span className="inline-flex min-w-0 max-w-full items-start gap-1 break-words">
-                <Briefcase className="mt-0.5 h-[12.9px] w-[12.9px] shrink-0" style={{ color: primary }} />
-                <span className="min-w-0">
-                  <span className="font-bold" style={{ color: primary }}>Job: </span>
-                  {member.job_status ?? "N/A"}
-                </span>
-              </span>
             </div>
 
             <div className="flex min-w-0 flex-col gap-y-0.5">
-              <span className="inline-flex min-w-0 max-w-full items-start gap-1 break-words">
-                <Hash className="mt-0.5 h-[12.9px] w-[12.9px] shrink-0" style={{ color: primary }} />
-                <span className="min-w-0">
-                  <span className="font-bold" style={{ color: primary }}>Alumni Id: </span>
-                  {member.alumni_id ?? "N/A"}
-                </span>
-              </span>
-              {member.email && gmailHref ? (
-                <a
-                  href={gmailHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex min-w-0 max-w-full items-start gap-1 break-all text-muted-foreground transition-colors hover:opacity-90"
-                >
-                  <Mail className="mt-0.5 h-[12.9px] w-[12.9px] shrink-0" style={{ color: primary }} />
-                  <span className="min-w-0">
-                    <span className="font-bold" style={{ color: primary }}>Email: </span>
-                    <span className="underline-offset-2 hover:underline">{member.email}</span>
-                  </span>
-                </a>
-              ) : (
-                <span className="inline-flex min-w-0 max-w-full items-start gap-1 break-words">
-                  <Mail className="mt-0.5 h-[12.9px] w-[12.9px] shrink-0" style={{ color: primary }} />
-                  <span className="min-w-0">
-                    <span className="font-bold" style={{ color: primary }}>Email: </span>
-                    N/A
-                  </span>
-                </span>
-              )}
-              <span className="inline-flex min-w-0 max-w-full items-start gap-1 break-words">
-                <Building2 className="mt-0.5 h-[12.9px] w-[12.9px] shrink-0" style={{ color: primary }} />
-                <span className="min-w-0">
-                  <span className="font-bold" style={{ color: primary }}>University: </span>
-                  {member.institution ?? "N/A"}
-                </span>
-              </span>
               <span className="inline-flex min-w-0 max-w-full items-start gap-1 break-words">
                 <GraduationCap className="mt-0.5 h-[12.9px] w-[12.9px] shrink-0" style={{ color: primary }} />
                 <span className="min-w-0">
@@ -298,25 +255,14 @@ export function PresidentHeroCard({
                   {fallbackCollege}
                 </span>
               </span>
+              <span className="inline-flex min-w-0 max-w-full items-start gap-1 break-words">
+                <Building2 className="mt-0.5 h-[12.9px] w-[12.9px] shrink-0" style={{ color: primary }} />
+                <span className="min-w-0">
+                  <span className="font-bold" style={{ color: primary }}>University: </span>
+                  {member.institution ?? "N/A"}
+                </span>
+              </span>
             </div>
-          </div>
-
-          <div className="mt-0.5 flex items-center gap-2">
-            {member.facebook_url ? (
-              <a href={member.facebook_url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors">
-                <Facebook className="h-[12.25px] w-[12.25px]" />
-              </a>
-            ) : null}
-            {member.instagram_url ? (
-              <a href={member.instagram_url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors">
-                <Instagram className="h-[12.25px] w-[12.25px]" />
-              </a>
-            ) : null}
-            {member.linkedin_url ? (
-              <a href={member.linkedin_url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors">
-                <Linkedin className="h-[12.25px] w-[12.25px]" />
-              </a>
-            ) : null}
           </div>
 
           {member.wishing_message ? (
@@ -366,8 +312,9 @@ export function PresidentHeroCard({
             )}
           </div>
         </div>
-      </div>
-    </motion.div>
+        </div>
+      </motion.div>
+    </Link>
   );
 }
 
@@ -393,22 +340,21 @@ export function ExecutiveMemberCard({
 
   const fallbackCollege = member.college_name || "N/A";
 
-  const gmailHref = member.email
-    ? `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(member.email)}`
-    : null;
+  const href = `/committee/member/${member.id}`;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ duration: 0.5 }}
-      className="relative min-h-[216px] w-full min-w-0 overflow-hidden rounded-[13px] border border-border/55 bg-card shadow-card transition-shadow hover:shadow-card-hover"
-      style={{
-        background: `linear-gradient(135deg, hsl(var(--primary) / 0.14) 0%, ${cardBg} 45%, ${cardBg} 100%)`,
-      }}
-    >
-      <div className="flex w-full flex-col">
+    <Link to={href} aria-label={`Open profile: ${member.name}`} className="block w-full">
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.5 }}
+        className="relative min-h-[216px] w-full min-w-0 cursor-pointer overflow-hidden rounded-[13px] border border-border/55 bg-card shadow-card transition-shadow hover:shadow-card-hover"
+        style={{
+          background: `linear-gradient(135deg, hsl(var(--primary) / 0.14) 0%, ${cardBg} 45%, ${cardBg} 100%)`,
+        }}
+      >
+        <div className="flex w-full flex-col">
         <div className="p-3.5">
           <div className="flex items-start gap-3.5">
             <div
@@ -491,38 +437,9 @@ export function ExecutiveMemberCard({
             </div>
           </div>
 
-          {/* Bottom: contact & education */}
+          {/* Bottom: education (non-sensitive) */}
           <div className="mt-2 min-w-0 overflow-x-auto rounded-md border border-border/40 bg-muted/20 px-2 py-1.5 [-webkit-overflow-scrolling:touch]">
             <div className="flex flex-col gap-y-1 text-[11.1px] text-muted-foreground">
-              <span className="inline-flex min-w-0 max-w-full items-center gap-1.5">
-                <Phone className="h-[12.9px] w-[12.9px] shrink-0" style={{ color: primary }} />
-                <span className="min-w-0">
-                  <span className="font-bold" style={{ color: primary }}>Phone: </span>
-                  {member.phone ?? "N/A"}
-                </span>
-              </span>
-              {member.email && gmailHref ? (
-                <a
-                  href={gmailHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex min-w-0 max-w-full items-start gap-1.5 break-all text-muted-foreground transition-colors hover:opacity-90"
-                >
-                  <Mail className="mt-0.5 h-[12.9px] w-[12.9px] shrink-0" style={{ color: primary }} />
-                  <span className="min-w-0">
-                    <span className="font-bold" style={{ color: primary }}>Email: </span>
-                    <span className="underline-offset-2 hover:underline">{member.email}</span>
-                  </span>
-                </a>
-              ) : (
-                <span className="inline-flex min-w-0 max-w-full items-center gap-1.5">
-                  <Mail className="h-[12.9px] w-[12.9px] shrink-0" style={{ color: primary }} />
-                  <span className="min-w-0">
-                    <span className="font-bold" style={{ color: primary }}>Email: </span>
-                    N/A
-                  </span>
-                </span>
-              )}
               <span className="inline-flex min-w-0 max-w-full items-start gap-1.5 break-words">
                 <Building2 className="mt-0.5 h-[12.9px] w-[12.9px] shrink-0" style={{ color: primary }} />
                 <span className="min-w-0">
@@ -540,23 +457,6 @@ export function ExecutiveMemberCard({
             </div>
           </div>
 
-          <div className="mt-0.5 flex items-center gap-2">
-            {member.facebook_url ? (
-              <a href={member.facebook_url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors">
-                <Facebook className="h-[12.25px] w-[12.25px]" />
-              </a>
-            ) : null}
-            {member.instagram_url ? (
-              <a href={member.instagram_url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors">
-                <Instagram className="h-[12.25px] w-[12.25px]" />
-              </a>
-            ) : null}
-            {member.linkedin_url ? (
-              <a href={member.linkedin_url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors">
-                <Linkedin className="h-[12.25px] w-[12.25px]" />
-              </a>
-            ) : null}
-          </div>
         </div>
 
         {wishingYouText ? (
@@ -574,8 +474,9 @@ export function ExecutiveMemberCard({
             </div>
           </div>
         ) : null}
-      </div>
-    </motion.div>
+        </div>
+      </motion.div>
+    </Link>
   );
 }
 
@@ -588,112 +489,98 @@ export function MobilePresidentCard({ member, roleLabel }: { member: DBMember; r
   const primary = "hsl(var(--primary))";
   const primaryTint = "hsl(var(--primary) / 0.12)";
   const primaryBorder = "hsl(var(--primary) / 0.25)";
-  const gmailHref = member.email
-    ? `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(member.email)}`
-    : null;
+
+  const href = `/committee/member/${member.id}`;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ duration: 0.6 }}
-      className="overflow-hidden rounded-[13px] border border-border/55 shadow-card"
-      style={{ background: `linear-gradient(135deg, hsl(var(--primary) / 0.14) 0%, hsl(var(--card)) 45%, hsl(var(--card)) 100%)` }}
-    >
-      {/* KING + #01 badges — above photo */}
-      <div className="flex items-center gap-1.5 px-4 pt-4 pb-2">
-        <span className="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-bold"
-          style={{ backgroundColor: primaryTint, borderColor: primaryBorder, color: primary }}>
-          <Crown className="h-3.5 w-3.5" /> KING
-        </span>
-        <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold"
-          style={{ backgroundColor: primaryTint, borderColor: primaryBorder, color: primary }}>
-          #01
-        </span>
-      </div>
-
-      {/* Photo */}
-      <div className="relative w-full overflow-hidden bg-muted" style={{ aspectRatio: "4/3" }}>
-        {member.photo_url ? (
-          <img src={member.photo_url} alt={member.name} className="absolute inset-0 h-full w-full object-cover object-center" />
-        ) : (
-          <div className="absolute inset-0 flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${primaryTint} 0%, transparent 65%)` }}>
-            <Camera className="h-12 w-12" style={{ color: primary, opacity: 0.5 }} />
-          </div>
-        )}
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/60 to-transparent" />
-      </div>
-
-      {/* Info */}
-      <div className="flex flex-col gap-3 p-4">
-        <h3 className="text-xl font-bold leading-tight text-foreground" style={{ fontFamily: "'Outfit', sans-serif" }}>
-          {member.name}
-        </h3>
-
-        <span className="inline-flex w-fit items-center rounded-full border px-3 py-1 text-sm font-semibold"
-          style={{ backgroundColor: primaryTint, borderColor: primaryBorder, color: primary }}>
-          {roleLine}
-        </span>
-
-        <div className="grid grid-cols-1 gap-y-1.5 text-sm text-muted-foreground">
-          <span className="inline-flex min-w-0 items-center gap-2">
-            <GraduationCap className="h-4 w-4 shrink-0" style={{ color: primary }} />
-            <span className="min-w-0 truncate"><span className="font-semibold" style={{ color: primary }}>Batch: </span>{member.batch ?? "N/A"}</span>
+    <Link to={href} aria-label={`Open profile: ${member.name}`} className="block">
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.6 }}
+        className="cursor-pointer overflow-hidden rounded-[13px] border border-border/55 shadow-card"
+        style={{ background: `linear-gradient(135deg, hsl(var(--primary) / 0.14) 0%, hsl(var(--card)) 45%, hsl(var(--card)) 100%)` }}
+      >
+        {/* KING + #01 badges — above photo */}
+        <div className="flex items-center gap-1.5 px-4 pt-4 pb-2">
+          <span className="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-bold"
+            style={{ backgroundColor: primaryTint, borderColor: primaryBorder, color: primary }}>
+            <Crown className="h-3.5 w-3.5" /> KING
           </span>
-          <span className="inline-flex min-w-0 items-center gap-2">
-            <Hash className="h-4 w-4 shrink-0" style={{ color: primary }} />
-            <span className="min-w-0 truncate"><span className="font-semibold" style={{ color: primary }}>Alumni Id: </span>{member.alumni_id ?? "N/A"}</span>
-          </span>
-          <span className="inline-flex min-w-0 items-center gap-2">
-            <Phone className="h-4 w-4 shrink-0" style={{ color: primary }} />
-            <span className="min-w-0 truncate"><span className="font-semibold" style={{ color: primary }}>Phone: </span>{member.phone ?? "N/A"}</span>
-          </span>
-          {member.email && gmailHref ? (
-            <a href={gmailHref} target="_blank" rel="noopener noreferrer" className="inline-flex min-w-0 items-center gap-2 text-muted-foreground hover:opacity-90">
-              <Mail className="h-4 w-4 shrink-0" style={{ color: primary }} />
-              <span className="min-w-0 truncate"><span className="font-semibold" style={{ color: primary }}>Email: </span><span className="underline-offset-2 hover:underline">{member.email}</span></span>
-            </a>
-          ) : (
-            <span className="inline-flex min-w-0 items-center gap-2">
-              <Mail className="h-4 w-4 shrink-0" style={{ color: primary }} />
-              <span className="min-w-0 truncate"><span className="font-semibold" style={{ color: primary }}>Email: </span>N/A</span>
-            </span>
-          )}
-          <span className="inline-flex min-w-0 items-center gap-2">
-            <Briefcase className="h-4 w-4 shrink-0" style={{ color: primary }} />
-            <span className="min-w-0 truncate"><span className="font-semibold" style={{ color: primary }}>Profession: </span>{member.profession ?? "N/A"}</span>
-          </span>
-          <span className="inline-flex min-w-0 items-center gap-2">
-            <Briefcase className="h-4 w-4 shrink-0" style={{ color: primary }} />
-            <span className="min-w-0 truncate"><span className="font-semibold" style={{ color: primary }}>Job: </span>{member.job_status ?? "N/A"}</span>
-          </span>
-          <span className="inline-flex min-w-0 items-center gap-2">
-            <Building2 className="h-4 w-4 shrink-0" style={{ color: primary }} />
-            <span className="min-w-0 truncate"><span className="font-semibold" style={{ color: primary }}>University: </span>{member.institution ?? "N/A"}</span>
-          </span>
-          <span className="inline-flex min-w-0 items-center gap-2">
-            <GraduationCap className="h-4 w-4 shrink-0" style={{ color: primary }} />
-            <span className="min-w-0 truncate"><span className="font-semibold" style={{ color: primary }}>College: </span>{member.college_name || "N/A"}</span>
+          <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold"
+            style={{ backgroundColor: primaryTint, borderColor: primaryBorder, color: primary }}>
+            #01
           </span>
         </div>
 
-        {(member.facebook_url || member.instagram_url || member.linkedin_url) && (
-          <div className="flex items-center gap-3">
-            {member.facebook_url && <a href={member.facebook_url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground transition-colors hover:text-primary"><Facebook className="h-4 w-4" /></a>}
-            {member.instagram_url && <a href={member.instagram_url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground transition-colors hover:text-primary"><Instagram className="h-4 w-4" /></a>}
-            {member.linkedin_url && <a href={member.linkedin_url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground transition-colors hover:text-primary"><Linkedin className="h-4 w-4" /></a>}
-          </div>
-        )}
+        {/* Photo */}
+        <div className="relative w-full overflow-hidden bg-muted" style={{ aspectRatio: "1/1" }}>
+          {member.photo_url ? (
+            <img src={member.photo_url} alt={member.name} className="absolute inset-0 h-full w-full object-cover object-center" />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${primaryTint} 0%, transparent 65%)` }}>
+              <Camera className="h-12 w-12" style={{ color: primary, opacity: 0.5 }} />
+            </div>
+          )}
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/60 to-transparent" />
+        </div>
 
-        {member.wishing_message && (
-          <div className="rounded-md border p-3" style={{ backgroundColor: primaryTint, borderColor: primaryBorder }}>
-            <p className="text-xs font-semibold" style={{ color: primary }}>Wishing you</p>
-            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{member.wishing_message}</p>
+        {/* Info */}
+        <div className="flex flex-col gap-3 p-4">
+          <h3 className="text-xl font-bold leading-tight text-foreground" style={{ fontFamily: "'Outfit', sans-serif" }}>
+            {member.name}
+          </h3>
+
+          <span className="inline-flex w-fit items-center rounded-full border px-3 py-1 text-sm font-semibold"
+            style={{ backgroundColor: primaryTint, borderColor: primaryBorder, color: primary }}>
+            {roleLine}
+          </span>
+
+          {/* Two-column info grid (public fields only) */}
+          <div className="flex w-full min-w-0 items-start justify-between gap-2 text-sm text-muted-foreground">
+            {/* Left column: Alumni Id · Batch · Profession */}
+            <div className="flex min-w-0 flex-col gap-y-1">
+              <span className="inline-flex min-w-0 items-start gap-1">
+                <Hash className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color: primary }} />
+                <span className="min-w-0 truncate"><span className="font-semibold" style={{ color: primary }}>Alumni Id: </span>{member.alumni_id ?? "N/A"}</span>
+              </span>
+              <span className="inline-flex min-w-0 items-start gap-1">
+                <GraduationCap className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color: primary }} />
+                <span className="whitespace-nowrap"><span className="font-semibold" style={{ color: primary }}>Batch: </span>{member.batch ?? "N/A"}</span>
+              </span>
+              <span className="inline-flex min-w-0 items-start gap-1">
+                <Briefcase className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color: primary }} />
+                <span className="whitespace-nowrap"><span className="font-semibold" style={{ color: primary }}>Profession: </span>{member.profession ?? "N/A"}</span>
+              </span>
+            </div>
+            {/* Right column: College · University */}
+            <div className="flex min-w-0 flex-col gap-y-1">
+              <span className="inline-flex min-w-0 items-start gap-1">
+                <GraduationCap className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color: primary }} />
+                <span className="min-w-0 truncate"><span className="font-semibold" style={{ color: primary }}>College: </span>{member.college_name || "N/A"}</span>
+              </span>
+              <span className="inline-flex min-w-0 items-start gap-1">
+                <Building2 className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color: primary }} />
+                <span className="min-w-0 truncate"><span className="font-semibold" style={{ color: primary }}>University: </span>{member.institution ?? "N/A"}</span>
+              </span>
+            </div>
           </div>
-        )}
-      </div>
-    </motion.div>
+
+          {member.wishing_message && (
+            <div className="rounded-md border p-3" style={{ backgroundColor: primaryTint, borderColor: primaryBorder }}>
+              <p className="text-xs font-semibold" style={{ color: primary }}>Message</p>
+              <p className="mt-1 text-sm leading-relaxed text-muted-foreground italic">"{member.wishing_message}"</p>
+            </div>
+          )}
+
+          <div className="flex items-center gap-1.5 text-sm font-semibold" style={{ color: primary }}>
+            <ExternalLink className="h-3.5 w-3.5" />
+            See Full Profile
+          </div>
+        </div>
+      </motion.div>
+    </Link>
   );
 }
 
@@ -703,22 +590,22 @@ export function MobileMemberCard({ member, serial, postTitle }: { member: DBMemb
   const primaryTint = "hsl(var(--primary) / 0.12)";
   const primaryBorder = "hsl(var(--primary) / 0.25)";
   const badgeText = `#${String(serial).padStart(2, "0")}`;
-  const gmailHref = member.email
-    ? `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(member.email)}`
-    : null;
   const wishingText = member.wishing_message
     ? truncateToWordCount(member.wishing_message, EXECUTIVE_WISHING_DISPLAY_WORDS)
     : "";
 
+  const href = `/committee/member/${member.id}`;
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ duration: 0.5 }}
-      className="overflow-hidden rounded-[13px] border border-border/55 shadow-card"
-      style={{ background: `linear-gradient(135deg, hsl(var(--primary) / 0.14) 0%, hsl(var(--card)) 45%, hsl(var(--card)) 100%)` }}
-    >
+    <Link to={href} aria-label={`Open profile: ${member.name}`} className="block w-full">
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.5 }}
+        className="cursor-pointer overflow-hidden rounded-[13px] border border-border/55 shadow-card"
+        style={{ background: `linear-gradient(135deg, hsl(var(--primary) / 0.14) 0%, hsl(var(--card)) 45%, hsl(var(--card)) 100%)` }}
+      >
       <div className="flex gap-3 p-3">
         {/* Photo */}
         <div className="relative h-[88px] w-[88px] shrink-0 overflow-hidden rounded-md border" style={{ borderColor: primaryBorder }}>
@@ -734,8 +621,10 @@ export function MobileMemberCard({ member, serial, postTitle }: { member: DBMemb
 
         {/* Info */}
         <div className="flex min-w-0 flex-1 flex-col gap-1 pt-0.5">
-          <span className="inline-flex w-fit items-center rounded-full border px-2 py-0.5 text-[11px] font-bold"
-            style={{ backgroundColor: primaryTint, borderColor: primaryBorder, color: primary }}>
+          <span
+            className="inline-flex w-fit items-center rounded-full border px-2 py-0.5 text-[11px] font-bold"
+            style={{ backgroundColor: primaryTint, borderColor: primaryBorder, color: primary }}
+          >
             {badgeText}
           </span>
           <h3 className="truncate font-bold leading-tight text-foreground text-base" style={{ fontFamily: "'Outfit', sans-serif" }}>
@@ -745,46 +634,80 @@ export function MobileMemberCard({ member, serial, postTitle }: { member: DBMemb
             style={{ backgroundColor: primaryTint, borderColor: primaryBorder, color: primary }}>
             {role}
           </span>
-          <div className="mt-0.5 flex flex-col gap-0.5 text-xs text-muted-foreground">
-            <span className="truncate"><span className="font-semibold" style={{ color: primary }}>Batch: </span>{member.batch ?? "N/A"}</span>
-            <span className="truncate"><span className="font-semibold" style={{ color: primary }}>Alumni Id: </span>{member.alumni_id ?? "N/A"}</span>
-            <span className="truncate"><span className="font-semibold" style={{ color: primary }}>Profession: </span>{member.profession ?? "N/A"}</span>
-          </div>
         </div>
       </div>
 
-      {/* Contact */}
+      {/* Bottom fields (serially in one column) */}
       <div className="mx-3 mb-2 rounded-md border border-border/40 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
         <div className="flex flex-col gap-0.5">
-          <span className="truncate"><span className="font-semibold" style={{ color: primary }}>Phone: </span>{member.phone ?? "N/A"}</span>
-          {member.email && gmailHref ? (
-            <a href={gmailHref} target="_blank" rel="noopener noreferrer" className="truncate hover:opacity-90">
-              <span className="font-semibold" style={{ color: primary }}>Email: </span>
-              <span className="underline-offset-1 hover:underline">{member.email}</span>
-            </a>
-          ) : (
-            <span className="truncate"><span className="font-semibold" style={{ color: primary }}>Email: </span>N/A</span>
-          )}
-          <span className="truncate"><span className="font-semibold" style={{ color: primary }}>University: </span>{member.institution ?? "N/A"}</span>
-          <span className="truncate"><span className="font-semibold" style={{ color: primary }}>College: </span>{member.college_name || "N/A"}</span>
+          <span className="inline-flex items-start gap-1.5">
+            <Hash className="mt-0.5 h-3 w-3 shrink-0" style={{ color: primary }} />
+            <span className="min-w-0 truncate">
+              <span className="font-semibold" style={{ color: primary }}>Alumni Id: </span>
+              {member.alumni_id ?? "N/A"}
+            </span>
+          </span>
+
+          <span className="inline-flex items-start gap-1.5">
+            <GraduationCap className="mt-0.5 h-3 w-3 shrink-0" style={{ color: primary }} />
+            <span className="min-w-0 truncate">
+              <span className="font-semibold" style={{ color: primary }}>Batch: </span>
+              {member.batch ?? "N/A"}
+            </span>
+          </span>
+
+          <span className="inline-flex items-start gap-1.5">
+            <Briefcase className="mt-0.5 h-3 w-3 shrink-0" style={{ color: primary }} />
+            <span className="min-w-0 truncate">
+              <span className="font-semibold" style={{ color: primary }}>Profession: </span>
+              {member.profession ?? "N/A"}
+            </span>
+          </span>
+
+          <span className="inline-flex items-start gap-1.5">
+            <GraduationCap className="mt-0.5 h-3 w-3 shrink-0" style={{ color: primary }} />
+            <span className="min-w-0 truncate">
+              <span className="font-semibold" style={{ color: primary }}>College: </span>
+              {member.college_name || "N/A"}
+            </span>
+          </span>
+
+          <span className="inline-flex items-start gap-1.5">
+            <Building2 className="mt-0.5 h-3 w-3 shrink-0" style={{ color: primary }} />
+            <span className="min-w-0 truncate">
+              <span className="font-semibold" style={{ color: primary }}>University: </span>
+              {member.institution ?? "N/A"}
+            </span>
+          </span>
         </div>
       </div>
 
-      {(member.facebook_url || member.instagram_url || member.linkedin_url) && (
-        <div className="flex items-center gap-2.5 px-3 pb-2">
-          {member.facebook_url && <a href={member.facebook_url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground transition-colors hover:text-primary"><Facebook className="h-3.5 w-3.5" /></a>}
-          {member.instagram_url && <a href={member.instagram_url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground transition-colors hover:text-primary"><Instagram className="h-3.5 w-3.5" /></a>}
-          {member.linkedin_url && <a href={member.linkedin_url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground transition-colors hover:text-primary"><Linkedin className="h-3.5 w-3.5" /></a>}
+      {wishingText && (
+        <div
+          className="mx-3 mb-2 max-h-[5.5rem] overflow-hidden rounded-md border p-2.5"
+          style={{ backgroundColor: primaryTint, borderColor: primaryBorder }}
+        >
+          <p className="text-[10px] font-semibold" style={{ color: primary }}>Message</p>
+          <p
+            className="mt-0.5 text-xs leading-relaxed text-muted-foreground italic overflow-hidden"
+            style={{ display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 4 }}
+          >
+            "{wishingText}"
+          </p>
         </div>
       )}
 
-      {wishingText && (
-        <div className="mx-3 mb-3 rounded-md border p-2.5" style={{ backgroundColor: primaryTint, borderColor: primaryBorder }}>
-          <p className="text-[10px] font-semibold" style={{ color: primary }}>Wishing you</p>
-          <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{wishingText}</p>
+      {/* Footer hint */} 
+      <div className="px-3 pb-3">
+        <div className="flex w-full items-center justify-center gap-1.5 rounded-full border py-1.5 text-xs font-semibold"
+          style={{ borderColor: primaryBorder, color: primary }}
+        >
+          <ExternalLink className="h-3 w-3" />
+          See Profile
         </div>
-      )}
+      </div>
     </motion.div>
+    </Link>
   );
 }
 
@@ -900,6 +823,7 @@ export function AlumniExecutiveCommitteeBoard({
 
   const scaled = boardScale < 1;
   const isMobile = boardW < 540;
+  const twoColMobile = isMobile && boardW >= 360;
   const mobileZoom = isMobile && boardW < MOBILE_REF_W ? boardW / MOBILE_REF_W : 1;
 
   const seeMoreButtons = (total: number) =>
@@ -926,6 +850,8 @@ export function AlumniExecutiveCommitteeBoard({
       </div>
     ) : null;
 
+  const mobileSeeMore = seeMoreButtons(restPairs.length);
+
   return (
     <>
       <AlumniExecutiveCommitteeIntro
@@ -939,10 +865,12 @@ export function AlumniExecutiveCommitteeBoard({
         {isMobile ? (
           /* ── MOBILE layout (<540 px): single-column, zooms on narrow phones ── */
           <div
-            className="flex flex-col gap-4"
+            className={twoColMobile ? "grid grid-cols-2 gap-4" : "grid grid-cols-1 gap-4"}
             style={mobileZoom < 1 ? { zoom: mobileZoom } : undefined}
           >
-            <MobilePresidentCard member={presidentDb} roleLabel={presidentPick.postTitle} />
+            <div className={twoColMobile ? "col-span-2" : undefined}>
+              <MobilePresidentCard member={presidentDb} roleLabel={presidentPick.postTitle} />
+            </div>
             {restPairs.slice(0, displayCount).map((item, i) => (
               <MobileMemberCard
                 key={item.row.id}
@@ -951,7 +879,9 @@ export function AlumniExecutiveCommitteeBoard({
                 postTitle={item.postTitle}
               />
             ))}
-            {seeMoreButtons(restPairs.length)}
+            {mobileSeeMore ? (
+              <div className={twoColMobile ? "col-span-2" : undefined}>{mobileSeeMore}</div>
+            ) : null}
             <div ref={innerRef} className="sr-only" />
           </div>
         ) : (

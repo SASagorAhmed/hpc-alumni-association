@@ -11,6 +11,7 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import Index from "./pages/Index.tsx";
 import MemberDetail from "./pages/MemberDetail.tsx";
 import MemoryDetail from "./pages/MemoryDetail.tsx";
+import CommitteeMemberProfile from "./pages/CommitteeMemberProfile.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import Register from "./pages/auth/Register.tsx";
 import Login from "./pages/auth/Login.tsx";
@@ -65,6 +66,7 @@ const App = () => (
               <Route path="/" element={<Index />} />
               <Route path="/member/:id" element={<MemberDetail />} />
               <Route path="/memories/:id" element={<MemoryDetail />} />
+              <Route path="/committee/member/:id" element={<CommitteeMemberProfile />} />
               <Route path="/register" element={<Register />} />
               <Route path="/login" element={<Login />} />
               <Route path="/admin/login" element={<AdminLogin />} />

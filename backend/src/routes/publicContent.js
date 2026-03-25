@@ -230,6 +230,89 @@ router.get("/elections/:id/posts", async (req, res) => {
   }
 });
 
+/**
+ * GET /api/public/committee/member/:id
+ * Public fields always returned. Sensitive fields (phone, email, social links,
+ * location, expertise) only returned when the requester is a logged-in + admin-verified user.
+ */
+router.get("/committee/member/:id", async (req, res) => {
+  try {
+    const pool = getOrCreatePool();
+    if (!pool) return res.status(503).json({ ok: false, error: "MySQL not configured" });
+
+    const [rows] = await pool.query(
+      `SELECT cm.*, ct.name AS term_name, cp.title AS post_title
+       FROM committee_members cm
+       LEFT JOIN committee_terms ct ON ct.id = cm.term_id
+       LEFT JOIN committee_posts cp ON cp.id = cm.post_id
+       WHERE cm.id = ? LIMIT 1`,
+      [req.params.id]
+    );
+    if (!rows || rows.length === 0)
+      return res.status(404).json({ ok: false, error: "Member not found" });
+
+    const m = rows[0];
+
+    // Check if requester is an admin-verified user (profiles.verified)
+    let isVerified = false;
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      try {
+        const { verifyJwt } = require("../auth/jwt");
+        const payload = verifyJwt(authHeader.split(" ")[1]);
+        const userId = payload.sub;
+        // profiles primary key is user id (see auth.js uses `WHERE id = ?`)
+        const [pRows] = await pool.query(
+          "SELECT verified FROM profiles WHERE id = ? LIMIT 1",
+          [userId]
+        );
+        isVerified = pRows?.[0]?.verified === 1 || pRows?.[0]?.verified === true;
+      } catch (_) {
+        // Invalid token — treat as unauthenticated
+      }
+    }
+
+    // Always public
+    const publicData = {
+      id: m.id,
+      name: m.name,
+      designation: m.designation,
+      category: m.category,
+      batch: m.batch,
+      alumni_id: m.alumni_id,
+      college_name: m.college_name,
+      institution: m.institution,
+      job_status: m.job_status,
+      profession: m.profession,
+      about: m.about,
+      wishing_message: m.wishing_message,
+      winner_about: m.winner_about,
+      photo_url: m.photo_url,
+      display_order: m.display_order,
+      term_name: m.term_name,
+      post_title: m.post_title,
+    };
+
+    // Only for admin-verified users
+    const sensitiveData = isVerified
+      ? {
+          phone: m.phone,
+          email: m.email,
+          location: m.location,
+          expertise: m.expertise,
+          facebook_url: m.facebook_url,
+          instagram_url: m.instagram_url,
+          linkedin_url: m.linkedin_url,
+        }
+      : {};
+
+    // Keep response key name for frontend compatibility
+    return res.status(200).json({ ...publicData, ...sensitiveData, isApproved: isVerified });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message || "Failed to load member" });
+  }
+});
+
 router.get("/elections/:id/candidates", async (req, res) => {
   try {
     const pool = getOrCreatePool();

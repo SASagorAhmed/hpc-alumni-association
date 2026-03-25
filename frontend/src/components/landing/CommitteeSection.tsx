@@ -119,6 +119,8 @@ const CommitteeSection = ({ showAll = false }: { showAll?: boolean }) => {
   const isLegacyMobile = legacyW < 540;
   const legacyScaled = legacyScale < 1;
   const legacyMobileZoom = isLegacyMobile && legacyW < MOBILE_REF_W ? legacyW / MOBILE_REF_W : 1;
+  // Always render 2-column cards on mobile; zoom scaling already keeps it fitting.
+  const legacyTwoColMobile = isLegacyMobile;
 
   return (
     <section id="committee" className="relative overflow-hidden border-t border-border/60 bg-background py-10 sm:py-16">
@@ -128,33 +130,56 @@ const CommitteeSection = ({ showAll = false }: { showAll?: boolean }) => {
         <div ref={legacyOuterRef} className="w-full min-w-0">
           {isLegacyMobile ? (
             /* ── MOBILE layout (<540 px): zooms on narrow phones ── */
-            <div className="flex flex-col gap-4" style={legacyMobileZoom < 1 ? { zoom: legacyMobileZoom } : undefined}>
-              {presidentMember && <MobilePresidentCard member={presidentMember} />}
-              {otherMembers.slice(0, displayCount).map((member, i) => (
-                <MobileMemberCard key={member.id} member={member} serial={i + 2} />
-              ))}
-              {!showAll && (visibleCount < otherMembers.length || visibleCount > 6) && (
-                <div className="flex items-center justify-center gap-4 mt-2">
-                  {visibleCount < otherMembers.length && (
-                    <>
-                      <button type="button" onClick={() => setVisibleCount((prev) => prev + 6)}
-                        className="px-5 py-2 rounded-full border border-primary text-primary text-sm font-medium hover:bg-primary/10 transition-colors">
-                        See More ({otherMembers.length - visibleCount} remaining)
-                      </button>
-                      <button type="button" onClick={() => setVisibleCount(otherMembers.length)}
-                        className="text-sm font-medium text-primary underline underline-offset-4 hover:text-primary/80 transition-colors">
-                        See All
-                      </button>
-                    </>
-                  )}
-                  {visibleCount > 6 && (
-                    <button type="button" onClick={() => setVisibleCount(6)}
-                      className="px-5 py-2 rounded-full border border-muted-foreground/30 text-muted-foreground text-sm font-medium hover:bg-muted transition-colors">
-                      Show Less
-                    </button>
-                  )}
+            <div
+              className={legacyTwoColMobile ? "grid grid-cols-2 gap-4" : "flex flex-col gap-4"}
+              style={legacyMobileZoom < 1 ? { zoom: legacyMobileZoom } : undefined}
+            >
+              {presidentMember && (
+                <div className={legacyTwoColMobile ? "col-span-2" : undefined}>
+                  <MobilePresidentCard member={presidentMember} />
                 </div>
               )}
+
+              {otherMembers.slice(0, displayCount).map((member, i) => (
+                <div key={member.id} className={legacyTwoColMobile ? undefined : undefined}>
+                  <MobileMemberCard member={member} serial={i + 2} />
+                </div>
+              ))}
+
+              {!showAll && (visibleCount < otherMembers.length || visibleCount > 6) && (
+                <div className={legacyTwoColMobile ? "col-span-2" : undefined}>
+                  <div className="flex items-center justify-center gap-4 mt-2">
+                    {visibleCount < otherMembers.length && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setVisibleCount((prev) => prev + 6)}
+                          className="px-5 py-2 rounded-full border border-primary text-primary text-sm font-medium hover:bg-primary/10 transition-colors"
+                        >
+                          See More ({otherMembers.length - visibleCount} remaining)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setVisibleCount(otherMembers.length)}
+                          className="text-sm font-medium text-primary underline underline-offset-4 hover:text-primary/80 transition-colors"
+                        >
+                          See All
+                        </button>
+                      </>
+                    )}
+                    {visibleCount > 6 && (
+                      <button
+                        type="button"
+                        onClick={() => setVisibleCount(6)}
+                        className="px-5 py-2 rounded-full border border-muted-foreground/30 text-muted-foreground text-sm font-medium hover:bg-muted transition-colors"
+                      >
+                        Show Less
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div ref={legacyInnerRef} className="sr-only" />
             </div>
           ) : (
