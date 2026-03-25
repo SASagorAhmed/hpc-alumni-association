@@ -659,7 +659,7 @@ const AchievementBanner = () => {
             <button
               type="button"
               onClick={prev}
-              className={`${navBtnClass} max-sm:absolute max-sm:left-0.5 max-sm:top-1/2 max-sm:z-30 max-sm:-translate-y-1/2`}
+              className={`${navBtnClass} max-sm:hidden`}
               aria-label="Previous slide"
             >
               <ChevronLeft className="h-5 w-5" />
@@ -745,8 +745,18 @@ const AchievementBanner = () => {
             </div>
           </div>
 
-          {/* Alumni Spotlight pill — outside photo, between photo and text section */}
-          <div className="flex justify-center py-2" style={{ background: "var(--achievement-banner-side-bg)" }}>
+          {/* Alumni Spotlight pill row — with prev/next buttons on mobile */}
+          <div className="flex items-center justify-between gap-2 px-3 py-2" style={{ background: "var(--achievement-banner-side-bg)" }}>
+            {/* Prev button */}
+            {achievements.length > 1 ? (
+              <button type="button" onClick={prev} aria-label="Previous slide"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-primary/45 bg-primary/[0.08] text-primary shadow-sm transition-all hover:border-primary hover:bg-primary/15 active:scale-95"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+            ) : <span className="w-7" />}
+
+            {/* Pill */}
             <div
               className="inline-flex items-center justify-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-[0.13em]"
               style={{
@@ -759,6 +769,15 @@ const AchievementBanner = () => {
               Alumni Spotlight
               <span className="h-1.5 w-1.5 shrink-0 rounded-full animate-pulse" style={{ backgroundColor: "var(--achievement-banner-line)" }} />
             </div>
+
+            {/* Next button */}
+            {achievements.length > 1 ? (
+              <button type="button" onClick={next} aria-label="Next slide"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-primary/45 bg-primary/[0.08] text-primary shadow-sm transition-all hover:border-primary hover:bg-primary/15 active:scale-95"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            ) : <span className="w-7" />}
           </div>
 
           {/* Text content — full width, readable native size */}
@@ -803,6 +822,20 @@ const AchievementBanner = () => {
                   />
                 </div>
               ) : null}
+
+              {/* Slide counter — mobile only, in-flow at bottom of text section */}
+              {achievements.length > 1 && (
+                <div className="hpc-banner-right-enter flex justify-center pt-1 pb-0.5" style={{ animationDelay: "0.26s" }}>
+                  <span
+                    className={cn(
+                      "fs-ui rounded-full border border-border/50 bg-background/85 px-3 py-1 font-semibold text-foreground shadow-sm backdrop-blur-sm transition-all duration-300",
+                      isTransitioning ? "scale-90 opacity-0" : "scale-100 opacity-100"
+                    )}
+                  >
+                    {current + 1} / {achievements.length}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -927,7 +960,7 @@ const AchievementBanner = () => {
       {/* Single slide counter */}
       {achievements.length > 1 && (
         <>
-          <div className="absolute bottom-5 left-1/2 z-20 -translate-x-1/2 sm:bottom-6">
+          <div className="absolute bottom-5 left-1/2 z-20 -translate-x-1/2 sm:bottom-6 max-sm:hidden">
             <span
               className={cn(
                 "fs-ui rounded-full border border-border/50 bg-background/85 px-3 py-1 font-semibold text-foreground shadow-sm backdrop-blur-sm transition-all duration-300",
@@ -1292,7 +1325,7 @@ const AchievementBanner = () => {
             <button
               type="button"
               onClick={next}
-              className={`${navBtnClass} max-sm:absolute max-sm:right-0.5 max-sm:top-1/2 max-sm:z-30 max-sm:-translate-y-1/2`}
+              className={`${navBtnClass} max-sm:hidden`}
               aria-label="Next slide"
             >
               <ChevronRight className="h-5 w-5" />
