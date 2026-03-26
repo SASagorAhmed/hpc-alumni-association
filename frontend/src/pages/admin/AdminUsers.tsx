@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/table";
 import {
   Search, CheckCircle2, XCircle, Ban, ShieldCheck, ShieldOff, Eye,
-  RefreshCw, Users, Clock, UserCheck, UserX, AlertCircle,
+  RefreshCw, Users, Clock, UserCheck, UserX, AlertCircle, Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -133,6 +133,41 @@ const AdminUsers = () => {
 
   const unblockUser = (id: string) =>
     updateUser(id, { blocked: false }, "User unblocked.");
+
+  const deleteUser = async (id: string) => {
+    const token = localStorage.getItem("hpc_auth_token");
+    if (!token) {
+      toast.error("Not authenticated");
+      return;
+    }
+
+    if (
+      !window.confirm(
+        "Delete this profile permanently?\n\nThis will delete the user account and profile data (including the uploaded profile photo)."
+      )
+    ) {
+      return;
+    }
+
+    setActionLoading(id);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/users/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(body?.error || "Delete failed");
+        return;
+      }
+
+      toast.success("Profile deleted.");
+      setProfiles((prev) => prev.filter((p) => p.id !== id));
+      if (selectedUser?.id === id) setSelectedUser(null);
+    } finally {
+      setActionLoading(null);
+    }
+  };
 
   const filters: { key: Filter; label: string; icon: React.ElementType }[] = [
     { key: "all", label: "All", icon: Users },
@@ -394,6 +429,16 @@ const AdminUsers = () => {
                       <Ban className="w-3.5 h-3.5" /> Unblock
                     </Button>
                   )}
+
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="gap-1.5"
+                    onClick={() => deleteUser(selectedUser.id)}
+                    disabled={actionLoading === selectedUser.id}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> Delete Profile
+                  </Button>
                 </div>
               </div>
             </>

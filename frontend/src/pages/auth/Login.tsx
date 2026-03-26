@@ -108,7 +108,9 @@ const Login = () => {
         return;
       }
 
-      if (!user.approved && !user.verified) {
+      // Admin must approve again for this re-registration workflow.
+      // Require both: verified + approved.
+      if (!user.approved || !user.verified) {
         toast.info("Your account is pending admin verification.");
         window.location.replace("/pending-verification");
         return;

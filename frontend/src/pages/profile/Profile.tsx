@@ -11,7 +11,6 @@ import { Save, User, AlertCircle, Facebook, Instagram, Linkedin } from "lucide-r
 
 const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 const GENDERS = ["Male", "Female", "Other"];
-const JOB_STATUSES = ["Student", "Job Holder", "Business", "Freelancer", "Unemployed"];
 const FIXED_COLLEGE_NAME = "Hamdard Public Collage";
 
 const Profile = () => {
@@ -20,20 +19,11 @@ const Profile = () => {
   const [form, setForm] = useState({
     name: user?.name || "",
     phone: user?.phone || "",
-    batch: user?.batch || "",
-    roll: user?.roll || "",
-    registrationNumber: user?.registrationNumber || "",
     gender: user?.gender || "",
     bloodGroup: user?.bloodGroup || "",
-    department: user?.department || "",
-    session: user?.session || "",
-    passingYear: user?.passingYear || "",
-    collegeName: FIXED_COLLEGE_NAME,
     profession: user?.profession || "",
     company: user?.company || "",
     university: user?.university || "",
-    jobStatus: user?.jobStatus || "",
-    jobTitle: user?.jobTitle || "",
     address: user?.address || "",
     bio: user?.bio || "",
     additionalInfo: user?.additionalInfo || "",
@@ -41,6 +31,23 @@ const Profile = () => {
     instagram: (user?.socialLinks as any)?.instagram || "",
     linkedin: (user?.socialLinks as any)?.linkedin || "",
   });
+
+  const normalizeBatch2 = (b: unknown) => {
+    const s = String(b ?? "").trim();
+    if (!s) return "";
+    if (/^\d+$/.test(s)) {
+      const n = Number(s);
+      if (Number.isFinite(n) && n >= 1 && n <= 50) return String(n).padStart(2, "0");
+    }
+    return s;
+  };
+
+  const sectionLetterRaw = String(user?.department ?? "").trim().charAt(0).toUpperCase();
+  const sectionLetter = /^[A-J]$/.test(sectionLetterRaw) ? sectionLetterRaw : "";
+  const batch2 = normalizeBatch2(user?.batch);
+  const rollDigits = String(user?.roll ?? "").replace(/\D/g, "");
+  const alumniIdComputed = sectionLetter && batch2 && rollDigits ? `${sectionLetter}${batch2}${rollDigits}` : "";
+  const alumniIdValue = user?.registrationNumber || alumniIdComputed;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,16 +103,20 @@ const Profile = () => {
                   <Input id="name" maxLength={100} value={form.name} onChange={(e) => set("name", e.target.value)} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="batch">Batch</Label>
-                  <Input id="batch" maxLength={20} value={form.batch} onChange={(e) => set("batch", e.target.value)} />
+                  <Label htmlFor="section">Section (locked)</Label>
+                  <Input id="section" maxLength={2} value={sectionLetter || "—"} disabled />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="roll">Roll Number</Label>
-                  <Input id="roll" maxLength={30} value={form.roll} onChange={(e) => set("roll", e.target.value)} />
+                  <Label htmlFor="roll">Collage ID (Roll) (locked)</Label>
+                  <Input id="roll" maxLength={30} value={user?.roll || ""} disabled />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="registrationNumber">Registration Number</Label>
-                  <Input id="registrationNumber" maxLength={30} value={form.registrationNumber} onChange={(e) => set("registrationNumber", e.target.value)} />
+                  <Label htmlFor="batch">Batch (locked)</Label>
+                  <Input id="batch" maxLength={2} value={batch2 || "—"} disabled />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="alumniId">Alumni ID (auto)</Label>
+                  <Input id="alumniId" maxLength={20} value={alumniIdValue || ""} disabled />
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="gender">Gender</Label>
@@ -141,18 +152,6 @@ const Profile = () => {
                   <Input id="collegeName" maxLength={150} value={FIXED_COLLEGE_NAME} disabled />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="department">Department / Group</Label>
-                  <Input id="department" placeholder="e.g. Science" maxLength={100} value={form.department} onChange={(e) => set("department", e.target.value)} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="session">Session / Year</Label>
-                  <Input id="session" placeholder="e.g. 2018-2020" maxLength={30} value={form.session} onChange={(e) => set("session", e.target.value)} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="passingYear">Passing Year</Label>
-                  <Input id="passingYear" placeholder="e.g. 2020" maxLength={10} value={form.passingYear} onChange={(e) => set("passingYear", e.target.value)} />
-                </div>
-                <div className="space-y-1.5">
                   <Label htmlFor="university">University</Label>
                   <Input id="university" maxLength={150} value={form.university} onChange={(e) => set("university", e.target.value)} />
                 </div>
@@ -163,19 +162,6 @@ const Profile = () => {
             <div>
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Professional Information</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="jobStatus">Job Status</Label>
-                  <Select value={form.jobStatus} onValueChange={(v) => set("jobStatus", v)}>
-                    <SelectTrigger><SelectValue placeholder="Select job status" /></SelectTrigger>
-                    <SelectContent>
-                      {JOB_STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="jobTitle">Job Title</Label>
-                  <Input id="jobTitle" maxLength={100} value={form.jobTitle} onChange={(e) => set("jobTitle", e.target.value)} />
-                </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="company">Company / Organization</Label>
                   <Input id="company" maxLength={100} value={form.company} onChange={(e) => set("company", e.target.value)} />

@@ -6,6 +6,7 @@ const passport = require("passport");
 
 const env = require("./config/env");
 const { getOrCreatePool } = require("./db/pool");
+const { ensureCommitteePostsBoardSectionColumn } = require("./utils/ensureCommitteePostsBoardSection");
 const { healthRoute } = require("./routes/health");
 const authRoutes = require("./routes/auth");
 const { configureGooglePassport } = require("./auth/google");
@@ -95,6 +96,13 @@ app.use((err, req, res, next) => {
   // eslint-disable-next-line no-unused-vars
   console.error(err);
   res.status(500).json({ ok: false, error: "Internal Server Error" });
+});
+
+// Vercel / serverless: server.js may not run — add missing columns on app load (idempotent).
+setImmediate(() => {
+  ensureCommitteePostsBoardSectionColumn(getOrCreatePool()).catch((e) =>
+    console.warn("[app] committee_posts.board_section ensure:", e.message || e)
+  );
 });
 
 module.exports = app;

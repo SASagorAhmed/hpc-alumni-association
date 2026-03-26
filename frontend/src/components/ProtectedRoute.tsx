@@ -26,8 +26,9 @@ const ProtectedRoute = ({ children, requiredRole, allowUnapproved = false }: Pro
     return <Navigate to={user.role === "admin" ? "/admin/dashboard" : "/dashboard"} replace />;
   }
 
-  // Alumni dashboard: allow if admin verified (`verified`) or legacy approved (`approved`).
-  const alumniOk = Boolean(user.approved) || Boolean(user.verified);
+  // Alumni dashboard: require both email/admin verification (`verified`)
+  // and admin approval (`approved`).
+  const alumniOk = Boolean(user.approved) && Boolean(user.verified);
   if (requiredRole === "alumni" && !allowUnapproved && !alumniOk) {
     return <Navigate to="/pending-verification" replace />;
   }

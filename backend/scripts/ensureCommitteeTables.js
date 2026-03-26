@@ -148,6 +148,13 @@ async function main() {
       console.log(`[ensure-committee] ${cpFk}: already present`);
     }
 
+    await addColumn(
+      conn,
+      "committee_posts",
+      "board_section",
+      "VARCHAR(40) NULL COMMENT \"governing_body|executive_committee|committee_heads|committee_members\" AFTER `display_order`"
+    );
+
     const cmExists = await tableExists(conn, "committee_members");
 
     if (!cmExists) {

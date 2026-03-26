@@ -3,9 +3,24 @@ const { v4: uuidv4 } = require("uuid");
 const { getOrCreatePool } = require("../db/pool");
 const { requireAuth } = require("../auth/jwt");
 const { DEFAULT_COMMITTEE_POSTS } = require("../constants/committeeDefaults");
+const { inferBoardSectionFromTitle } = require("../utils/inferCommitteeBoardSection");
+const { ensureCommitteePostsBoardSectionColumn } = require("../utils/ensureCommitteePostsBoardSection");
 const cloudinary = require("../config/cloudinary");
 
 const router = express.Router();
+
+const ALLOWED_BOARD_SECTIONS = new Set([
+  "governing_body",
+  "executive_committee",
+  "committee_heads",
+  "committee_members",
+]);
+
+function normalizeBoardSection(value) {
+  const s = value != null ? String(value).trim() : "";
+  if (ALLOWED_BOARD_SECTIONS.has(s)) return s;
+  return "committee_members";
+}
 
 function extractCloudinaryPublicIdFromUrl(url) {
   if (!url || typeof url !== "string") return null;
@@ -35,6 +50,13 @@ async function withAdmin(req, res) {
     res.status(403).json({ ok: false, error: "Admin only" });
     return null;
   }
+  return pool;
+}
+
+async function withAdminAndBoardSection(req, res) {
+  const pool = await withAdmin(req, res);
+  if (!pool) return null;
+  await ensureCommitteePostsBoardSectionColumn(pool);
   return pool;
 }
 
@@ -121,7 +143,7 @@ router.delete("/committee/terms/:id", requireAuth, async (req, res) => {
 
 router.post("/committee/terms/:id/seed-default-posts", requireAuth, async (req, res) => {
   try {
-    const pool = await withAdmin(req, res);
+    const pool = await withAdminAndBoardSection(req, res);
     if (!pool) return;
     const termId = req.params.id;
     const [[{ c }]] = await pool.query(
@@ -138,8 +160,8 @@ router.post("/committee/terms/:id/seed-default-posts", requireAuth, async (req, 
     for (const row of DEFAULT_COMMITTEE_POSTS) {
       const pid = uuidv4();
       await pool.query(
-        `INSERT INTO committee_posts (id, term_id, title, allows_multiple, is_highlight, display_order)
-         VALUES (?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO committee_posts (id, term_id, title, allows_multiple, is_highlight, display_order, board_section)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [
           pid,
           termId,
@@ -147,12 +169,34 @@ router.post("/committee/terms/:id/seed-default-posts", requireAuth, async (req, 
           row.allows_multiple ? 1 : 0,
           row.is_highlight ? 1 : 0,
           order++,
+          normalizeBoardSection(row.board_section),
         ]
       );
     }
     res.status(201).json({ ok: true, count: DEFAULT_COMMITTEE_POSTS.length });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message || "Failed to seed posts" });
+  }
+});
+
+/** Set board_section on all posts of a term from each post title (legacy / migration helper). */
+router.post("/committee/terms/:id/backfill-board-sections", requireAuth, async (req, res) => {
+  try {
+    const pool = await withAdminAndBoardSection(req, res);
+    if (!pool) return;
+    const termId = req.params.id;
+    const [posts] = await pool.query(
+      "SELECT id, title FROM committee_posts WHERE term_id = ? ORDER BY display_order ASC",
+      [termId]
+    );
+    const list = posts || [];
+    for (const p of list) {
+      const section = inferBoardSectionFromTitle(p.title);
+      await pool.query("UPDATE committee_posts SET board_section = ? WHERE id = ?", [section, p.id]);
+    }
+    res.status(200).json({ ok: true, updated: list.length });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message || "Failed to backfill sections" });
   }
 });
 
@@ -176,7 +220,7 @@ router.post("/committee/terms/:id/publish", requireAuth, async (req, res) => {
 // ---------- Posts ----------
 router.post("/committee/posts", requireAuth, async (req, res) => {
   try {
-    const pool = await withAdmin(req, res);
+    const pool = await withAdminAndBoardSection(req, res);
     if (!pool) return;
     const termId = String(req.body?.term_id || "");
     const title = String(req.body?.title || "").trim();
@@ -190,11 +234,12 @@ router.post("/committee/posts", requireAuth, async (req, res) => {
       [termId]
     );
     const displayOrder = Number(req.body?.display_order ?? maxO);
+    const boardSection = normalizeBoardSection(req.body?.board_section);
     const id = uuidv4();
     await pool.query(
-      `INSERT INTO committee_posts (id, term_id, title, allows_multiple, is_highlight, display_order)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [id, termId, title, allowsMultiple, isHighlight, displayOrder]
+      `INSERT INTO committee_posts (id, term_id, title, allows_multiple, is_highlight, display_order, board_section)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [id, termId, title, allowsMultiple, isHighlight, displayOrder, boardSection]
     );
     res.status(201).json({ ok: true, id });
   } catch (e) {
@@ -204,9 +249,9 @@ router.post("/committee/posts", requireAuth, async (req, res) => {
 
 router.put("/committee/posts/:id", requireAuth, async (req, res) => {
   try {
-    const pool = await withAdmin(req, res);
+    const pool = await withAdminAndBoardSection(req, res);
     if (!pool) return;
-    const allowed = ["title", "allows_multiple", "is_highlight", "display_order"];
+    const allowed = ["title", "allows_multiple", "is_highlight", "display_order", "board_section"];
     const updates = [];
     const vals = [];
     for (const k of allowed) {
@@ -214,6 +259,7 @@ router.put("/committee/posts/:id", requireAuth, async (req, res) => {
         updates.push(`\`${k}\` = ?`);
         let v = req.body[k];
         if (k === "allows_multiple" || k === "is_highlight") v = v ? 1 : 0;
+        else if (k === "board_section") v = normalizeBoardSection(v);
         vals.push(v);
       }
     }

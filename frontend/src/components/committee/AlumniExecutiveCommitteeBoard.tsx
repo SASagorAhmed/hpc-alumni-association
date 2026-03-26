@@ -1,9 +1,38 @@
-import { useCallback, useLayoutEffect, useRef, useState, type RefObject } from "react";
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type RefObject,
+} from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import type { StructuredCommitteePayload } from "@/components/committee/StructuredCommitteeDisplay";
-import type { CommitteeMemberRow } from "@/components/committee/StructuredCommitteeDisplay";
-import { Briefcase, Camera, GraduationCap, Phone, Hash, Facebook, Instagram, Linkedin, Crown, Building2, ExternalLink } from "lucide-react";
+import type { CommitteeMemberRow, CommitteePostBlock } from "@/components/committee/StructuredCommitteeDisplay";
+import {
+  BOARD_SECTION_LABELS,
+  BOARD_SECTION_ORDER,
+  type BoardSectionKey,
+  resolveBoardSection,
+} from "@/components/committee/boardSections";
+import { cn } from "@/lib/utils";
+import {
+  Briefcase,
+  Camera,
+  GraduationCap,
+  Phone,
+  Hash,
+  Facebook,
+  Instagram,
+  Linkedin,
+  Crown,
+  Building2,
+  ExternalLink,
+  ChevronDown,
+  Users,
+} from "lucide-react";
 
 export interface DBMember {
   id: string;
@@ -59,24 +88,23 @@ export function committeeRowToDBMember(m: CommitteeMemberRow): DBMember {
   };
 }
 
-/** President for hero card: highlight post → সভাপতি/President → first single-seat → first member */
-export function pickPresidentFromStructured(data: StructuredCommitteePayload) {
-  const posts = [...data.posts].sort((a, b) => Number(a.display_order) - Number(b.display_order));
-  const withMember = (p: (typeof posts)[0]) => (p.members?.length ? p.members[0] : null);
+function pickPresidentFromPostList(posts: CommitteePostBlock[]) {
+  const sorted = [...posts].sort((a, b) => Number(a.display_order) - Number(b.display_order));
+  const withMember = (p: (typeof sorted)[0]) => (p.members?.length ? p.members[0] : null);
 
-  const highlighted = posts.find((p) => (p.is_highlight === 1 || p.is_highlight === true) && withMember(p));
+  const highlighted = sorted.find((p) => (p.is_highlight === 1 || p.is_highlight === true) && withMember(p));
   if (highlighted) {
     const m = withMember(highlighted)!;
     return { member: m, postTitle: highlighted.title, postId: highlighted.id };
   }
 
-  const titled = posts.find((p) => /সভাপতি|president/i.test(String(p.title || "")) && withMember(p));
+  const titled = sorted.find((p) => /সভাপতি|president/i.test(String(p.title || "")) && withMember(p));
   if (titled) {
     const m = withMember(titled)!;
     return { member: m, postTitle: titled.title, postId: titled.id };
   }
 
-  const singleSeat = posts.find(
+  const singleSeat = sorted.find(
     (p) => !(p.allows_multiple === 1 || p.allows_multiple === true) && withMember(p)
   );
   if (singleSeat) {
@@ -84,12 +112,21 @@ export function pickPresidentFromStructured(data: StructuredCommitteePayload) {
     return { member: m, postTitle: singleSeat.title, postId: singleSeat.id };
   }
 
-  const anyPost = posts.find((p) => withMember(p));
+  const anyPost = sorted.find((p) => withMember(p));
   if (anyPost) {
     const m = withMember(anyPost)!;
     return { member: m, postTitle: anyPost.title, postId: anyPost.id };
   }
   return null;
+}
+
+/** President for hero card — prefer **Governing Body** posts; fall back to all posts. */
+export function pickPresidentFromStructured(data: StructuredCommitteePayload) {
+  const sorted = [...data.posts].sort((a, b) => Number(a.display_order) - Number(b.display_order));
+  const governing = sorted.filter((p) => resolveBoardSection(p) === "governing_body");
+  let pick = pickPresidentFromPostList(governing.length > 0 ? governing : sorted);
+  if (!pick && governing.length > 0) pick = pickPresidentFromPostList(sorted);
+  return pick;
 }
 
 export function restMembersExceptPresident(data: StructuredCommitteePayload, excludeMemberId: string) {
@@ -743,37 +780,30 @@ export function AlumniExecutiveCommitteeIntro({
  * a zoomed-out version of the desktop layout (same approach as AchievementBanner).
  */
 const COMMITTEE_DESIGN_W = 1024; // reference = laptop viewport
-const MOBILE_REF_W = 480;        // reference mobile width — cards zoom below this
+const MOBILE_REF_W = 480; // reference mobile width — cards zoom below this
 
-const CORE_LEADERSHIP_TITLES = [
-  "সভাপতি",
-  "সাধারণ সম্পাদক",
-  "যুগ্ম-সাধারণ সম্পাদক",
-  "কোষাধ্যক্ষ",
-  "সাংগঠনিক সম্পাদক",
-];
+type CollapsibleSection = Exclude<BoardSectionKey, "governing_body">;
 
-const COMMITTEE_HEAD_TITLES = [
-  "সহ-সাংগঠনিক সম্পাদক",
-  "সাহিত্য ও প্রকাশনা সম্পাদক",
-  "প্রচার ও গণসংযোগ সম্পাদক",
-  "শিক্ষা ও পাঠাগার সম্পাদক",
-  "সাংস্কৃতিক সম্পাদক",
-  "ক্রীড়া সম্পাদক",
-  "দপ্তর সম্পাদক",
-];
+const SECTION_REVEAL_META: Record<CollapsibleSection, { cta: string; hint: string }> = {
+  executive_committee: {
+    cta: "View Executive Committee",
+    hint: "Vice presidents, joint secretary & organizers",
+  },
+  committee_heads: {
+    cta: "View Committee Heads",
+    hint: "Editors & programme leads",
+  },
+  committee_members: {
+    cta: "View Committee Members",
+    hint: "নির্বাহী সদস্য · executive members",
+  },
+};
 
-function normalizeBanglaTitle(s: string | null | undefined) {
-  return String(s || "").trim().replace(/\s+/g, " ");
-}
-
-function pickSectionForPostTitle(postTitle: string | null | undefined): "core" | "heads" | "members" | "other" {
-  const t = normalizeBanglaTitle(postTitle);
-  if (!t) return "other";
-  if (CORE_LEADERSHIP_TITLES.includes(t)) return "core";
-  if (COMMITTEE_HEAD_TITLES.includes(t)) return "heads";
-  if (/নির্বাহী\s*সদস্য/i.test(t) || /executive\s*member/i.test(t)) return "members";
-  return "other";
+function sectionItemsFor(
+  withSerial: { row: CommitteeMemberRow; postTitle: string; section: BoardSectionKey; serial: number }[],
+  sec: BoardSectionKey
+) {
+  return withSerial.filter((x) => x.section === sec);
 }
 
 export function AlumniExecutiveCommitteeBoard({
@@ -785,14 +815,27 @@ export function AlumniExecutiveCommitteeBoard({
   showAll?: boolean;
   compactIntro?: boolean;
 }) {
-  const [visibleCount, setVisibleCount] = useState(6);
+  const [openExecutive, setOpenExecutive] = useState(showAll);
+  const [openHeads, setOpenHeads] = useState(showAll);
+  const [openMembers, setOpenMembers] = useState(showAll);
+
+  useEffect(() => {
+    if (showAll) {
+      setOpenExecutive(true);
+      setOpenHeads(true);
+      setOpenMembers(true);
+    }
+  }, [showAll]);
+
   const outerRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
   const [boardScale, setBoardScale] = useState(1);
   const [boardWrapH, setBoardWrapH] = useState<number | undefined>(undefined);
   const [boardW, setBoardW] = useState(COMMITTEE_DESIGN_W);
 
-  // Measure outer container width vs design width → compute scale + wrapper height.
+  const totalMembers = data.posts.reduce((n, p) => n + (p.members?.length || 0), 0);
+
+  // Measure outer container width vs design height → scale + wrapper height.
   useLayoutEffect(() => {
     const outer = outerRef.current;
     const inner = innerRef.current;
@@ -805,15 +848,21 @@ export function AlumniExecutiveCommitteeBoard({
       setBoardScale(s);
       setBoardWrapH(s < 1 ? Math.round(inner.offsetHeight * s) : undefined);
     };
-    let r1 = 0, r2 = 0;
-    r1 = requestAnimationFrame(() => { r2 = requestAnimationFrame(update); });
+    let r1 = 0,
+      r2 = 0;
+    r1 = requestAnimationFrame(() => {
+      r2 = requestAnimationFrame(update);
+    });
     const ro = new ResizeObserver(update);
     ro.observe(outer);
     ro.observe(inner);
-    return () => { cancelAnimationFrame(r1); cancelAnimationFrame(r2); ro.disconnect(); };
-  }, [visibleCount]); // re-measure when card count changes
+    return () => {
+      cancelAnimationFrame(r1);
+      cancelAnimationFrame(r2);
+      ro.disconnect();
+    };
+  }, [openExecutive, openHeads, openMembers, showAll, totalMembers]);
 
-  const totalMembers = data.posts.reduce((n, p) => n + (p.members?.length || 0), 0);
   const presidentPick = pickPresidentFromStructured(data);
 
   if (!presidentPick) {
@@ -833,55 +882,229 @@ export function AlumniExecutiveCommitteeBoard({
   }
 
   const presidentDb = committeeRowToDBMember(presidentPick.member);
-  const restPairs = restMembersExceptPresident(data, presidentPick.member.id);
-  const displayCount = showAll ? restPairs.length : visibleCount;
+  const presidentPost =
+    data.posts.find((p) => p.id === presidentPick.postId) ?? null;
+  const presidentInGoverning = presidentPost
+    ? resolveBoardSection(presidentPost) === "governing_body"
+    : false;
+
+  const postsSorted = [...data.posts].sort(
+    (a, b) => Number(a.display_order) - Number(b.display_order)
+  );
+  const presidentId = presidentPick.member.id;
+  const orderedFlat: { row: CommitteeMemberRow; postTitle: string; section: BoardSectionKey }[] = [];
+  for (const sec of BOARD_SECTION_ORDER) {
+    for (const p of postsSorted) {
+      if (resolveBoardSection(p) !== sec) continue;
+      const ms = [...(p.members || [])].sort((a, b) => a.display_order - b.display_order);
+      for (const m of ms) {
+        if (m.id === presidentId) continue;
+        orderedFlat.push({ row: m, postTitle: p.title, section: sec });
+      }
+    }
+  }
+  const withSerial = orderedFlat.map((item, idx) => ({ ...item, serial: idx + 2 }));
+
+  const governingItems = sectionItemsFor(withSerial, "governing_body");
+
+  const sectionIsOpen = (sec: BoardSectionKey) => {
+    if (sec === "governing_body") return true;
+    if (showAll) return true;
+    if (sec === "executive_committee") return openExecutive;
+    if (sec === "committee_heads") return openHeads;
+    return openMembers;
+  };
+
+  const toggleSection = (sec: CollapsibleSection) => {
+    if (showAll) return;
+    if (sec === "executive_committee") setOpenExecutive((v) => !v);
+    else if (sec === "committee_heads") setOpenHeads((v) => !v);
+    else setOpenMembers((v) => !v);
+  };
 
   const scaled = boardScale < 1;
   const isMobile = boardW < 540;
-  // Always render 2-column mobile layout for other members.
-  // The card contents are designed to fit (and for very narrow widths, they will truncate rather than collapsing to 1 column).
   const twoColMobile = isMobile;
   const mobileZoom = isMobile && boardW < MOBILE_REF_W ? boardW / MOBILE_REF_W : 1;
 
-  const seeMoreButtons = (total: number) =>
-    !showAll && (visibleCount < total || visibleCount > 6) ? (
-      <div className="flex items-center justify-center gap-4 mt-4">
-        {visibleCount < total && (
-          <>
-            <button type="button" onClick={() => setVisibleCount((prev) => prev + 6)}
-              className="px-5 py-2 rounded-full border border-primary text-primary text-sm font-medium hover:bg-primary/10 transition-colors">
-              See more ({total - visibleCount} remaining)
-            </button>
-            <button type="button" onClick={() => setVisibleCount(total)}
-              className="text-sm font-medium text-primary underline underline-offset-4 hover:text-primary/80 transition-colors">
-              See all
-            </button>
-          </>
-        )}
-        {visibleCount > 6 && (
-          <button type="button" onClick={() => setVisibleCount(6)}
-            className="px-5 py-2 rounded-full border border-muted-foreground/30 text-muted-foreground text-sm font-medium hover:bg-muted transition-colors">
-            Show less
-          </button>
-        )}
+  const renderRevealBar = (sec: CollapsibleSection, colSpan2: boolean) => {
+    const items = sectionItemsFor(withSerial, sec);
+    const count = items.length;
+    if (count === 0) return null;
+    if (showAll || sectionIsOpen(sec)) return null;
+    const meta = SECTION_REVEAL_META[sec];
+    return (
+      <div className={cn(colSpan2 && "col-span-2", "w-full")} key={`reveal-${sec}`}>
+        <button
+          type="button"
+          onClick={() => toggleSection(sec)}
+          className="group relative w-full overflow-hidden rounded-xl border border-border/70 bg-gradient-to-br from-card via-card to-primary/[0.07] px-4 py-4 text-left shadow-sm ring-1 ring-black/[0.04] transition-all hover:border-primary/35 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex min-w-0 flex-1 items-start gap-3">
+              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/12 text-primary ring-1 ring-primary/15">
+                <Users className="h-4 w-4" />
+              </span>
+              <div className="min-w-0">
+                <p className="font-semibold tracking-tight text-foreground">{meta.cta}</p>
+                <p className="mt-0.5 text-xs leading-snug text-muted-foreground">{meta.hint}</p>
+              </div>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <span className="rounded-full bg-muted/90 px-2.5 py-0.5 text-[11px] font-semibold tabular-nums text-muted-foreground">
+                {count} {count === 1 ? "member" : "members"}
+              </span>
+              <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground transition-transform duration-200 group-hover:text-primary" />
+            </div>
+          </div>
+        </button>
       </div>
-    ) : null;
+    );
+  };
 
-  const mobileSeeMore = seeMoreButtons(restPairs.length);
+  const renderMobileGoverning = () => {
+    const meta = BOARD_SECTION_LABELS.governing_body;
+    const items = governingItems;
+    const showPresidentHere = presidentInGoverning;
+    if (!showPresidentHere && !items.length) return null;
+    return (
+      <Fragment key="governing">
+        <div className={twoColMobile ? "col-span-2" : undefined}>
+          <h3 className="mt-1 text-sm font-bold tracking-wide text-foreground/80">{meta.title}</h3>
+        </div>
+        {showPresidentHere ? (
+          <div className={twoColMobile ? "col-span-2" : undefined}>
+            <MobilePresidentCard member={presidentDb} roleLabel={presidentPick.postTitle} />
+          </div>
+        ) : null}
+        {items.map((item) => (
+          <MobileMemberCard
+            key={item.row.id}
+            member={committeeRowToDBMember(item.row)}
+            serial={item.serial}
+            postTitle={item.postTitle}
+          />
+        ))}
+      </Fragment>
+    );
+  };
 
-  // Group members into the 3 requested sections (hide any extra/unlisted posts).
-  const grouped = restPairs
-    .map((p, idx) => ({ ...p, serial: idx + 2, section: pickSectionForPostTitle(p.postTitle) as const }))
-    .filter((p) => p.section !== "other");
+  const renderMobileCollapsible = (sec: CollapsibleSection) => {
+    const count = sectionItemsFor(withSerial, sec).length;
+    if (count === 0) return null;
+    if (!sectionIsOpen(sec) && !showAll) return renderRevealBar(sec, true);
+    const meta = BOARD_SECTION_LABELS[sec];
+    const items = sectionItemsFor(withSerial, sec);
+    return (
+      <Fragment key={sec}>
+        <div className={twoColMobile ? "col-span-2" : undefined}>
+          <h3 className="mt-2 text-sm font-bold tracking-wide text-foreground/80">{meta.title}</h3>
+          {meta.subtitle ? (
+            <p className="mt-0.5 text-xs text-muted-foreground">{meta.subtitle}</p>
+          ) : null}
+        </div>
+        {items.map((item) => (
+          <MobileMemberCard
+            key={item.row.id}
+            member={committeeRowToDBMember(item.row)}
+            serial={item.serial}
+            postTitle={item.postTitle}
+          />
+        ))}
+        {!showAll ? (
+          <div className={cn(twoColMobile && "col-span-2", "flex justify-center pb-1 pt-1")}>
+            <button
+              type="button"
+              onClick={() => toggleSection(sec)}
+              className="text-xs font-medium text-muted-foreground underline-offset-4 transition-colors hover:text-primary hover:underline"
+            >
+              Hide · {meta.title}
+            </button>
+          </div>
+        ) : null}
+      </Fragment>
+    );
+  };
 
-  const coreLeadership = grouped.filter((p) => p.section === "core");
-  const committeeHeads = grouped.filter((p) => p.section === "heads");
-  const committeeMembers = grouped.filter((p) => p.section === "members");
+  const renderDesktopGoverning = () => {
+    const items = governingItems;
+    const showPresidentHere = presidentInGoverning;
+    if (!showPresidentHere && !items.length) return null;
+    const meta = BOARD_SECTION_LABELS.governing_body;
+    return (
+      <div key="governing" className="space-y-4">
+        <div className="pt-0">
+          <h3 className="text-lg font-bold text-foreground">{meta.title}</h3>
+        </div>
+        {showPresidentHere ? (
+          <div className="mx-auto flex w-full min-w-0 justify-center px-0">
+            <PresidentHeroCard member={presidentDb} roleLabel={presidentPick.postTitle} />
+          </div>
+        ) : null}
+        {items.length > 0 ? (
+          <div
+            className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 lg:gap-5"
+            style={scaled ? { gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "20px" } : undefined}
+          >
+            {items.map((item) => (
+              <div key={item.row.id} className="min-w-0">
+                <ExecutiveMemberCard
+                  member={committeeRowToDBMember(item.row)}
+                  serial={item.serial}
+                  postTitle={item.postTitle}
+                />
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    );
+  };
 
-  const visibleGrouped = showAll ? grouped : grouped.slice(0, displayCount);
-  const visibleCore = visibleGrouped.filter((p) => p.section === "core");
-  const visibleHeads = visibleGrouped.filter((p) => p.section === "heads");
-  const visibleMembers = visibleGrouped.filter((p) => p.section === "members");
+  const renderDesktopCollapsible = (sec: CollapsibleSection) => {
+    const count = sectionItemsFor(withSerial, sec).length;
+    if (count === 0) return null;
+    if (!sectionIsOpen(sec) && !showAll) {
+      return renderRevealBar(sec, false);
+    }
+    const meta = BOARD_SECTION_LABELS[sec];
+    const items = sectionItemsFor(withSerial, sec);
+    return (
+      <div key={sec} className="space-y-4">
+        <div className="pt-2">
+          <h3 className="text-lg font-bold text-foreground">{meta.title}</h3>
+          {meta.subtitle ? <p className="text-sm text-muted-foreground">{meta.subtitle}</p> : null}
+        </div>
+        {items.length > 0 ? (
+          <div
+            className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 lg:gap-5"
+            style={scaled ? { gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "20px" } : undefined}
+          >
+            {items.map((item) => (
+              <div key={item.row.id} className="min-w-0">
+                <ExecutiveMemberCard
+                  member={committeeRowToDBMember(item.row)}
+                  serial={item.serial}
+                  postTitle={item.postTitle}
+                />
+              </div>
+            ))}
+          </div>
+        ) : null}
+        {!showAll ? (
+          <div className="flex justify-center pt-1">
+            <button
+              type="button"
+              onClick={() => toggleSection(sec)}
+              className="text-sm font-medium text-muted-foreground underline-offset-4 transition-colors hover:text-primary hover:underline"
+            >
+              Hide · {meta.title}
+            </button>
+          </div>
+        ) : null}
+      </div>
+    );
+  };
 
   return (
     <>
@@ -894,71 +1117,21 @@ export function AlumniExecutiveCommitteeBoard({
 
       <div ref={outerRef} className="w-full min-w-0">
         {isMobile ? (
-          /* ── MOBILE layout (<540 px): 3 sections + 2-col cards ── */
+          /* ── MOBILE layout (<540 px): 4 sections + 2-col cards ── */
           <div
+            ref={innerRef}
             className={twoColMobile ? "grid grid-cols-2 gap-4" : "grid grid-cols-1 gap-4"}
             style={mobileZoom < 1 ? { zoom: mobileZoom } : undefined}
           >
-            <div className={twoColMobile ? "col-span-2" : undefined}>
-              <MobilePresidentCard member={presidentDb} roleLabel={presidentPick.postTitle} />
-            </div>
-
-            {/* Core Leadership Team */}
-            {visibleCore.length > 0 ? (
-              <>
-                <div className={twoColMobile ? "col-span-2" : undefined}>
-                  <h3 className="text-sm font-bold tracking-wide text-foreground/80 mt-1">Core Leadership Team</h3>
-                </div>
-                {visibleCore.map((item) => (
-                  <MobileMemberCard
-                    key={item.row.id}
-                    member={committeeRowToDBMember(item.row)}
-                    serial={item.serial}
-                    postTitle={item.postTitle}
-                  />
-                ))}
-              </>
+            {presidentPick && !presidentInGoverning ? (
+              <div className={twoColMobile ? "col-span-2" : undefined}>
+                <MobilePresidentCard member={presidentDb} roleLabel={presidentPick.postTitle} />
+              </div>
             ) : null}
-
-            {/* Committee Heads */}
-            {visibleHeads.length > 0 ? (
-              <>
-                <div className={twoColMobile ? "col-span-2" : undefined}>
-                  <h3 className="text-sm font-bold tracking-wide text-foreground/80 mt-2">Committee Heads</h3>
-                </div>
-                {visibleHeads.map((item) => (
-                  <MobileMemberCard
-                    key={item.row.id}
-                    member={committeeRowToDBMember(item.row)}
-                    serial={item.serial}
-                    postTitle={item.postTitle}
-                  />
-                ))}
-              </>
-            ) : null}
-
-            {/* Committee Members */}
-            {visibleMembers.length > 0 ? (
-              <>
-                <div className={twoColMobile ? "col-span-2" : undefined}>
-                  <h3 className="text-sm font-bold tracking-wide text-foreground/80 mt-2">Committee Members</h3>
-                  <p className="text-xs text-muted-foreground mt-0.5">নির্বাহী সদস্য</p>
-                </div>
-                {visibleMembers.map((item) => (
-                  <MobileMemberCard
-                    key={item.row.id}
-                    member={committeeRowToDBMember(item.row)}
-                    serial={item.serial}
-                    postTitle={item.postTitle}
-                  />
-                ))}
-              </>
-            ) : null}
-
-            {mobileSeeMore ? (
-              <div className={twoColMobile ? "col-span-2" : undefined}>{mobileSeeMore}</div>
-            ) : null}
-            <div ref={innerRef} className="sr-only" />
+            {renderMobileGoverning()}
+            {renderMobileCollapsible("executive_committee")}
+            {renderMobileCollapsible("committee_heads")}
+            {renderMobileCollapsible("committee_members")}
           </div>
         ) : (
           /* ── DESKTOP / TABLET layout: transform-scale canvas (≥ 540 px) ── */
@@ -974,100 +1147,15 @@ export function AlumniExecutiveCommitteeBoard({
                 : { width: "100%", gap: "40px" }
               }
             >
-              <div className="mx-auto flex w-full min-w-0 justify-center px-0">
-                <PresidentHeroCard member={presidentDb} roleLabel={presidentPick.postTitle} />
-              </div>
-              {/* Core Leadership Team */}
-              {visibleCore.length > 0 ? (
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="text-lg font-bold text-foreground">Core Leadership Team</h3>
-                  </div>
-                  <div
-                    className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 lg:gap-5"
-                    style={scaled ? { gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "20px" } : undefined}
-                  >
-                    {visibleCore.map((item) => (
-                      <div key={item.row.id} className="min-w-0">
-                        <ExecutiveMemberCard
-                          member={committeeRowToDBMember(item.row)}
-                          serial={item.serial}
-                          postTitle={item.postTitle}
-                        />
-                      </div>
-                    ))}
-                  </div>
+              {presidentPick && !presidentInGoverning ? (
+                <div className="mx-auto flex w-full min-w-0 justify-center px-0">
+                  <PresidentHeroCard member={presidentDb} roleLabel={presidentPick.postTitle} />
                 </div>
               ) : null}
-
-              {/* Committee Heads */}
-              {visibleHeads.length > 0 ? (
-                <div className="space-y-4">
-                  <div className="pt-2">
-                    <h3 className="text-lg font-bold text-foreground">Committee Heads</h3>
-                  </div>
-                  <div
-                    className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 lg:gap-5"
-                    style={scaled ? { gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "20px" } : undefined}
-                  >
-                    {visibleHeads.map((item) => (
-                      <div key={item.row.id} className="min-w-0">
-                        <ExecutiveMemberCard
-                          member={committeeRowToDBMember(item.row)}
-                          serial={item.serial}
-                          postTitle={item.postTitle}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-
-              {/* Committee Members */}
-              {visibleMembers.length > 0 ? (
-                <div className="space-y-4">
-                  <div className="pt-2">
-                    <h3 className="text-lg font-bold text-foreground">Committee Members</h3>
-                    <p className="text-sm text-muted-foreground">নির্বাহী সদস্য</p>
-                  </div>
-                  <div
-                    className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 lg:gap-5"
-                    style={scaled ? { gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "20px" } : undefined}
-                  >
-                    {visibleMembers.map((item) => (
-                      <div key={item.row.id} className="min-w-0">
-                        <ExecutiveMemberCard
-                          member={committeeRowToDBMember(item.row)}
-                          serial={item.serial}
-                          postTitle={item.postTitle}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-              {!showAll && (visibleCount < restPairs.length || visibleCount > 6) && (
-                <div className="flex items-center justify-center gap-4 mt-2">
-                  {visibleCount < restPairs.length && (
-                    <>
-                      <button type="button" onClick={() => setVisibleCount((prev) => prev + 6)}
-                        className="px-5 py-2 rounded-full border border-primary text-primary text-sm font-medium hover:bg-primary/10 transition-colors">
-                        See more ({restPairs.length - visibleCount} remaining)
-                      </button>
-                      <button type="button" onClick={() => setVisibleCount(restPairs.length)}
-                        className="text-sm font-medium text-primary underline underline-offset-4 hover:text-primary/80 transition-colors">
-                        See all
-                      </button>
-                    </>
-                  )}
-                  {visibleCount > 6 && (
-                    <button type="button" onClick={() => setVisibleCount(6)}
-                      className="px-5 py-2 rounded-full border border-muted-foreground/30 text-muted-foreground text-sm font-medium hover:bg-muted transition-colors">
-                      Show less
-                    </button>
-                  )}
-                </div>
-              )}
+              {renderDesktopGoverning()}
+              {renderDesktopCollapsible("executive_committee")}
+              {renderDesktopCollapsible("committee_heads")}
+              {renderDesktopCollapsible("committee_members")}
             </div>
           </div>
         )}

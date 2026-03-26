@@ -37,6 +37,8 @@ export interface CommitteePostBlock {
   allows_multiple: number | boolean;
   is_highlight: number | boolean;
   display_order: number;
+  /** Alumni board grouping: governing_body | executive_committee | committee_heads | committee_members */
+  board_section?: string | null;
   members: CommitteeMemberRow[];
 }
 

@@ -3,8 +3,17 @@ const { v4: uuidv4 } = require("uuid");
 const { ensureAchievementSettingsRow } = require("../utils/achievementSettings");
 const { getOrCreatePool } = require("../db/pool");
 const { requireAuth } = require("../auth/jwt");
+const cloudinary = require("../config/cloudinary");
 
 const router = express.Router();
+
+function extractCloudinaryPublicIdFromUrl(url) {
+  if (!url || typeof url !== "string") return null;
+  const clean = url.split("?")[0];
+  // https://res.cloudinary.com/<cloud>/image/upload/v1712345678/<folder>/<publicId>.<ext>
+  const m = clean.match(/\/upload\/v\d+\/(.+?)\.[a-zA-Z0-9]+$/);
+  return m?.[1] || null;
+}
 
 async function requireAdmin(pool, userId) {
   const [rows] = await pool.query(
@@ -205,6 +214,40 @@ router.patch("/users/:id", requireAuth, async (req, res) => {
     res.status(200).json({ ok: true });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message || "Failed to update user" });
+  }
+});
+
+// Admin: hard-delete a user + profile.
+// Important: this deletes the Cloudinary photo first (best-effort), then deletes `users` row
+// (profiles + roles cascade via foreign keys).
+router.delete("/users/:id", requireAuth, async (req, res) => {
+  try {
+    const pool = await withAdmin(req, res);
+    if (!pool) return;
+    const id = req.params.id;
+
+    const [profileRows] = await pool.query("SELECT photo FROM profiles WHERE id = ? LIMIT 1", [id]);
+    const photoUrl = profileRows?.[0]?.photo || null;
+
+    if (photoUrl) {
+      const publicId = extractCloudinaryPublicIdFromUrl(photoUrl);
+      if (publicId) {
+        try {
+          await cloudinary.uploader.destroy(publicId, { resource_type: "image" });
+        } catch (_e) {
+          // Best effort: deletion should still continue even if cloudinary delete fails.
+        }
+      }
+    }
+
+    const [del] = await pool.query("DELETE FROM users WHERE id = ? LIMIT 1", [id]);
+    // mysql2 returns an OkPacket array; affectedRows is available on first element.
+    const affected = del?.affectedRows ?? del?.[0]?.affectedRows;
+    if (!affected) return res.status(404).json({ ok: false, error: "User not found" });
+
+    res.status(200).json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message || "Failed to delete user" });
   }
 });
 

@@ -11,7 +11,7 @@ const PendingVerification = () => {
 
   useEffect(() => {
     if (!user) return;
-    if (user.approved || user.verified) {
+    if (user.approved && user.verified) {
       navigate("/dashboard", { replace: true });
     }
   }, [user, navigate]);

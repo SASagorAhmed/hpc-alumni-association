@@ -52,6 +52,19 @@ interface RegisterData {
   phone: string;
   batch: string;
   department?: string;
+  roll: string;
+  gender: string;
+  photoFile?: File;
+  bloodGroup: string;
+  university: string;
+  company: string;
+  profession: string;
+  address: string;
+  bio: string;
+  additionalInfo: string;
+  facebook: string;
+  instagram: string;
+  linkedin: string;
 }
 
 const TOKEN_STORAGE_KEY = "hpc_auth_token";
@@ -100,17 +113,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const register = async (data: RegisterData) => {
+    const fd = new FormData();
+    fd.set("email", data.email);
+    fd.set("password", data.password);
+    fd.set("name", data.name);
+    fd.set("phone", data.phone);
+    fd.set("batch", data.batch);
+    fd.set("department", data.department || "");
+    fd.set("roll", data.roll);
+    fd.set("gender", data.gender);
+    fd.set("bloodGroup", data.bloodGroup);
+    fd.set("university", data.university);
+    fd.set("company", data.company);
+    fd.set("profession", data.profession);
+    fd.set("address", data.address);
+    fd.set("bio", data.bio);
+    fd.set("additionalInfo", data.additionalInfo);
+    fd.set("facebook", data.facebook);
+    fd.set("instagram", data.instagram);
+    fd.set("linkedin", data.linkedin);
+    if (data.photoFile) fd.append("photo", data.photoFile);
+
     const res = await fetch(`${API_BASE_URL}/api/auth/register`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: data.email,
-        password: data.password,
-        name: data.name,
-        phone: data.phone,
-        batch: data.batch,
-        department: data.department || "",
-      }),
+      body: fd,
     });
 
     const body = await res.json().catch(() => ({}));

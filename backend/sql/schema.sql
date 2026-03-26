@@ -144,6 +144,7 @@ CREATE TABLE IF NOT EXISTS `committee_posts` (
   `allows_multiple` TINYINT(1) NOT NULL DEFAULT 1,
   `is_highlight` TINYINT(1) NOT NULL DEFAULT 0,
   `display_order` INT NOT NULL DEFAULT 0,
+  `board_section` VARCHAR(40) NULL,
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `committee_posts_term_order_idx` (`term_id`, `display_order`),

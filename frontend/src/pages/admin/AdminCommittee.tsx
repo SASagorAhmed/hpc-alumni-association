@@ -31,6 +31,7 @@ import {
   Building2,
   Loader2,
 } from "lucide-react";
+import { BOARD_SECTION_OPTIONS, type BoardSectionKey } from "@/components/committee/boardSections";
 
 const authHeaders = () => ({
   Authorization: `Bearer ${localStorage.getItem("hpc_auth_token")}`,
@@ -53,6 +54,7 @@ interface CommitteePost {
   allows_multiple: number;
   is_highlight: number;
   display_order: number;
+  board_section?: string | null;
   members?: CommitteeMember[];
 }
 
@@ -142,7 +144,12 @@ const AdminCommittee = () => {
   const [newTerm, setNewTerm] = useState({ name: "", description: "" });
   const [postDialogOpen, setPostDialogOpen] = useState(false);
   const [editingPost, setEditingPost] = useState<CommitteePost | null>(null);
-  const [postForm, setPostForm] = useState({ title: "", allows_multiple: true, is_highlight: false });
+  const [postForm, setPostForm] = useState({
+    title: "",
+    allows_multiple: true,
+    is_highlight: false,
+    board_section: "committee_members" as BoardSectionKey,
+  });
   const [memberDialogOpen, setMemberDialogOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<CommitteeMember | null>(null);
   const [memberForm, setMemberForm] = useState(emptyMemberForm);
@@ -253,6 +260,26 @@ const AdminCommittee = () => {
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
+  const backfillSectionsMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(
+        `${API_BASE_URL}/api/admin/committee/terms/${selectedTermId}/backfill-board-sections`,
+        { method: "POST", headers: authHeaders() }
+      );
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "Backfill failed");
+      return body as { updated?: number };
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Sections updated",
+        description: `Set board section from titles for ${data?.updated ?? 0} post(s).`,
+      });
+      invalidateAll();
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
   const publishMutation = useMutation({
     mutationFn: async (setAsCurrent: boolean) => {
       const res = await fetch(`${API_BASE_URL}/api/admin/committee/terms/${selectedTermId}/publish`, {
@@ -279,6 +306,7 @@ const AdminCommittee = () => {
             title: postForm.title,
             allows_multiple: postForm.allows_multiple,
             is_highlight: postForm.is_highlight,
+            board_section: postForm.board_section,
           }),
         });
         if (!res.ok) throw new Error("Update failed");
@@ -291,6 +319,7 @@ const AdminCommittee = () => {
             title: postForm.title,
             allows_multiple: postForm.allows_multiple,
             is_highlight: postForm.is_highlight,
+            board_section: postForm.board_section,
           }),
         });
         if (!res.ok) throw new Error("Create failed");
@@ -462,15 +491,29 @@ const AdminCommittee = () => {
 
   const openAddPost = () => {
     setEditingPost(null);
-    setPostForm({ title: "", allows_multiple: true, is_highlight: false });
+    setPostForm({
+      title: "",
+      allows_multiple: true,
+      is_highlight: false,
+      board_section: "committee_members",
+    });
     setPostDialogOpen(true);
   };
   const openEditPost = (p: CommitteePost) => {
     setEditingPost(p);
+    const b = String(p.board_section || "").trim();
+    const section: BoardSectionKey =
+      b === "governing_body" ||
+      b === "executive_committee" ||
+      b === "committee_heads" ||
+      b === "committee_members"
+        ? b
+        : "committee_members";
     setPostForm({
       title: p.title,
       allows_multiple: !!p.allows_multiple,
       is_highlight: !!p.is_highlight,
+      board_section: section,
     });
     setPostDialogOpen(true);
   };
@@ -612,6 +655,20 @@ const AdminCommittee = () => {
                         Default posts
                       </Button>
                       <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          if (!window.confirm(
+                            "Set each post’s public section from its title? This overwrites board_section for all posts in this term (matched titles only; unknown titles become Committee Members)."
+                          )) return;
+                          backfillSectionsMutation.mutate();
+                        }}
+                        disabled={backfillSectionsMutation.isPending || !posts.length}
+                        title="Fix legacy terms: governing / executive / heads / members from Bangla title rules"
+                      >
+                        Backfill sections
+                      </Button>
+                      <Button
                         variant="default"
                         size="sm"
                         onClick={() => publishMutation.mutate(true)}
@@ -646,8 +703,8 @@ const AdminCommittee = () => {
                     <div>
                       <CardTitle className="text-base">Posts</CardTitle>
                       <CardDescription className="mt-1 max-w-prose">
-                        Post titles can be Bangla or English. You can <strong>add custom posts anytime</strong> — before or after using
-                        default posts.
+                        Each post is assigned to one of four public sections (Governing Body, Executive Committee, Committee Heads,
+                        Committee Members). Titles can be Bangla or English; you can still add custom posts anytime.
                       </CardDescription>
                     </div>
                     <Button size="sm" variant="secondary" onClick={openAddPost}>
@@ -663,6 +720,7 @@ const AdminCommittee = () => {
                           <TableRow>
                             <TableHead className="w-20">Order</TableHead>
                             <TableHead className="min-w-[200px]">Post title</TableHead>
+                            <TableHead className="min-w-[120px]">Section</TableHead>
                             <TableHead>Type</TableHead>
                             <TableHead className="text-right">Actions</TableHead>
                           </TableRow>
@@ -682,6 +740,11 @@ const AdminCommittee = () => {
                               </TableCell>
                               <TableCell className="font-medium text-foreground leading-snug break-words whitespace-normal">
                                 {p.title}
+                              </TableCell>
+                              <TableCell className="text-xs text-muted-foreground">
+                                {BOARD_SECTION_OPTIONS.find((o) => o.value === (p.board_section as BoardSectionKey))?.label.split("(")[0].trim() ||
+                                  p.board_section ||
+                                  "—"}
                               </TableCell>
                               <TableCell>
                                 <div className="flex flex-wrap gap-1">
@@ -814,6 +877,24 @@ const AdminCommittee = () => {
             <div>
               <Label>Post title (Bangla or English)</Label>
               <Input value={postForm.title} onChange={(e) => setPostForm({ ...postForm, title: e.target.value })} />
+            </div>
+            <div>
+              <Label>Section on public committee page</Label>
+              <Select
+                value={postForm.board_section}
+                onValueChange={(v) => setPostForm({ ...postForm, board_section: v as BoardSectionKey })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select section" />
+                </SelectTrigger>
+                <SelectContent>
+                  {BOARD_SECTION_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="flex items-center gap-2">
               <Checkbox
