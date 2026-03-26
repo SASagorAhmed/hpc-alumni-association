@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Arena:wght@400;700&family=Public+Sans:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -1111,4 +1111,35 @@
 @keyframes gold-shine {
   0% { background-position: 200% center; }
   100% { background-position: -200% center; }
+}
+
+/* President card fire/glow (KING badge + name) */
+@keyframes hpcPresidentKingFire {
+  0%, 100% {
+    box-shadow:
+      0 0 0 rgba(0, 0, 0, 0),
+      0 0 10px rgba(251, 146, 60, 0.35),
+      0 0 24px rgba(245, 158, 11, 0.25);
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    box-shadow:
+      0 0 0 rgba(0, 0, 0, 0),
+      0 0 16px rgba(251, 146, 60, 0.55),
+      0 0 34px rgba(245, 158, 11, 0.35);
+    transform: translateY(-1px) scale(1.01);
+  }
+}
+
+@keyframes hpcPresidentNameFire {
+  0%, 100% {
+    filter:
+      drop-shadow(0 0 6px rgba(251, 146, 60, 0.25))
+      drop-shadow(0 0 14px rgba(245, 158, 11, 0.15));
+  }
+  50% {
+    filter:
+      drop-shadow(0 0 10px rgba(251, 146, 60, 0.45))
+      drop-shadow(0 0 22px rgba(245, 158, 11, 0.35));
+  }
 }

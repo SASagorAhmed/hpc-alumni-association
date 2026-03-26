@@ -4,6 +4,15 @@ const { v4: uuidv4 } = require("uuid");
  * Ensure a single achievement_settings row exists (banner defaults on).
  */
 async function ensureAchievementSettingsRow(pool) {
+  try {
+    await pool.query(
+      "ALTER TABLE achievement_settings ADD COLUMN banner_theme VARCHAR(32) NULL DEFAULT 'default'"
+    );
+  } catch (e) {
+    const msg = String(e && e.message ? e.message : e);
+    if (!/Duplicate column name/i.test(msg)) throw e;
+  }
+
   const [rows] = await pool.query("SELECT * FROM achievement_settings LIMIT 1");
   if (rows?.[0]) return rows[0];
   const id = uuidv4();
@@ -12,6 +21,7 @@ async function ensureAchievementSettingsRow(pool) {
     banner_enabled: 1,
     slide_duration: 4,
     max_display_count: null,
+    banner_theme: "default",
   });
   const [again] = await pool.query("SELECT * FROM achievement_settings WHERE id = ?", [id]);
   return again[0];

@@ -16,9 +16,84 @@ interface Achievement {
   achievement_date: string | null;
 }
 
-
-/** Desktop reference width for the achievements grid (3-col layout). */
+/** Desktop reference width for the scaled 3-col grid (lg+ only). */
 const ACHIEVEMENTS_DESIGN_W = 1024;
+/** Same as committee mobile: proportional zoom below this width (AlumniExecutiveCommitteeBoard). */
+const MOBILE_REF_W = 480;
+
+function AchievementGridCard({ a, i }: { a: Achievement; i: number }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ duration: 0.5 }}
+      className="group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all duration-300 hover:border-primary/50 hover:shadow-lg"
+      style={{ background: "var(--achievement-card-bg)" }}
+    >
+      <div className="h-1" style={{ background: "var(--achievement-card-accent-bar)" }} />
+
+      <div className="aspect-[4/3] w-full overflow-hidden">
+        {a.photo_url ? (
+          <img src={a.photo_url} alt={a.name} className="h-full w-full object-cover" />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center" style={{ background: "var(--achievement-card-photo-bg)" }}>
+            <Camera className="h-10 w-10 text-primary/40" />
+          </div>
+        )}
+      </div>
+
+      <div className="flex flex-1 flex-col items-center gap-2 p-3 text-center">
+        <span className="text-[0.68rem] font-semibold uppercase tracking-wider text-amber-600">
+          #{String(i + 1).padStart(2, "0")} Achievement
+        </span>
+
+        <h3 className="text-sm font-bold leading-snug text-foreground" style={{ fontFamily: "'Outfit', sans-serif" }}>
+          {a.name}
+        </h3>
+
+        {a.achievement_title && (
+          <span className="inline-flex items-center rounded-full bg-primary px-2.5 py-0.5 text-xs font-semibold text-primary-foreground">
+            {a.achievement_title}
+          </span>
+        )}
+
+        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+          {a.batch && (
+            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+              <GraduationCap size={11} className="shrink-0 text-primary" />
+              Batch {a.batch}
+            </span>
+          )}
+          {a.achievement_date && (
+            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+              <Calendar className="h-2.5 w-2.5 shrink-0 text-primary" />
+              {new Date(a.achievement_date).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
+            </span>
+          )}
+          {a.institution && (
+            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+              <Building2 className="h-2.5 w-2.5 shrink-0 text-primary" />
+              {a.institution}
+            </span>
+          )}
+        </div>
+
+        {a.message && (
+          <div className="mt-auto w-full border-t border-border pt-2">
+            <div className="rounded-lg border border-primary/20 bg-primary/5 p-2.5 text-left">
+              <div className="mb-1 flex items-center gap-1.5">
+                <PartyPopper className="h-3 w-3 shrink-0 text-primary" />
+                <span className="text-[0.6rem] font-semibold uppercase tracking-wider text-primary">Congratulations</span>
+              </div>
+              <p className="text-xs leading-relaxed text-foreground/85 whitespace-pre-wrap">{a.message}</p>
+            </div>
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
+}
 
 const AchievementsSection = () => {
   const [achievements, setAchievements] = useState<Achievement[]>([]);
@@ -27,10 +102,52 @@ const AchievementsSection = () => {
   const gridInnerRef = useRef<HTMLDivElement>(null);
   const [gridScale, setGridScale] = useState(1);
   const [gridWrapH, setGridWrapH] = useState<number | undefined>(undefined);
+  /** Phones/tablets: 2 columns, no transform shrink. Desktop lg+: scaled 3-col canvas. */
+  const [isNarrowViewport, setIsNarrowViewport] = useState(() =>
+    typeof window !== "undefined" ? window.matchMedia("(max-width: 1023px)").matches : false
+  );
+  const narrowGridOuterRef = useRef<HTMLDivElement>(null);
+  const [narrowGridW, setNarrowGridW] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth : 1024
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(max-width: 1023px)");
+    const onChange = () => setIsNarrowViewport(mq.matches);
+    onChange();
+    if (typeof mq.addEventListener === "function") mq.addEventListener("change", onChange);
+    else mq.addListener(onChange);
+    return () => {
+      if (typeof mq.removeEventListener === "function") mq.removeEventListener("change", onChange);
+      else mq.removeListener(onChange);
+    };
+  }, []);
 
   // Re-run when data loads (same pattern as banner — refs are null on first null-render).
   const gridReady = achievements.length > 0;
+
+  // Narrow 2-col grid: same shrink/zoom as alumni member cards on small phones (committee board pattern).
   useLayoutEffect(() => {
+    if (!isNarrowViewport) return;
+    const el = narrowGridOuterRef.current;
+    if (!el) return;
+    const update = () => {
+      const w = el.getBoundingClientRect().width;
+      if (w) setNarrowGridW(w);
+    };
+    update();
+    const ro = new ResizeObserver(() => requestAnimationFrame(update));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [isNarrowViewport, gridReady, visibleCount]);
+
+  useLayoutEffect(() => {
+    if (isNarrowViewport) {
+      setGridScale(1);
+      setGridWrapH(undefined);
+      return;
+    }
     const outer = gridOuterRef.current;
     const inner = gridInnerRef.current;
     if (!outer || !inner) return;
@@ -41,13 +158,20 @@ const AchievementsSection = () => {
       setGridScale(s);
       setGridWrapH(s < 1 ? Math.round(inner.offsetHeight * s) : undefined);
     };
-    let r1 = 0, r2 = 0;
-    r1 = requestAnimationFrame(() => { r2 = requestAnimationFrame(update); });
+    let r1 = 0,
+      r2 = 0;
+    r1 = requestAnimationFrame(() => {
+      r2 = requestAnimationFrame(update);
+    });
     const ro = new ResizeObserver(update);
     ro.observe(outer);
     ro.observe(inner);
-    return () => { cancelAnimationFrame(r1); cancelAnimationFrame(r2); ro.disconnect(); };
-  }, [gridReady, visibleCount]);
+    return () => {
+      cancelAnimationFrame(r1);
+      cancelAnimationFrame(r2);
+      ro.disconnect();
+    };
+  }, [gridReady, visibleCount, isNarrowViewport]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -68,7 +192,9 @@ const AchievementsSection = () => {
 
   if (achievements.length === 0) return null;
 
-  const scaled = gridScale < 1;
+  const scaled = !isNarrowViewport && gridScale < 1;
+  const isMobileGrid = isNarrowViewport && narrowGridW < 540;
+  const mobileZoom = isMobileGrid && narrowGridW < MOBILE_REF_W ? narrowGridW / MOBILE_REF_W : 1;
 
   return (
     <section id="achievements" className="border-t border-border/60 bg-background py-10 sm:py-20">
@@ -95,106 +221,46 @@ const AchievementsSection = () => {
           </p>
         </motion.div>
 
-        {/* Scale canvas — same pattern as committee board and banner */}
-        <div ref={gridOuterRef} className="w-full min-w-0">
-          <div
-            className="relative overflow-hidden"
-            style={scaled && gridWrapH ? { height: gridWrapH } : undefined}
-          >
+        {/* Narrow: 2 columns; very small widths use CSS zoom like committee member cards */}
+        {isNarrowViewport ? (
+          <div ref={narrowGridOuterRef} className="w-full min-w-0">
             <div
-              ref={gridInnerRef}
-              className="origin-top-left"
-              style={scaled
-                ? { width: `${ACHIEVEMENTS_DESIGN_W}px`, transform: `scale(${gridScale})`, display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "16px" }
-                : { width: "100%", display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "16px" }
-              }
+              className="grid w-full grid-cols-2 gap-3 sm:gap-4 md:gap-5"
+              style={mobileZoom < 1 ? { zoom: mobileZoom } : undefined}
             >
               {achievements.slice(0, visibleCount).map((a, i) => (
-                <motion.div
-                  key={a.id}
-                  initial={{ opacity: 0, y: 12 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.5 }}
-                  className="group relative overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all duration-300 hover:shadow-lg hover:border-primary/50 flex flex-col"
-                  style={{ background: "var(--achievement-card-bg)" }}
-                >
-                  {/* Top accent bar */}
-                  <div className="h-1" style={{ background: "var(--achievement-card-accent-bar)" }} />
-
-                  {/* Photo — desktop aspect ratio always */}
-                  <div className="w-full aspect-[4/3] overflow-hidden">
-                    {a.photo_url ? (
-                      <img src={a.photo_url} alt={a.name} className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center" style={{ background: "var(--achievement-card-photo-bg)" }}>
-                        <Camera className="h-10 w-10 text-primary/40" />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Content */}
-                  <div className="flex flex-col items-center text-center p-3 flex-1 gap-2">
-
-                    {/* 1 — Serial */}
-                    <span className="text-[0.68rem] font-semibold tracking-wider text-amber-600 uppercase">
-                      #{String(i + 1).padStart(2, "0")} Achievement
-                    </span>
-
-                    {/* 2 — Name */}
-                    <h3 className="font-bold text-sm leading-snug text-foreground" style={{ fontFamily: "'Outfit', sans-serif" }}>
-                      {a.name}
-                    </h3>
-
-                    {/* 3 — Achievement title */}
-                    {a.achievement_title && (
-                      <span className="inline-flex items-center rounded-full bg-primary px-2.5 py-0.5 text-xs font-semibold text-primary-foreground">
-                        {a.achievement_title}
-                      </span>
-                    )}
-
-                    {/* 4 — Batch · Date · Institution (horizontal row, centered) */}
-                    <div className="flex flex-wrap justify-center items-center gap-x-3 gap-y-1">
-                      {a.batch && (
-                        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                          <GraduationCap size={11} className="text-primary shrink-0" />
-                          Batch {a.batch}
-                        </span>
-                      )}
-                      {a.achievement_date && (
-                        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                          <Calendar className="h-2.5 w-2.5 text-primary shrink-0" />
-                          {new Date(a.achievement_date).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
-                        </span>
-                      )}
-                      {a.institution && (
-                        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                          <Building2 className="h-2.5 w-2.5 text-primary shrink-0" />
-                          {a.institution}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* 5 — Full congratulations message */}
-                    {a.message && (
-                      <div className="mt-auto w-full pt-2 border-t border-border">
-                        <div className="rounded-lg border border-primary/20 bg-primary/5 p-2.5 text-left">
-                          <div className="flex items-center gap-1.5 mb-1">
-                            <PartyPopper className="h-3 w-3 shrink-0 text-primary" />
-                            <span className="text-[0.6rem] font-semibold uppercase tracking-wider text-primary">Congratulations</span>
-                          </div>
-                          <p className="text-xs text-foreground/85 leading-relaxed whitespace-pre-wrap">
-                            {a.message}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </motion.div>
+                <AchievementGridCard key={a.id} a={a} i={i} />
               ))}
             </div>
           </div>
-        </div>
+        ) : (
+          <div ref={gridOuterRef} className="w-full min-w-0">
+            <div
+              className="relative overflow-hidden"
+              style={scaled && gridWrapH ? { height: gridWrapH } : undefined}
+            >
+              <div
+                ref={gridInnerRef}
+                className="origin-top-left"
+                style={
+                  scaled
+                    ? {
+                        width: `${ACHIEVEMENTS_DESIGN_W}px`,
+                        transform: `scale(${gridScale})`,
+                        display: "grid",
+                        gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                        gap: "16px",
+                      }
+                    : { width: "100%", display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "16px" }
+                }
+              >
+                {achievements.slice(0, visibleCount).map((a, i) => (
+                  <AchievementGridCard key={a.id} a={a} i={i} />
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {(visibleCount < achievements.length || visibleCount > 6) && (
           <div className="flex items-center justify-center gap-4 mt-8">

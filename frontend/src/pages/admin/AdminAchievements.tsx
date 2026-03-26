@@ -46,6 +46,7 @@ interface AchievementSettings {
   banner_enabled: boolean;
   slide_duration: number;
   max_display_count: number | null;
+  banner_theme?: "default" | "tomato";
 }
 
 const emptyForm = {
@@ -177,6 +178,11 @@ const AdminAchievements = () => {
         banner_enabled: s.banner_enabled === true || s.banner_enabled === 1 || s.banner_enabled === "1",
         slide_duration: slide,
         max_display_count: maxDisplay,
+        banner_theme:
+          (typeof (s as { banner_theme?: unknown }).banner_theme === "string" &&
+          String((s as { banner_theme?: unknown }).banner_theme).toLowerCase() === "tomato")
+            ? "tomato"
+            : "default",
       });
     }
   };
@@ -350,6 +356,7 @@ const AdminAchievements = () => {
         banner_enabled: settings.banner_enabled,
         slide_duration: settings.slide_duration,
         max_display_count: settings.max_display_count,
+        banner_theme: settings.banner_theme || "default",
       }),
     });
     try {
@@ -488,6 +495,22 @@ const AdminAchievements = () => {
                           <SelectItem value="10">10 seconds</SelectItem>
                         </SelectContent>
                       </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Banner Color Theme</Label>
+                      <Select
+                        value={settings.banner_theme || "default"}
+                        onValueChange={(v) =>
+                          setSettings({ ...settings, banner_theme: v === "tomato" ? "tomato" : "default" })
+                        }
+                      >
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="default">Default (current)</SelectItem>
+                          <SelectItem value="tomato">Vibrant Tomato</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">Default stays unchanged unless you switch it.</p>
                     </div>
                     <div className="space-y-2">
                       <Label>Max Display Count</Label>

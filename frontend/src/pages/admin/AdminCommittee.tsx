@@ -605,7 +605,7 @@ const AdminCommittee = () => {
                     <div className="flex flex-wrap gap-1.5 mt-1">
                       <Badge variant={t.status === "published" ? "default" : "secondary"}>{t.status}</Badge>
                       {!!t.is_current && <Badge variant="outline">Active</Badge>}
-                    </div>
+          </div>
                   </button>
                 ))
               )}
@@ -634,7 +634,7 @@ const AdminCommittee = () => {
                       {term.description && (
                         <CardDescription className="mt-2 max-w-prose">{term.description}</CardDescription>
                       )}
-                    </div>
+        </div>
                     <div className="flex flex-wrap gap-2">
                       <Button variant="default" size="sm" onClick={openAddPost}>
                         <Plus className="h-3.5 w-3.5 mr-1" />
@@ -698,7 +698,7 @@ const AdminCommittee = () => {
                   </CardHeader>
                 </Card>
 
-                <Card>
+            <Card>
                   <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                       <CardTitle className="text-base">Posts</CardTitle>
@@ -711,21 +711,21 @@ const AdminCommittee = () => {
                       <Plus className="h-3.5 w-3.5 mr-1" /> Add custom post
                     </Button>
                   </CardHeader>
-                  <CardContent className="p-0">
+              <CardContent className="p-0">
                     {posts.length === 0 ? (
                       <p className="p-6 text-sm text-muted-foreground">No posts yet. Use &quot;Default posts&quot; or add manually.</p>
-                    ) : (
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
                             <TableHead className="w-20">Order</TableHead>
                             <TableHead className="min-w-[200px]">Post title</TableHead>
                             <TableHead className="min-w-[120px]">Section</TableHead>
                             <TableHead>Type</TableHead>
-                            <TableHead className="text-right">Actions</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                           {posts.map((p, idx) => (
                             <TableRow key={p.id}>
                               <TableCell className="font-mono text-xs">
@@ -746,7 +746,7 @@ const AdminCommittee = () => {
                                   p.board_section ||
                                   "—"}
                               </TableCell>
-                              <TableCell>
+                          <TableCell>
                                 <div className="flex flex-wrap gap-1">
                                   {p.allows_multiple ? (
                                     <Badge variant="secondary">Multiple</Badge>
@@ -755,11 +755,11 @@ const AdminCommittee = () => {
                                   )}
                                   {!!p.is_highlight && <Badge>Highlight</Badge>}
                                 </div>
-                              </TableCell>
-                              <TableCell className="text-right">
+                          </TableCell>
+                          <TableCell className="text-right">
                                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditPost(p)}>
                                   <Pencil className="h-3.5 w-3.5" />
-                                </Button>
+                              </Button>
                                 <Button
                                   variant="ghost"
                                   size="icon"
@@ -768,14 +768,14 @@ const AdminCommittee = () => {
                                 >
                                   <Trash2 className="h-3.5 w-3.5" />
                                 </Button>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    )}
-                  </CardContent>
-                </Card>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
 
                 {posts.map((p) => (
                   <Card key={p.id}>
@@ -851,7 +851,7 @@ const AdminCommittee = () => {
               <Label>Name *</Label>
               <Input value={newTerm.name} onChange={(e) => setNewTerm({ ...newTerm, name: e.target.value })} placeholder="2025–2027" />
             </div>
-            <div>
+              <div>
               <Label>Description (optional)</Label>
               <Textarea value={newTerm.description} onChange={(e) => setNewTerm({ ...newTerm, description: e.target.value })} rows={3} />
             </div>
@@ -887,15 +887,15 @@ const AdminCommittee = () => {
                 <SelectTrigger>
                   <SelectValue placeholder="Select section" />
                 </SelectTrigger>
-                <SelectContent>
+                  <SelectContent>
                   {BOARD_SECTION_OPTIONS.map((o) => (
                     <SelectItem key={o.value} value={o.value}>
                       {o.label}
                     </SelectItem>
                   ))}
-                </SelectContent>
-              </Select>
-            </div>
+                  </SelectContent>
+                </Select>
+              </div>
             <div className="flex items-center gap-2">
               <Checkbox
                 id="am"
@@ -954,7 +954,7 @@ const AdminCommittee = () => {
               <div className="col-span-2">
                 <Label>Name *</Label>
                 <Input value={memberForm.name} onChange={(e) => setMemberForm({ ...memberForm, name: e.target.value })} />
-              </div>
+            </div>
               <div>
                 <Label>Designation (fixed)</Label>
                 <Input value={memberForm.designation} disabled />
@@ -1178,7 +1178,7 @@ const AdminCommittee = () => {
                   disabled={!newProfessionValue.trim()}
                 >
                   Add
-                </Button>
+            </Button>
               </div>
             </div>
 

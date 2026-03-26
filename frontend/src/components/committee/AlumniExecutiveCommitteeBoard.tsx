@@ -205,7 +205,7 @@ export function PresidentHeroCard({
   roleLabel?: string;
 }) {
   const roleLine = roleLabel || member.designation || "President";
-  const primary = "hsl(var(--primary))";
+  const primary = "#FFFFFF";
   const primaryTint = "hsl(var(--primary) / 0.12)";
   const primaryBorder = "hsl(var(--primary) / 0.25)";
   const cardBg = "hsl(var(--card))";
@@ -223,7 +223,7 @@ export function PresidentHeroCard({
         transition={{ duration: 0.6 }}
         className="relative mx-auto w-fit max-w-full cursor-pointer overflow-hidden rounded-[13px] border border-border/55 bg-card shadow-card transition-shadow hover:shadow-card-hover"
         style={{
-          background: `linear-gradient(135deg, hsl(var(--primary) / 0.14) 0%, ${cardBg} 45%, ${cardBg} 100%)`,
+          background: "linear-gradient(135deg, #0a6f62 0%, #075f54 48%, #045248 100%)",
         }}
       >
         <div className="flex w-fit max-w-full flex-col">
@@ -232,7 +232,11 @@ export function PresidentHeroCard({
           <div className="flex items-center gap-1">
             <div
               className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9.25px] font-bold tracking-wide"
-              style={{ backgroundColor: primaryTint, borderColor: primaryBorder, color: primary }}
+              style={{
+                backgroundColor: primaryTint,
+                borderColor: primaryBorder,
+                color: primary,
+              }}
             >
               <Crown className="h-[10.75px] w-[10.75px]" />
               KING
@@ -247,19 +251,37 @@ export function PresidentHeroCard({
 
           <h3
             className="font-bold leading-tight text-foreground"
-            style={{ fontFamily: "'Outfit', sans-serif", fontSize: "23px" }}
+            style={{
+              fontFamily: "'Outfit', sans-serif",
+              fontSize: "23px",
+              fontWeight: 900,
+              letterSpacing: "0.02em",
+              color: "#FFB347",
+              WebkitTextStroke: "0.8px #FDBA74",
+              textShadow:
+                "0 1px 0 #7f1d1d, 0 2px 0 #7f1d1d, 0 3px 0 rgba(127,29,29,0.92), 0 2px 6px rgba(0,0,0,0.3), 0 0 2px rgba(251,146,60,0.45)",
+              animation: "hpcPresidentNameFire 1.4s infinite ease-in-out",
+            }}
           >
             {member.name}
           </h3>
 
           <div
             className="inline-flex w-fit items-center rounded-full border px-2.5 py-0.5 text-[10.75px] font-semibold"
-            style={{ backgroundColor: primaryTint, borderColor: primaryBorder, color: primary }}
+            style={{
+              backgroundColor: "rgba(251, 146, 60, 0.25)",
+              borderColor: "rgba(253, 224, 71, 0.65)",
+              color: "#FFF7D6",
+              textShadow: "0 1px 4px rgba(0,0,0,0.55)",
+            }}
           >
             {roleLine}
           </div>
 
-          <div className="mt-0.5 grid min-w-0 w-full max-w-full grid-cols-[auto_minmax(0,1fr)] items-start gap-x-1 gap-y-0 text-[11.1px] text-muted-foreground">
+          <div
+            className="mt-0.5 grid min-w-0 w-full max-w-full grid-cols-[auto_minmax(0,1fr)] items-start gap-x-1 gap-y-0 text-[11.1px]"
+            style={{ fontFamily: "Georgia, 'Times New Roman', serif", color: "#FFFFFF" }}
+          >
             <div className="flex w-auto min-w-0 shrink-0 flex-col gap-y-0.5">
               <span className="inline-flex min-w-0 max-w-full items-start gap-1 break-words">
                 <Hash className="mt-0.5 h-[12.9px] w-[12.9px] shrink-0" style={{ color: primary }} />
@@ -305,16 +327,16 @@ export function PresidentHeroCard({
           {member.wishing_message ? (
             <div
               className="committee-member-wishing-box mt-0.5 w-full max-w-full rounded-md border p-2"
-              style={{ backgroundColor: primaryTint, borderColor: primaryBorder }}
+              style={{ backgroundColor: "#A6D9C7", borderColor: "rgba(6, 88, 76, 0.35)" }}
             >
               {/* President only: +15% vs member cards (8.75px / 9.25px baseline) */}
-              <p className="font-semibold" style={{ color: primary, fontSize: "calc(8.75px * 1.15)" }}>
+              <p className="font-semibold" style={{ color: "#000000", fontSize: "calc(8.75px * 1.15)" }}>
                 Wishing you
               </p>
               {/* ~40 words visible height; up to 50 words allowed — scroll inside if longer */}
               <div
-                className="mt-0.5 max-h-[7.92rem] overflow-y-auto overscroll-contain pr-0.5 leading-[1.4] text-muted-foreground [scrollbar-gutter:stable]"
-                style={{ fontSize: "calc(9.25px * 1.15)" }}
+                className="mt-0.5 max-h-[7.92rem] overflow-y-auto overscroll-contain pr-0.5 leading-[1.4] [scrollbar-gutter:stable]"
+                style={{ fontSize: "calc(9.25px * 1.15)", color: "#000000" }}
               >
                 {member.wishing_message}
               </div>
@@ -338,6 +360,7 @@ export function PresidentHeroCard({
                 src={member.photo_url}
                 alt={member.name}
                 className="absolute inset-0 z-10 h-full w-full object-cover object-center"
+                style={{ filter: "none" }}
               />
             ) : (
               <div
@@ -359,12 +382,15 @@ export function ExecutiveMemberCard({
   member,
   serial,
   postTitle,
+  governingBody = false,
 }: {
   member: DBMember;
   serial: number;
   postTitle?: string;
+  governingBody?: boolean;
 }) {
-  const nameRef = useFitSingleLineText(member.name, 22, 16);
+  // Other member cards need slightly tighter typography.
+  const nameRef = useFitSingleLineText(member.name, governingBody ? 22 : 20, governingBody ? 16 : 14);
   const wishingYouText = member.wishing_message
     ? truncateToWordCount(member.wishing_message, EXECUTIVE_WISHING_DISPLAY_WORDS)
     : "";
@@ -378,6 +404,8 @@ export function ExecutiveMemberCard({
   const fallbackCollege = member.college_name || "N/A";
 
   const href = `/committee/member/${member.id}`;
+  const photoSize = governingBody ? 180 : 151;
+  const cameraClassName = governingBody ? "h-[42px] w-[42px]" : "h-[34px] w-[34px]";
 
   return (
     <Link to={href} aria-label={`Open profile: ${member.name}`} className="block w-full">
@@ -386,16 +414,20 @@ export function ExecutiveMemberCard({
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
         transition={{ duration: 0.5 }}
-        className="relative min-h-[216px] w-full min-w-0 cursor-pointer overflow-hidden rounded-[13px] border border-border/55 bg-card shadow-card transition-shadow hover:shadow-card-hover"
+        className={cn(
+          "relative min-h-[216px] w-full min-w-0 cursor-pointer overflow-hidden rounded-[13px] border border-border/55 bg-card shadow-card transition-shadow hover:shadow-card-hover",
+          governingBody && "min-h-[260px]"
+        )}
         style={{
-          background: `linear-gradient(135deg, hsl(var(--primary) / 0.14) 0%, ${cardBg} 45%, ${cardBg} 100%)`,
+          background: "linear-gradient(135deg, #0a6f62 0%, #075f54 48%, #045248 100%)",
         }}
       >
         <div className="flex w-full flex-col">
-        <div className="p-3.5">
-          <div className="flex items-start gap-3.5">
+        <div className={cn("p-3.5", !governingBody && "p-3")}>
+          <div className={cn("flex items-start", governingBody ? "gap-3.5" : "gap-2.5")}>
             <div
-              className="relative h-[151px] w-[151px] shrink-0 overflow-hidden rounded-md border border-border/45"
+              className="relative shrink-0 overflow-hidden rounded-md border border-border/45"
+              style={{ width: photoSize, height: photoSize }}
             >
               <div
                 className="absolute inset-0"
@@ -409,18 +441,24 @@ export function ExecutiveMemberCard({
                   src={member.photo_url}
                   alt={member.name}
                   className="absolute inset-0 z-10 h-full w-full object-cover object-center"
+                  style={{ filter: "none" }}
                 />
               ) : (
                 <div
                   className="absolute inset-0 flex items-center justify-center relative z-10"
                   style={{ background: `linear-gradient(135deg, ${primaryTint} 0%, transparent 65%)` }}
                 >
-                  <Camera className="h-[34px] w-[34px]" style={{ color: primary, opacity: 0.6 }} />
+                  <Camera className={cameraClassName} style={{ color: primary, opacity: 0.6 }} />
                 </div>
               )}
             </div>
 
-            <div className="flex min-w-0 flex-1 flex-col justify-start gap-1.5 pt-0.5 pl-2.5 text-left">
+            <div
+              className={cn(
+                "flex min-w-0 flex-1 flex-col justify-start gap-1.5 pt-0.5 text-left",
+                governingBody ? "pl-2.5" : "pl-2"
+              )}
+            >
               <div
                 className="inline-flex w-fit items-center rounded-full border border-primary/20 px-2 py-0.5 text-[9.25px] font-bold tracking-wide"
                 style={{ backgroundColor: primaryTint, color: primary }}
@@ -433,8 +471,11 @@ export function ExecutiveMemberCard({
                 title={member.name}
                 className="block w-full min-w-0 whitespace-nowrap font-bold leading-tight text-foreground"
                 style={{
-                  fontFamily: "'Outfit', sans-serif",
-                  fontSize: "23px",
+                  fontFamily: "'Arena', sans-serif",
+                  fontSize: governingBody ? "23px" : "21px",
+                  fontWeight: 900,
+                  letterSpacing: "0.02em",
+                  color: "#FFB347",
                 }}
               >
                 {member.name}
@@ -448,51 +489,75 @@ export function ExecutiveMemberCard({
               </div>
 
               {/* After post: Alumni ID → Batch → Profession (other member card only) */}
-              <div className="mt-1 flex flex-col gap-y-0.5 text-[11.1px] text-muted-foreground">
+              <div
+                className="mt-1 flex flex-col gap-y-0.5 text-[11.1px]"
+                style={{ fontFamily: "Georgia, 'Times New Roman', serif", color: "#FFFFFF" }}
+              >
                 <span className="inline-flex min-w-0 max-w-full items-center gap-1.5">
-                  <Hash className="h-[12.9px] w-[12.9px] shrink-0" style={{ color: primary }} />
+                  <Hash className="h-[12.9px] w-[12.9px] shrink-0" style={{ color: "#FFFFFF" }} />
                   <span className="min-w-0">
-                    <span className="font-bold" style={{ color: primary }}>Alumni Id: </span>
+                    <span className="font-bold" style={{ color: "#FFFFFF" }}>Alumni Id: </span>
                     {member.alumni_id ?? "N/A"}
                   </span>
                 </span>
                 <span className="inline-flex min-w-0 max-w-full items-center gap-1.5">
-                  <GraduationCap className="h-[12.9px] w-[12.9px] shrink-0" style={{ color: primary }} />
+                  <GraduationCap className="h-[12.9px] w-[12.9px] shrink-0" style={{ color: "#FFFFFF" }} />
                   <span className="min-w-0">
-                    <span className="font-bold" style={{ color: primary }}>Batch: </span>
+                    <span className="font-bold" style={{ color: "#FFFFFF" }}>Batch: </span>
                     {member.batch ?? "N/A"}
                   </span>
                 </span>
                 <span className="inline-flex min-w-0 max-w-full items-center gap-1.5">
-                  <Briefcase className="h-[12.9px] w-[12.9px] shrink-0" style={{ color: primary }} />
+                  <Briefcase className="h-[12.9px] w-[12.9px] shrink-0" style={{ color: "#FFFFFF" }} />
                   <span className="min-w-0">
-                    <span className="font-bold" style={{ color: primary }}>Profession: </span>
+                    <span className="font-bold" style={{ color: "#FFFFFF" }}>Profession: </span>
                     {member.profession ?? "N/A"}
                   </span>
                 </span>
+                {governingBody ? (
+                  <>
+                    <span className="inline-flex min-w-0 max-w-full items-start gap-1.5 break-words">
+                      <Building2 className="mt-0.5 h-[12.9px] w-[12.9px] shrink-0" style={{ color: "#FFFFFF" }} />
+                      <span className="min-w-0">
+                        <span className="font-bold" style={{ color: "#FFFFFF" }}>University: </span>
+                        {member.institution ?? "N/A"}
+                      </span>
+                    </span>
+                    <span className="inline-flex min-w-0 max-w-full items-start gap-1.5 break-words">
+                      <GraduationCap className="mt-0.5 h-[12.9px] w-[12.9px] shrink-0" style={{ color: "#FFFFFF" }} />
+                      <span className="min-w-0">
+                        <span className="font-bold" style={{ color: "#FFFFFF" }}>College: </span>
+                        {fallbackCollege}
+                      </span>
+                    </span>
+                  </>
+                ) : null}
               </div>
             </div>
           </div>
 
-          {/* Bottom: education (non-sensitive) */}
-          <div className="mt-2 min-w-0 overflow-x-auto rounded-md border border-border/40 bg-muted/20 px-2 py-1.5 [-webkit-overflow-scrolling:touch]">
-            <div className="flex flex-col gap-y-1 text-[11.1px] text-muted-foreground">
+          {/* Bottom: education removed for governing_body (moved to right column). */}
+          {!governingBody ? (
+            <div
+              className="mt-2 flex flex-col gap-y-1 text-[11.1px]"
+              style={{ fontFamily: "Georgia, 'Times New Roman', serif", color: "#FFFFFF" }}
+            >
               <span className="inline-flex min-w-0 max-w-full items-start gap-1.5 break-words">
-                <Building2 className="mt-0.5 h-[12.9px] w-[12.9px] shrink-0" style={{ color: primary }} />
+                <Building2 className="mt-0.5 h-[12.9px] w-[12.9px] shrink-0" style={{ color: "#FFFFFF" }} />
                 <span className="min-w-0">
-                  <span className="font-bold" style={{ color: primary }}>University: </span>
+                  <span className="font-bold" style={{ color: "#FFFFFF" }}>University: </span>
                   {member.institution ?? "N/A"}
                 </span>
               </span>
               <span className="inline-flex min-w-0 max-w-full items-start gap-1.5 break-words">
-                <GraduationCap className="mt-0.5 h-[12.9px] w-[12.9px] shrink-0" style={{ color: primary }} />
+                <GraduationCap className="mt-0.5 h-[12.9px] w-[12.9px] shrink-0" style={{ color: "#FFFFFF" }} />
                 <span className="min-w-0">
-                  <span className="font-bold" style={{ color: primary }}>College: </span>
+                  <span className="font-bold" style={{ color: "#FFFFFF" }}>College: </span>
                   {fallbackCollege}
                 </span>
               </span>
             </div>
-          </div>
+          ) : null}
 
         </div>
 
@@ -500,12 +565,15 @@ export function ExecutiveMemberCard({
           <div className="space-y-1 px-2.5 pb-2.5">
             <div
               className="committee-member-wishing-box w-full rounded-md border p-2"
-              style={{ backgroundColor: primaryTint, borderColor: primaryBorder }}
+              style={{ backgroundColor: "#A6D9C7", borderColor: "rgba(6, 88, 76, 0.35)" }}
             >
-              <p className="text-[8.75px] font-semibold" style={{ color: primary }}>
+              <p className="text-[8.75px] font-semibold" style={{ color: "#000000" }}>
                 Wishing you
               </p>
-              <p className="mt-0.5 max-h-[10.5rem] overflow-hidden text-[9.25px] leading-[1.4] text-muted-foreground break-words">
+              <p
+                className="mt-0.5 max-h-[10.5rem] overflow-hidden text-[9.25px] leading-[1.4] text-muted-foreground break-words"
+                style={{ color: "#000000" }}
+              >
                 {wishingYouText}
               </p>
             </div>
@@ -523,7 +591,7 @@ export function ExecutiveMemberCard({
 
 export function MobilePresidentCard({ member, roleLabel }: { member: DBMember; roleLabel?: string }) {
   const roleLine = roleLabel || member.designation || "President";
-  const primary = "hsl(var(--primary))";
+  const primary = "#FFFFFF";
   const primaryTint = "hsl(var(--primary) / 0.12)";
   const primaryBorder = "hsl(var(--primary) / 0.25)";
 
@@ -537,12 +605,16 @@ export function MobilePresidentCard({ member, roleLabel }: { member: DBMember; r
         viewport={{ once: true }}
         transition={{ duration: 0.6 }}
         className="cursor-pointer overflow-hidden rounded-[13px] border border-border/55 shadow-card"
-        style={{ background: `linear-gradient(135deg, hsl(var(--primary) / 0.14) 0%, hsl(var(--card)) 45%, hsl(var(--card)) 100%)` }}
+        style={{ background: "linear-gradient(135deg, #0a6f62 0%, #075f54 48%, #045248 100%)" }}
       >
         {/* KING + #01 badges — above photo */}
         <div className="flex items-center gap-1.5 px-4 pt-4 pb-2">
           <span className="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-bold"
-            style={{ backgroundColor: primaryTint, borderColor: primaryBorder, color: primary }}>
+            style={{
+              backgroundColor: primaryTint,
+              borderColor: primaryBorder,
+              color: primary,
+            }}>
             <Crown className="h-3.5 w-3.5" /> KING
           </span>
           <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold"
@@ -554,7 +626,12 @@ export function MobilePresidentCard({ member, roleLabel }: { member: DBMember; r
         {/* Photo */}
         <div className="relative w-full overflow-hidden bg-muted" style={{ aspectRatio: "1/1" }}>
           {member.photo_url ? (
-            <img src={member.photo_url} alt={member.name} className="absolute inset-0 h-full w-full object-cover object-center" />
+            <img
+              src={member.photo_url}
+              alt={member.name}
+              className="absolute inset-0 h-full w-full object-cover object-center"
+              style={{ filter: "none" }}
+            />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${primaryTint} 0%, transparent 65%)` }}>
               <Camera className="h-12 w-12" style={{ color: primary, opacity: 0.5 }} />
@@ -565,17 +642,37 @@ export function MobilePresidentCard({ member, roleLabel }: { member: DBMember; r
 
         {/* Info */}
         <div className="flex flex-col gap-3 p-4">
-          <h3 className="text-xl font-bold leading-tight text-foreground" style={{ fontFamily: "'Outfit', sans-serif" }}>
+          <h3
+            className="text-xl font-bold leading-tight"
+            style={{
+              fontFamily: "'Outfit', sans-serif",
+              fontWeight: 900,
+              letterSpacing: "0.02em",
+              color: "#FFB347",
+              WebkitTextStroke: "0.8px #FDBA74",
+              textShadow:
+                "0 1px 0 #7f1d1d, 0 2px 0 #7f1d1d, 0 3px 0 rgba(127,29,29,0.92), 0 2px 6px rgba(0,0,0,0.3), 0 0 2px rgba(251,146,60,0.45)",
+              animation: "hpcPresidentNameFire 1.4s infinite ease-in-out",
+            }}
+          >
             {member.name}
           </h3>
 
           <span className="inline-flex w-fit items-center rounded-full border px-3 py-1 text-sm font-semibold"
-            style={{ backgroundColor: primaryTint, borderColor: primaryBorder, color: primary }}>
+            style={{
+              backgroundColor: "rgba(251, 146, 60, 0.25)",
+              borderColor: "rgba(253, 224, 71, 0.65)",
+              color: "#FFF7D6",
+              textShadow: "0 1px 4px rgba(0,0,0,0.55)",
+            }}>
             {roleLine}
           </span>
 
           {/* Two-column info grid (public fields only) */}
-          <div className="flex w-full min-w-0 items-start justify-between gap-2 text-sm text-muted-foreground">
+          <div
+            className="flex w-full min-w-0 items-start justify-between gap-2 text-sm"
+            style={{ fontFamily: "Georgia, 'Times New Roman', serif", color: "#FFFFFF" }}
+          >
             {/* Left column: Alumni Id · Batch · Profession */}
             <div className="flex min-w-0 flex-col gap-y-1">
               <span className="inline-flex min-w-0 items-start gap-1">
@@ -605,9 +702,9 @@ export function MobilePresidentCard({ member, roleLabel }: { member: DBMember; r
           </div>
 
           {member.wishing_message && (
-            <div className="rounded-md border p-3" style={{ backgroundColor: primaryTint, borderColor: primaryBorder }}>
-              <p className="text-xs font-semibold" style={{ color: primary }}>Message</p>
-              <p className="mt-1 text-sm leading-relaxed text-muted-foreground italic text-justify hyphens-auto">"{member.wishing_message}"</p>
+            <div className="rounded-md border p-3" style={{ backgroundColor: "#A6D9C7", borderColor: "rgba(6, 88, 76, 0.35)" }}>
+              <p className="text-xs font-semibold" style={{ color: "#000000" }}>Message</p>
+              <p className="mt-1 text-sm leading-relaxed italic text-justify hyphens-auto text-black">"{member.wishing_message}"</p>
             </div>
           )}
         </div>
@@ -616,7 +713,17 @@ export function MobilePresidentCard({ member, roleLabel }: { member: DBMember; r
   );
 }
 
-export function MobileMemberCard({ member, serial, postTitle }: { member: DBMember; serial: number; postTitle?: string }) {
+export function MobileMemberCard({
+  member,
+  serial,
+  postTitle,
+  governingBody = false,
+}: {
+  member: DBMember;
+  serial: number;
+  postTitle?: string;
+  governingBody?: boolean;
+}) {
   const role = postTitle || member.designation;
   const primary = "hsl(var(--primary))";
   const primaryTint = "hsl(var(--primary) / 0.12)";
@@ -636,14 +743,19 @@ export function MobileMemberCard({ member, serial, postTitle }: { member: DBMemb
         viewport={{ once: true }}
         transition={{ duration: 0.5 }}
         className="cursor-pointer overflow-hidden rounded-[13px] border border-border/55 shadow-card"
-        style={{ background: `linear-gradient(135deg, hsl(var(--primary) / 0.14) 0%, hsl(var(--card)) 45%, hsl(var(--card)) 100%)` }}
+        style={{ background: "linear-gradient(135deg, #0a6f62 0%, #075f54 48%, #045248 100%)" }}
       >
-      <div className="flex gap-3 p-3">
+      <div className={cn("flex p-3", governingBody ? "gap-3" : "gap-2")}>
         {/* Photo */}
         <div className="relative h-[88px] w-[88px] shrink-0 overflow-hidden rounded-md border" style={{ borderColor: primaryBorder }}>
           <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, hsl(var(--primary) / 0.12) 0%, transparent 60%)` }} />
           {member.photo_url ? (
-            <img src={member.photo_url} alt={member.name} className="absolute inset-0 z-10 h-full w-full object-cover object-center" />
+            <img
+              src={member.photo_url}
+              alt={member.name}
+              className="absolute inset-0 z-10 h-full w-full object-cover object-center"
+              style={{ filter: "none" }}
+            />
           ) : (
             <div className="absolute inset-0 z-10 flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${primaryTint} 0%, transparent 65%)` }}>
               <Camera className="h-8 w-8" style={{ color: primary, opacity: 0.5 }} />
@@ -659,7 +771,18 @@ export function MobileMemberCard({ member, serial, postTitle }: { member: DBMemb
           >
             {badgeText}
           </span>
-          <h3 className="truncate font-bold leading-tight text-foreground text-base" style={{ fontFamily: "'Outfit', sans-serif" }}>
+          <h3
+            className={cn(
+              "truncate font-bold leading-tight text-foreground",
+              governingBody ? "text-base" : "text-sm"
+            )}
+            style={{
+              fontFamily: "'Arena', sans-serif",
+              fontWeight: 900,
+              letterSpacing: "0.02em",
+              color: "#FFB347",
+            }}
+          >
             {member.name}
           </h3>
           <span className="inline-flex w-fit max-w-full items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold"
@@ -670,57 +793,67 @@ export function MobileMemberCard({ member, serial, postTitle }: { member: DBMemb
       </div>
 
       {/* Bottom fields (serially in one column) */}
-      <div className="mx-3 mb-2 rounded-md border border-border/40 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-        <div className="flex flex-col gap-0.5">
-          <span className="inline-flex items-start gap-1.5">
-            <Hash className="mt-0.5 h-3 w-3 shrink-0" style={{ color: primary }} />
-            <span className="min-w-0 truncate">
-              <span className="font-semibold" style={{ color: primary }}>Alumni Id: </span>
-              {member.alumni_id ?? "N/A"}
-            </span>
+      <div
+        className="mx-3 mb-2 flex flex-col gap-0.5 text-xs"
+        style={{ fontFamily: "Georgia, 'Times New Roman', serif", color: "#FFFFFF" }}
+      >
+        <span className="inline-flex items-start gap-1.5">
+          <Hash className="mt-0.5 h-3 w-3 shrink-0" style={{ color: "#FFFFFF" }} />
+          <span className="min-w-0 truncate">
+            <span className="font-semibold" style={{ color: "#FFFFFF" }}>Alumni Id: </span>
+            {member.alumni_id ?? "N/A"}
           </span>
+        </span>
 
-          <span className="inline-flex items-start gap-1.5">
-            <GraduationCap className="mt-0.5 h-3 w-3 shrink-0" style={{ color: primary }} />
-            <span className="min-w-0 truncate">
-              <span className="font-semibold" style={{ color: primary }}>Batch: </span>
-              {member.batch ?? "N/A"}
-            </span>
+        <span className="inline-flex items-start gap-1.5">
+          <GraduationCap className="mt-0.5 h-3 w-3 shrink-0" style={{ color: "#FFFFFF" }} />
+          <span className="min-w-0 truncate">
+            <span className="font-semibold" style={{ color: "#FFFFFF" }}>Batch: </span>
+            {member.batch ?? "N/A"}
           </span>
+        </span>
 
-          <span className="inline-flex items-start gap-1.5">
-            <Briefcase className="mt-0.5 h-3 w-3 shrink-0" style={{ color: primary }} />
-            <span className="min-w-0 truncate">
-              <span className="font-semibold" style={{ color: primary }}>Profession: </span>
-              {member.profession ?? "N/A"}
-            </span>
+        <span className="inline-flex items-start gap-1.5">
+          <Briefcase className="mt-0.5 h-3 w-3 shrink-0" style={{ color: "#FFFFFF" }} />
+          <span className="min-w-0 truncate">
+            <span className="font-semibold" style={{ color: "#FFFFFF" }}>Profession: </span>
+            {member.profession ?? "N/A"}
           </span>
+        </span>
+      </div>
 
-          <span className="inline-flex items-start gap-1.5">
-            <GraduationCap className="mt-0.5 h-3 w-3 shrink-0" style={{ color: primary }} />
-            <span className="min-w-0 truncate">
-              <span className="font-semibold" style={{ color: primary }}>College: </span>
-              {member.college_name || "N/A"}
-            </span>
+      {/* College/University shown without bordered box */}
+          <div
+            className="mx-3 mb-2 flex flex-col gap-0.5 text-xs"
+            style={{ fontFamily: "Georgia, 'Times New Roman', serif", color: "#FFFFFF" }}
+          >
+        <span className="inline-flex items-start gap-1.5">
+              <GraduationCap className="mt-0.5 h-3 w-3 shrink-0" style={{ color: "#FFFFFF" }} />
+          <span className="min-w-0 truncate">
+                <span className="font-semibold" style={{ color: "#FFFFFF" }}>College: </span>
+            {member.college_name || "N/A"}
           </span>
+        </span>
 
-          <span className="inline-flex items-start gap-1.5">
-            <Building2 className="mt-0.5 h-3 w-3 shrink-0" style={{ color: primary }} />
-            <span className="min-w-0 truncate text-[10px] leading-snug">
-              <span className="font-semibold" style={{ color: primary }}>Uni: </span>
-              {member.institution ?? "N/A"}
-            </span>
+        <span className="inline-flex items-start gap-1.5">
+              <Building2 className="mt-0.5 h-3 w-3 shrink-0" style={{ color: "#FFFFFF" }} />
+          <span className="min-w-0 truncate text-[10px] leading-snug">
+                <span className="font-semibold" style={{ color: "#FFFFFF" }}>Uni: </span>
+            {member.institution ?? "N/A"}
           </span>
-        </div>
+        </span>
       </div>
 
       {wishingText && (
         <div
           className="mx-3 mb-2 rounded-md border p-2.5"
-          style={{ backgroundColor: primaryTint, borderColor: primaryBorder }}
+          style={{ backgroundColor: "#A6D9C7", borderColor: "rgba(6, 88, 76, 0.35)" }}
         >
-          <p className="text-[10px] font-semibold" style={{ color: primary }}>Message</p>
-          <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground italic break-words">
+          <p className="text-[10px] font-semibold" style={{ color: "#000000" }}>Message</p>
+          <p
+            className="mt-0.5 text-xs leading-relaxed text-muted-foreground italic break-words"
+            style={{ color: "#000000" }}
+          >
             "{wishingText}"
           </p>
         </div>
@@ -1001,6 +1134,7 @@ export function AlumniExecutiveCommitteeBoard({
             member={committeeRowToDBMember(item.row)}
             serial={item.serial}
             postTitle={item.postTitle}
+            governingBody
           />
         ))}
       </Fragment>
@@ -1016,10 +1150,20 @@ export function AlumniExecutiveCommitteeBoard({
     return (
       <Fragment key={sec}>
         <div className={twoColMobile ? "col-span-2" : undefined}>
-          <h3 className="mt-2 text-sm font-bold tracking-wide text-foreground/80">{meta.title}</h3>
-          {meta.subtitle ? (
-            <p className="mt-0.5 text-xs text-muted-foreground">{meta.subtitle}</p>
-          ) : null}
+          <button
+            type="button"
+            disabled={showAll}
+            onClick={() => toggleSection(sec)}
+            className="group w-full rounded-xl border border-border/70 bg-gradient-to-br from-card via-card to-primary/[0.07] px-4 py-3 text-left shadow-sm ring-1 ring-black/[0.04] transition-all hover:border-primary/35 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="text-sm font-bold tracking-wide text-foreground/80">{meta.title}</h3>
+                {meta.subtitle ? <p className="mt-0.5 text-xs text-muted-foreground">{meta.subtitle}</p> : null}
+              </div>
+              <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground transition-transform duration-200 group-hover:text-primary rotate-180" />
+            </div>
+          </button>
         </div>
         {items.map((item) => (
           <MobileMemberCard
@@ -1061,8 +1205,8 @@ export function AlumniExecutiveCommitteeBoard({
         ) : null}
         {items.length > 0 ? (
           <div
-            className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 lg:gap-5"
-            style={scaled ? { gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "20px" } : undefined}
+            className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-2 lg:gap-5"
+            style={scaled ? { gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "20px" } : undefined}
           >
             {items.map((item) => (
               <div key={item.row.id} className="min-w-0">
@@ -1070,6 +1214,7 @@ export function AlumniExecutiveCommitteeBoard({
                   member={committeeRowToDBMember(item.row)}
                   serial={item.serial}
                   postTitle={item.postTitle}
+                  governingBody
                 />
               </div>
             ))}
@@ -1090,8 +1235,20 @@ export function AlumniExecutiveCommitteeBoard({
     return (
       <div key={sec} className="space-y-4">
         <div className="pt-2">
-          <h3 className="text-lg font-bold text-foreground">{meta.title}</h3>
-          {meta.subtitle ? <p className="text-sm text-muted-foreground">{meta.subtitle}</p> : null}
+          <button
+            type="button"
+            disabled={showAll}
+            onClick={() => toggleSection(sec)}
+            className="group w-full rounded-xl border border-border/70 bg-gradient-to-br from-card via-card to-primary/[0.07] px-4 py-3 text-left shadow-sm ring-1 ring-black/[0.04] transition-all hover:border-primary/35 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <h3 className="text-lg font-bold text-foreground">{meta.title}</h3>
+                {meta.subtitle ? <p className="text-sm text-muted-foreground">{meta.subtitle}</p> : null}
+              </div>
+              <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground transition-transform duration-200 group-hover:text-primary rotate-180" />
+            </div>
+          </button>
         </div>
         {items.length > 0 ? (
           <div

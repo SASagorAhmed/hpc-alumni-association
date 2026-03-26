@@ -263,13 +263,14 @@ CREATE TABLE IF NOT EXISTS `achievement_settings` (
   `banner_enabled` BOOLEAN NULL DEFAULT TRUE,
   `slide_duration` INT NULL DEFAULT 4,
   `max_display_count` INT NULL,
+  `banner_theme` VARCHAR(32) NULL DEFAULT 'default',
   `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB;
 
 -- Default banner settings row (API also auto-creates if missing)
-INSERT INTO `achievement_settings` (`id`, `banner_enabled`, `slide_duration`, `max_display_count`)
-SELECT UUID(), 1, 4, NULL FROM DUAL
+INSERT INTO `achievement_settings` (`id`, `banner_enabled`, `slide_duration`, `max_display_count`, `banner_theme`)
+SELECT UUID(), 1, 4, NULL, 'default' FROM DUAL
 WHERE NOT EXISTS (SELECT 1 FROM `achievement_settings` LIMIT 1);
 
 -- ----------------------------

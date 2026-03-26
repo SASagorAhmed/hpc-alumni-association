@@ -389,6 +389,10 @@ router.put("/achievement-settings/:id", requireAuth, async (req, res) => {
         patch.max_display_count = Number.isFinite(n) && n >= 0 ? n : null;
       }
     }
+    if ("banner_theme" in b) {
+      const raw = String(b.banner_theme || "").trim().toLowerCase();
+      patch.banner_theme = raw === "tomato" ? "tomato" : "default";
+    }
     if (Object.keys(patch).length === 0) {
       return res.status(400).json({ ok: false, error: "No valid fields to update" });
     }

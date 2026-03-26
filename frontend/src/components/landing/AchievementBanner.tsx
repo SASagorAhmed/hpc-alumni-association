@@ -284,11 +284,13 @@ function CongratulationsBurstReveal({
   heading,
   slideKey,
   isPaused,
+  tomatoTheme,
 }: {
   message: string;
   heading?: string | null;
   slideKey: string;
   isPaused: boolean;
+  tomatoTheme?: boolean;
 }) {
   const particles = useMemo(() => celebrateParticlesFor(slideKey), [slideKey]);
 
@@ -298,7 +300,15 @@ function CongratulationsBurstReveal({
         "hpc-celebrate-root relative w-full min-w-0 max-w-full overflow-hidden rounded-md border bg-gradient-to-b from-white/[0.1] to-white/[0.04] px-2 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-[2px] sm:rounded-lg sm:px-3 sm:py-2.5",
         isPaused && "achievement-winner-paused"
       )}
-      style={{ borderColor: "var(--achievement-banner-tag-border)" }}
+      style={
+        tomatoTheme
+          ? {
+              borderColor: "var(--achievement-banner-congrats-border)",
+              background: "var(--achievement-banner-congrats-bg)",
+              backdropFilter: "blur(6px)",
+            }
+          : { borderColor: "var(--achievement-banner-tag-border)" }
+      }
     >
       <div className="pointer-events-none absolute inset-0 z-0 hpc-celebrate-ambient hpc-celebrate-pauseable" aria-hidden />
 
@@ -334,7 +344,14 @@ function CongratulationsBurstReveal({
 
       <div className="relative z-10 flex w-full min-w-0 flex-col">
         <div className="flex w-full justify-center px-0.5 pt-0.5">
-          <span className="hpc-celebrate-title hpc-celebrate-pauseable inline-block text-center bg-gradient-to-r from-amber-100 via-white to-amber-200/95 bg-clip-text text-[clamp(0.72rem,4.5cqw+0.28rem,1.08rem)] font-extrabold uppercase tracking-[0.12em] text-transparent sm:tracking-[0.14em]">
+          <span
+            className={cn(
+              "hpc-celebrate-title hpc-celebrate-pauseable inline-block text-center text-[clamp(0.72rem,4.5cqw+0.28rem,1.08rem)] font-extrabold uppercase tracking-[0.12em] sm:tracking-[0.14em]",
+              tomatoTheme
+                ? "text-[var(--achievement-banner-congrats-heading)]"
+                : "bg-gradient-to-r from-amber-100 via-white to-amber-200/95 bg-clip-text text-transparent"
+            )}
+          >
             {heading?.trim() || "Congratulations"}
           </span>
         </div>
@@ -343,7 +360,18 @@ function CongratulationsBurstReveal({
         </p>
         <p
           className="mt-1.5 shrink-0 border-t border-white/10 pt-1.5 text-right text-[0.58rem] font-semibold uppercase tracking-[0.08em] opacity-90 sm:text-[0.62rem]"
-          style={{ color: "var(--achievement-banner-line)" }}
+          style={
+            tomatoTheme
+              ? {
+                  color: "#FFFFFF",
+                  border: "1px solid rgba(255,255,255,0.7)",
+                  borderRadius: "9999px",
+                  padding: "0.2rem 0.45rem",
+                  width: "fit-content",
+                  marginLeft: "auto",
+                }
+              : { color: "var(--achievement-banner-line)" }
+          }
         >
           HPC Alumni Association
         </p>
@@ -520,6 +548,7 @@ interface Settings {
   banner_enabled: boolean;
   slide_duration: number;
   max_display_count: number | null;
+  banner_theme?: "default" | "tomato" | "theme3";
 }
 
 /** MySQL / JSON may send 0/1; ignore error-shaped bodies */
@@ -538,7 +567,10 @@ function normalizeAchievementSettings(raw: unknown): Settings | null {
     const n = Number(mdc);
     if (Number.isFinite(n)) max_display_count = n;
   }
-  return { banner_enabled, slide_duration, max_display_count };
+  const themeRaw = typeof o.banner_theme === "string" ? o.banner_theme.trim().toLowerCase() : "";
+  const banner_theme: "default" | "tomato" | "theme3" =
+    themeRaw === "tomato" || themeRaw === "theme3" ? themeRaw : "default";
+  return { banner_enabled, slide_duration, max_display_count, banner_theme };
 }
 
 
@@ -557,6 +589,10 @@ const AchievementBanner = () => {
   const [bannerScale, setBannerScale] = useState(1);
   const [bannerWrapperH, setBannerWrapperH] = useState<number | undefined>(undefined);
   const [bannerCardW, setBannerCardW] = useState(960);
+  /** Stacked photo + text layout (no transform scale). Matches Tailwind `lg` — tablets/phones only. */
+  const [isNarrowViewport, setIsNarrowViewport] = useState(() =>
+    typeof window !== "undefined" ? window.matchMedia("(max-width: 1023px)").matches : false
+  );
 
   // Re-run when banner DOM first appears (achievements go from 0 → loaded).
   // Without this, refs are null on the initial null-render and the ResizeObserver
@@ -564,27 +600,41 @@ const AchievementBanner = () => {
   const bannerReady = achievements.length > 0 && !!settings?.banner_enabled;
   useLayoutEffect(() => {
     const card = bannerCardRef.current;
-    const shell = bannerShellRef.current;
-    if (!card || !shell) return;
+    if (!card) return;
+
     const update = () => {
       const cardW = card.getBoundingClientRect().width;
       if (!cardW) return;
       setBannerCardW(cardW);
+
+      if (isNarrowViewport) {
+        setBannerScale(1);
+        setBannerWrapperH(undefined);
+        return;
+      }
+
+      const shell = bannerShellRef.current;
+      if (!shell) return;
       const s = Math.min(1, cardW / DESIGN_W);
       setBannerScale(s);
       setBannerWrapperH(s < 1 ? Math.round(shell.offsetHeight * s) : undefined);
     };
-    let raf1 = 0, raf2 = 0;
-    raf1 = requestAnimationFrame(() => { raf2 = requestAnimationFrame(update); });
+
+    let raf1 = 0,
+      raf2 = 0;
+    raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(update);
+    });
     const ro = new ResizeObserver(update);
     ro.observe(card);
-    ro.observe(shell);
+    const shell = bannerShellRef.current;
+    if (shell) ro.observe(shell);
     return () => {
       cancelAnimationFrame(raf1);
       cancelAnimationFrame(raf2);
       ro.disconnect();
     };
-  }, [bannerReady]);
+  }, [bannerReady, isNarrowViewport]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -620,6 +670,20 @@ const AchievementBanner = () => {
     fetchData();
   }, []);
 
+  // Stacked vs scaled banner: use viewport (lg breakpoint), not only measured card width.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(max-width: 1023px)");
+    const onChange = () => setIsNarrowViewport(mq.matches);
+    onChange();
+    if (typeof mq.addEventListener === "function") mq.addEventListener("change", onChange);
+    else mq.addListener(onChange);
+    return () => {
+      if (typeof mq.removeEventListener === "function") mq.removeEventListener("change", onChange);
+      else mq.removeListener(onChange);
+    };
+  }, []);
+
   const goTo = useCallback((index: number) => {
     setIsTransitioning(true);
     setTimeout(() => {
@@ -647,12 +711,55 @@ const AchievementBanner = () => {
 
   const item = achievements[current];
   const duration = (settings.slide_duration || 4) * 1000;
+  const isTomatoTheme = settings.banner_theme === "tomato";
+  const isTheme3 = settings.banner_theme === "theme3";
+  const bannerThemeVars: CSSProperties =
+    isTomatoTheme
+      ? {
+          ["--achievement-banner-side-bg" as string]:
+            "linear-gradient(135deg, #ffb07a 0%, #ff9559 55%, #ff7f50 100%)",
+          ["--achievement-banner-side-overlay" as string]:
+            "linear-gradient(to left, #14303d, transparent)",
+          ["--achievement-banner-eyebrow" as string]: "#fcd34d",
+          ["--achievement-banner-line" as string]: "#E0B100",
+          ["--achievement-banner-progress" as string]: "#3fb8af",
+          ["--achievement-banner-tag-fg" as string]: "#000000",
+          ["--achievement-banner-tag-bg" as string]: "rgba(251, 191, 36, 0.20)",
+          ["--achievement-banner-tag-border" as string]: "rgba(251, 191, 36, 0.40)",
+          ["--achievement-banner-ach-bg" as string]: "rgba(255, 101, 66, 0.88)",
+          ["--achievement-banner-ach-border" as string]: "rgba(255, 149, 89, 0.62)",
+          ["--achievement-banner-ach-title" as string]: "#FFF0EA",
+          ["--achievement-banner-congrats-bg" as string]: "rgba(255, 101, 66, 0.94)",
+          ["--achievement-banner-congrats-border" as string]: "rgba(255, 149, 89, 0.72)",
+          ["--achievement-banner-congrats-heading" as string]: "#FFF7D6",
+          ["--achievement-banner-icon-accent" as string]: "#3fb8af",
+        }
+      : isTheme3
+      ? {
+          ["--achievement-banner-side-bg" as string]: "#F98603",
+          ["--achievement-banner-side-overlay" as string]:
+            "linear-gradient(to left, rgba(14, 23, 51, 0.45), transparent)",
+          ["--achievement-banner-eyebrow" as string]: "#0E1733",
+          ["--achievement-banner-line" as string]: "#0E1733",
+          ["--achievement-banner-progress" as string]: "#0E1733",
+          ["--achievement-banner-tag-fg" as string]: "#0E1733",
+          ["--achievement-banner-tag-bg" as string]: "rgba(255, 255, 255, 0.22)",
+          ["--achievement-banner-tag-border" as string]: "rgba(14, 23, 51, 0.3)",
+          ["--achievement-banner-ach-bg" as string]: "rgba(255, 255, 255, 0.2)",
+          ["--achievement-banner-ach-border" as string]: "rgba(14, 23, 51, 0.28)",
+          ["--achievement-banner-ach-title" as string]: "#0E1733",
+          ["--achievement-banner-congrats-bg" as string]: "rgba(255, 255, 255, 0.26)",
+          ["--achievement-banner-congrats-border" as string]: "rgba(14, 23, 51, 0.32)",
+          ["--achievement-banner-congrats-heading" as string]: "#0E1733",
+          ["--achievement-banner-icon-accent" as string]: "#0E1733",
+        }
+      : {};
 
   const navBtnClass =
     "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-primary/45 bg-primary/[0.08] text-primary shadow-md backdrop-blur-sm transition-all hover:border-primary hover:bg-primary/15 hover:text-primary hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-95 sm:h-10 sm:w-10 dark:border-primary/50 dark:bg-primary/[0.12] dark:hover:bg-primary/20";
 
   return (
-    <div className="w-full min-w-0 overflow-x-hidden bg-background pt-10 lg:pt-11">
+    <div className="w-full min-w-0 overflow-x-hidden bg-background pt-10 lg:pt-11" style={bannerThemeVars}>
       <div className="layout-container min-w-0 pb-2 pt-2 sm:pb-2.5 sm:pt-2.5 md:pb-3 md:pt-3">
         <div className="relative mx-auto flex w-full min-w-0 max-w-full items-center justify-center gap-2 overflow-x-hidden px-0.5 sm:gap-3 md:gap-3.5">
         <div
@@ -661,8 +768,8 @@ const AchievementBanner = () => {
           onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
         >
-      {bannerCardW < 540 ? (
-        /* ── MOBILE layout (card < 540px): stacked, native font sizes, no logo ── */
+      {isNarrowViewport ? (
+        /* ── NARROW (≤1023px): stacked layout, no desktop scale transform ── */
         <div className={cn("flex flex-col", isTransitioning ? "opacity-0" : "opacity-100")} style={{ transition: "opacity 0.3s" }}>
           {/* Photo — full width, consistent aspect ratio on all screen sizes */}
           <div className="relative w-full overflow-hidden bg-neutral-950" style={{ aspectRatio: "4/3" }}>
@@ -740,6 +847,7 @@ const AchievementBanner = () => {
             {achievements.length > 1 ? (
               <button type="button" onClick={prev} aria-label="Previous slide"
                 className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-primary/45 bg-primary/[0.08] text-primary shadow-sm transition-all hover:border-primary hover:bg-primary/15 active:scale-95"
+                style={isTomatoTheme ? { color: "var(--achievement-banner-icon-accent)", borderColor: "rgba(34,197,94,0.55)", backgroundColor: "rgba(34,197,94,0.12)" } : undefined}
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
@@ -747,22 +855,27 @@ const AchievementBanner = () => {
 
             {/* Pill */}
             <div
-              className="inline-flex items-center justify-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-[0.13em]"
+              className={cn(
+                "inline-flex items-center justify-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[0.65rem] uppercase tracking-[0.13em]",
+                isTomatoTheme ? "font-black" : "font-semibold"
+              )}
               style={{
                 borderColor: "var(--achievement-banner-tag-border)",
                 backgroundColor: "var(--achievement-banner-tag-bg)",
-                color: "var(--achievement-banner-eyebrow)",
+                color: isTomatoTheme ? "#ef4444" : "var(--achievement-banner-eyebrow)",
+                boxShadow: isTomatoTheme ? "0 0 0 1px rgba(233, 17, 17, 0.18), 0 4px 14px rgba(243, 15, 15, 0.2)" : undefined,
               }}
             >
-              <Award className="h-3 w-3 shrink-0 text-amber-400" />
+              <Award className="h-3 w-3 shrink-0" style={{ color: isTomatoTheme ? "#ef4444" : undefined }} />
               Alumni Spotlight
-              <span className="h-1.5 w-1.5 shrink-0 rounded-full animate-pulse" style={{ backgroundColor: "var(--achievement-banner-line)" }} />
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full animate-pulse" style={{ backgroundColor: isTomatoTheme ? "#ef4444" : "var(--achievement-banner-line)" }} />
             </div>
 
             {/* Next button */}
             {achievements.length > 1 ? (
               <button type="button" onClick={next} aria-label="Next slide"
                 className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-primary/45 bg-primary/[0.08] text-primary shadow-sm transition-all hover:border-primary hover:bg-primary/15 active:scale-95"
+                style={isTomatoTheme ? { color: "var(--achievement-banner-icon-accent)", borderColor: "rgba(34,197,94,0.55)", backgroundColor: "rgba(34,197,94,0.12)" } : undefined}
               >
                 <ChevronRight className="h-4 w-4" />
               </button>
@@ -787,10 +900,25 @@ const AchievementBanner = () => {
                 <div
                   key={`mob-ach-${item.id}`}
                   className="hpc-banner-right-enter rounded-lg border bg-white/[0.06] px-3 py-2 backdrop-blur-[2px]"
-                  style={{ borderColor: "var(--achievement-banner-tag-border)", animationDelay: "0.08s" }}
+                  style={{
+                    borderColor: isTomatoTheme ? "var(--achievement-banner-ach-border)" : "var(--achievement-banner-tag-border)",
+                    background: isTomatoTheme ? "var(--achievement-banner-ach-bg)" : undefined,
+                    animationDelay: "0.08s",
+                  }}
                 >
-                  <p className="text-[0.6rem] font-semibold uppercase tracking-widest text-white/50">Achievement</p>
-                  <p className="mt-0.5 break-words font-semibold leading-snug text-sm" style={{ color: "var(--achievement-banner-line)" }}>
+                  <p
+                    className="text-[0.6rem] font-semibold uppercase tracking-widest"
+                    style={{ color: isTomatoTheme || isTheme3 ? "var(--achievement-banner-ach-title)" : "#FFFFFF" }}
+                  >
+                    Achievement
+                  </p>
+                  <p
+                    className={cn(
+                      "mt-0.5 break-words leading-snug text-sm",
+                      isTomatoTheme ? "font-extrabold" : "font-semibold"
+                    )}
+                    style={{ color: isTomatoTheme ? "#0E1733" : "var(--achievement-banner-line)" }}
+                  >
                     {item.achievement_title.trim()}
                   </p>
                 </div>
@@ -808,6 +936,7 @@ const AchievementBanner = () => {
                     heading={item.banner_congratulations_text}
                     slideKey={`mob-${item.id}`}
                     isPaused={isPaused}
+                    tomatoTheme={isTomatoTheme}
                   />
                 </div>
               ) : null}
@@ -854,6 +983,7 @@ const AchievementBanner = () => {
                   type="button"
                   onClick={prev}
                   className="absolute left-2 top-1/2 z-30 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full border-2 border-primary/45 bg-primary/[0.08] text-primary shadow-md backdrop-blur-sm transition-all hover:border-primary hover:bg-primary/15 active:scale-95"
+                  style={isTomatoTheme ? { color: "var(--achievement-banner-icon-accent)", borderColor: "rgba(34,197,94,0.55)", backgroundColor: "rgba(34,197,94,0.12)" } : undefined}
                   aria-label="Previous slide"
                 >
                   <ChevronLeft className="h-4 w-4" />
@@ -876,6 +1006,7 @@ const AchievementBanner = () => {
                   type="button"
                   onClick={next}
                   className="absolute right-2 top-1/2 z-30 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full border-2 border-primary/45 bg-primary/[0.08] text-primary shadow-md backdrop-blur-sm transition-all hover:border-primary hover:bg-primary/15 active:scale-95"
+                  style={isTomatoTheme ? { color: "var(--achievement-banner-icon-accent)", borderColor: "rgba(34,197,94,0.55)", backgroundColor: "rgba(34,197,94,0.12)" } : undefined}
                   aria-label="Next slide"
                 >
                   <ChevronRight className="h-4 w-4" />
@@ -900,18 +1031,22 @@ const AchievementBanner = () => {
                   <div className="hpc-banner-right-enter flex items-center justify-center gap-2" style={{ animationDelay: "0.04s" }}>
                     <div
                       key={`${item.id}-pill`}
-                      className="inline-flex w-fit max-w-full shrink-0 items-center justify-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-[0.13em]"
+                      className={cn(
+                        "inline-flex w-fit max-w-full shrink-0 items-center justify-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[0.65rem] uppercase tracking-[0.13em]",
+                        isTomatoTheme ? "font-black" : "font-semibold"
+                      )}
                       style={{
                         borderColor: "var(--achievement-banner-tag-border)",
                         backgroundColor: "var(--achievement-banner-tag-bg)",
-                        color: "var(--achievement-banner-eyebrow)",
+                        color: isTomatoTheme ? "#ef4444" : "var(--achievement-banner-eyebrow)",
+                        boxShadow: isTomatoTheme ? "0 0 0 1px rgba(0,0,0,0.18), 0 4px 14px rgba(0,0,0,0.2)" : undefined,
                       }}
                     >
-                      <Award className="h-3 w-3 shrink-0 text-amber-400" />
+                      <Award className="h-3 w-3 shrink-0" style={{ color: isTomatoTheme ? "#ef4444" : undefined }} />
                       Alumni Spotlight
                       <span
                         className="h-1.5 w-1.5 shrink-0 rounded-full animate-pulse"
-                        style={{ backgroundColor: "var(--achievement-banner-line)" }}
+                        style={{ backgroundColor: isTomatoTheme ? "#ef4444" : "var(--achievement-banner-line)" }}
                       />
                     </div>
                   </div>
@@ -924,14 +1059,23 @@ const AchievementBanner = () => {
                     >
                       <div
                         className="hpc-banner-right-box-glow hpc-banner-right-pauseable w-full rounded-lg border bg-white/[0.06] px-2.5 py-1.5 backdrop-blur-[2px]"
-                        style={{ borderColor: "var(--achievement-banner-tag-border)" }}
+                        style={{
+                          borderColor: isTomatoTheme ? "var(--achievement-banner-ach-border)" : "var(--achievement-banner-tag-border)",
+                          background: isTomatoTheme ? "var(--achievement-banner-ach-bg)" : undefined,
+                        }}
                       >
-                        <p className="text-[0.58rem] font-semibold uppercase tracking-widest text-white/50">
+                        <p
+                          className="text-[0.58rem] font-semibold uppercase tracking-widest"
+                          style={{ color: isTomatoTheme || isTheme3 ? "var(--achievement-banner-ach-title)" : "#FFFFFF" }}
+                        >
                           Achievement
                         </p>
                         <p
-                          className="mt-0.5 break-words font-semibold leading-snug text-[clamp(0.68rem,2.6cqw+0.18rem,0.8125rem)]"
-                          style={{ color: "var(--achievement-banner-line)" }}
+                          className={cn(
+                            "mt-0.5 break-words leading-snug text-[clamp(0.68rem,2.6cqw+0.18rem,0.8125rem)]",
+                            isTomatoTheme ? "font-extrabold" : "font-semibold"
+                          )}
+                          style={{ color: isTomatoTheme ? "#0E1733" : "var(--achievement-banner-line)" }}
                         >
                           {item.achievement_title.trim()}
                         </p>
@@ -950,6 +1094,7 @@ const AchievementBanner = () => {
                         heading={item.banner_congratulations_text}
                         slideKey={item.id}
                         isPaused={isPaused}
+                        tomatoTheme={isTomatoTheme}
                       />
                     </div>
                   ) : null}
