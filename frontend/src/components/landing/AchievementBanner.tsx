@@ -425,7 +425,7 @@ function BannerPhotoPanel({
   return (
     <div
       className={cn(
-        "relative w-full overflow-hidden bg-neutral-950 transition-all duration-700 ease-out",
+        "relative h-full w-full overflow-hidden bg-neutral-950 transition-all duration-700 ease-out",
         isTransitioning ? "scale-[1.02] opacity-0" : "scale-100 opacity-100"
       )}
     >
@@ -440,7 +440,7 @@ function BannerPhotoPanel({
           <img
             src={item.photo_url}
             alt={item.name}
-            className="block w-full h-auto object-center"
+            className="absolute inset-0 h-full w-full object-cover object-center"
             decoding="async"
           />
           {/* Light bottom fade — keeps overlay text readable */}
@@ -655,20 +655,9 @@ const AchievementBanner = () => {
     <div className="w-full min-w-0 overflow-x-hidden bg-background pt-10 lg:pt-11">
       <div className="layout-container min-w-0 pb-2 pt-2 sm:pb-2.5 sm:pt-2.5 md:pb-3 md:pt-3">
         <div className="relative mx-auto flex w-full min-w-0 max-w-full items-center justify-center gap-2 overflow-x-hidden px-0.5 sm:gap-3 md:gap-3.5">
-          {achievements.length > 1 ? (
-            <button
-              type="button"
-              onClick={prev}
-              className={`${navBtnClass} max-sm:hidden`}
-              aria-label="Previous slide"
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </button>
-          ) : null}
-
         <div
           ref={bannerCardRef}
-          className="@container/achievement-banner relative min-w-0 w-full flex-1 max-w-[960px] overflow-hidden rounded-xl border border-border/90 bg-background shadow-md ring-1 ring-border/40"
+          className="@container/achievement-banner relative min-w-0 w-full flex-1 max-w-full overflow-hidden rounded-xl border border-border/90 bg-background shadow-md ring-1 ring-border/40"
           onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
         >
@@ -853,13 +842,23 @@ const AchievementBanner = () => {
             className="hpc-achievement-banner-shell flex flex-row overflow-hidden rounded-b-[inherit] origin-top-left"
             style={bannerScale < 1 ? { width: `${DESIGN_W}px`, transform: `scale(${bannerScale})` } : { width: "100%" }}
           >
-            {/* Photo column — 56% of DESIGN_W; height comes from image's natural ratio */}
-            <div className="relative z-0 w-[56%] max-w-[28rem] min-w-0 shrink-0 overflow-hidden border-r border-border/50">
+            {/* Photo column — fixed ratio on tablet/PC; right text area widened */}
+            <div className="relative z-0 w-[46%] max-w-none min-w-0 shrink-0 overflow-hidden border-r border-border/50 aspect-[4/3]">
               <BannerPhotoPanel
                 item={item}
                 isTransitioning={isTransitioning}
                 awardClassName="h-28 w-28 text-white/20"
               />
+              {achievements.length > 1 ? (
+                <button
+                  type="button"
+                  onClick={prev}
+                  className="absolute left-2 top-1/2 z-30 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full border-2 border-primary/45 bg-primary/[0.08] text-primary shadow-md backdrop-blur-sm transition-all hover:border-primary hover:bg-primary/15 active:scale-95"
+                  aria-label="Previous slide"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+              ) : null}
             </div>
 
             <AchievementWinnerOverlay key={item.id} slideKey={item.id} isPaused={isPaused} />
@@ -872,6 +871,16 @@ const AchievementBanner = () => {
               )}
               style={{ background: "var(--achievement-banner-side-bg)" }}
             >
+              {achievements.length > 1 ? (
+                <button
+                  type="button"
+                  onClick={next}
+                  className="absolute right-2 top-1/2 z-30 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full border-2 border-primary/45 bg-primary/[0.08] text-primary shadow-md backdrop-blur-sm transition-all hover:border-primary hover:bg-primary/15 active:scale-95"
+                  aria-label="Next slide"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              ) : null}
               <div className="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-br from-primary/[0.07] via-transparent to-transparent hpc-banner-right-pauseable hpc-banner-right-bg-shimmer" />
               <div
                 className={cn(
@@ -884,26 +893,27 @@ const AchievementBanner = () => {
                   className={cn(
                     "flex min-h-0 min-w-0 flex-col justify-start gap-1.5 overflow-x-hidden border-l-[3px] border-primary px-3.5 pb-2",
                     item.message?.trim()
-                      ? "hpc-achievement-mobile-text-scroll min-w-0 flex-1 basis-[85%] max-w-[85%] overflow-y-auto overscroll-contain pt-0 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.25)_transparent]"
+                      ? "hpc-achievement-mobile-text-scroll min-w-0 flex-1 w-full max-w-full overflow-y-auto overscroll-contain pt-0 pr-12 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.25)_transparent]"
                       : "w-full min-w-0 max-w-full flex-1 overflow-y-hidden"
                   )}
                 >
-                  <div
-                    key={`${item.id}-pill`}
-                  className="hpc-banner-right-enter mx-auto inline-flex w-fit max-w-full shrink-0 items-center justify-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-[0.13em]"
-                  style={{
-                    borderColor: "var(--achievement-banner-tag-border)",
-                    backgroundColor: "var(--achievement-banner-tag-bg)",
-                    color: "var(--achievement-banner-eyebrow)",
-                    animationDelay: "0.04s",
-                  }}
-                >
-                  <Award className="h-3 w-3 shrink-0 text-amber-400" />
-                  Alumni Spotlight
-                  <span
-                    className="h-1.5 w-1.5 shrink-0 rounded-full animate-pulse"
-                    style={{ backgroundColor: "var(--achievement-banner-line)" }}
-                  />
+                  <div className="hpc-banner-right-enter flex items-center justify-center gap-2" style={{ animationDelay: "0.04s" }}>
+                    <div
+                      key={`${item.id}-pill`}
+                      className="inline-flex w-fit max-w-full shrink-0 items-center justify-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-[0.13em]"
+                      style={{
+                        borderColor: "var(--achievement-banner-tag-border)",
+                        backgroundColor: "var(--achievement-banner-tag-bg)",
+                        color: "var(--achievement-banner-eyebrow)",
+                      }}
+                    >
+                      <Award className="h-3 w-3 shrink-0 text-amber-400" />
+                      Alumni Spotlight
+                      <span
+                        className="h-1.5 w-1.5 shrink-0 rounded-full animate-pulse"
+                        style={{ backgroundColor: "var(--achievement-banner-line)" }}
+                      />
+                    </div>
                   </div>
 
                   {item.achievement_title?.trim() ? (
@@ -945,11 +955,6 @@ const AchievementBanner = () => {
                   ) : null}
                 </div>
 
-                {item.message?.trim() ? (
-                  <div className="flex min-h-0 w-[15%] max-w-[15%] shrink-0 flex-col items-center justify-center overflow-visible border-l border-white/15 py-3 pl-1 pr-1">
-                    <BannerAlumniLogoBadge variant="panel" />
-                  </div>
-                ) : null}
               </div>
             </div>
           </div>
@@ -1321,16 +1326,6 @@ const AchievementBanner = () => {
       `}</style>
         </div>
 
-          {achievements.length > 1 ? (
-            <button
-              type="button"
-              onClick={next}
-              className={`${navBtnClass} max-sm:hidden`}
-              aria-label="Next slide"
-            >
-              <ChevronRight className="h-5 w-5" />
-            </button>
-          ) : null}
         </div>
       </div>
     </div>
