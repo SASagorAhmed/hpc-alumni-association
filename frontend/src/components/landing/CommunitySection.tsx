@@ -32,7 +32,7 @@ const CommunitySection = ({ content }: CommunityProps) => {
             <h2 className="mb-5 fs-title font-bold tracking-tight text-foreground">
               {heading}
             </h2>
-            <p className="mb-6 fs-body text-muted-foreground text-pretty max-lg:text-justify max-lg:hyphens-auto">{description}</p>
+            <p className="mb-6 fs-body text-muted-foreground text-pretty text-justify hyphens-auto">{description}</p>
             <div className="flex flex-wrap gap-3">
               <a
                 href={telegramUrl}

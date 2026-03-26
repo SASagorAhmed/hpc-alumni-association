@@ -17,11 +17,13 @@ interface HeroProps {
 
 const HeroSection = ({ content }: HeroProps) => {
   const badge = content?.badge ?? "EIIN: 134209";
-  const headline = content?.headline ?? "A Legacy of Excellence, A Network for Life.";
-  const description = content?.description ?? "Hamdard Public College Alumni Association connects over 1,500 graduates across Bangladesh. Join the network that celebrates achievements and builds futures.";
+  const headline = content?.headline ?? "HPC Alumni Association – Connecting Alumni for Life";
+  const description =
+    content?.description ??
+    "Hamdard Public College Alumni Association connects graduates across Bangladesh. Join our growing network to build connections, share achievements, and create opportunities for the future. Official HPC Alumni Network for students, Teacher, professionals, and community leaders.";
   const ctaPrimary = content?.ctaPrimary ?? "Join the Network";
   const ctaSecondary = content?.ctaSecondary ?? "Learn More";
-  const motto = content?.motto ?? "Promoting Knowledge, Promoting Learning";
+  const motto = content?.motto ?? "HAMDARD PUBLIC COLLAGE";
   const stats = content?.stats
     ? content.stats.map((s: any) => ({ icon: iconMap[s.label] || Calendar, label: s.label, value: s.value }))
     : defaultStats;
@@ -30,7 +32,7 @@ const HeroSection = ({ content }: HeroProps) => {
     <section className="relative overflow-hidden border-b border-border bg-background">
       <div className="layout-container relative min-w-0 pb-10 pt-10 md:pb-12 md:pt-12">
         {/* Mobile: badge → headline → campus photo → description → CTAs. lg+: text column left, image right (row-span-2). */}
-        <div className="grid min-w-0 grid-cols-1 items-center gap-8 lg:grid-cols-2 xl:gap-10">
+        <div className="grid min-w-0 grid-cols-1 items-center gap-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] xl:gap-10">
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -52,19 +54,19 @@ const HeroSection = ({ content }: HeroProps) => {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.1, ease: [0.2, 0, 0, 1] }}
-            className="relative mx-auto w-full min-w-0 max-w-[min(100%,28rem)] justify-self-center lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:mx-0 lg:max-w-[min(100%,26rem)] lg:justify-self-end"
+            className="relative mx-auto w-full min-w-0 max-w-[min(100%,40rem)] justify-self-center lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:mx-0 lg:max-w-[min(100%,38rem)] lg:justify-self-end"
           >
             <div className="mt-5 min-w-0 overflow-hidden rounded-xl border border-border bg-card shadow-md lg:mt-0">
               <img
                 src={heroCampus}
                 alt="Hamdard Public College Campus"
-                className="aspect-[4/3] h-auto w-full max-w-full object-cover"
+                className="h-auto w-full max-w-full object-contain"
                 loading="eager"
               />
             </div>
-            <div className="absolute -bottom-3 left-4 rounded-lg border border-border bg-card p-2.5 shadow-md max-lg:max-w-[min(18rem,calc(100%-1.5rem))] max-lg:p-3 md:left-5">
-              <p className="fs-caption font-semibold uppercase tracking-wider text-primary">Motto</p>
-              <p className="fs-eyebrow font-medium leading-snug text-foreground max-lg:text-pretty max-lg:break-words max-lg:leading-relaxed">
+            <div className="absolute -bottom-3 left-4 rounded-lg border border-primary/25 bg-card/95 p-2.5 shadow-md max-lg:max-w-[min(18rem,calc(100%-1.5rem))] max-lg:p-3 md:left-5">
+              <p className="relative overflow-hidden fs-eyebrow font-semibold leading-snug text-foreground max-lg:text-pretty max-lg:break-words max-lg:leading-relaxed">
+                <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/40 to-transparent animate-[hpcMottoShine_3.2s_ease-in-out_infinite]" />
                 {motto}
               </p>
             </div>
@@ -77,7 +79,7 @@ const HeroSection = ({ content }: HeroProps) => {
             className="min-w-0 lg:col-start-1 lg:row-start-2"
           >
             {/* lg+: measure + pretty wrap. Phone/tablet: full width + justified body (see index.css line-height). */}
-            <p className="fs-body mb-6 text-muted-foreground max-lg:w-full max-lg:max-w-none max-lg:text-justify max-lg:hyphens-auto max-lg:text-pretty max-lg:leading-relaxed max-lg:break-words lg:max-w-[54ch] lg:text-pretty">
+            <p className="fs-body mb-6 text-muted-foreground max-lg:w-full max-lg:max-w-none text-justify hyphens-auto max-lg:text-pretty max-lg:leading-relaxed max-lg:break-words lg:max-w-[54ch] lg:text-pretty">
               {description}
             </p>
             <div className="flex flex-wrap gap-3 max-lg:min-w-0 max-sm:flex-col max-sm:gap-2.5">

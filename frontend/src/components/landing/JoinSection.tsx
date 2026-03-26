@@ -20,7 +20,7 @@ const JoinSection = ({ content }: JoinProps) => {
         <h2 className="mb-3 fs-title font-bold text-foreground">
           Join <span className="text-primary underline decoration-primary/30 underline-offset-4">{heading}</span>
         </h2>
-        <p className="mx-auto mb-6 max-w-lg fs-body text-muted-foreground max-lg:text-justify max-lg:hyphens-auto">{description}</p>
+        <p className="mx-auto mb-6 max-w-lg fs-body text-muted-foreground text-justify hyphens-auto">{description}</p>
         <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
           <Link
             to="/register"

@@ -46,7 +46,7 @@ const GoalsSection = ({ content }: GoalsProps) => {
                 <goal.icon size={24} className="text-primary" />
               </div>
               <h3 className="fs-card-title-lg mb-2 font-bold text-foreground">{goal.title}</h3>
-              <p className="fs-ui text-muted-foreground max-lg:text-justify max-lg:hyphens-auto">{goal.description}</p>
+              <p className="fs-ui text-muted-foreground text-justify hyphens-auto">{goal.description}</p>
             </motion.div>
           ))}
         </div>

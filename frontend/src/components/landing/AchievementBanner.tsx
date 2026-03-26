@@ -338,7 +338,7 @@ function CongratulationsBurstReveal({
             {heading?.trim() || "Congratulations"}
           </span>
         </div>
-        <p className="mt-1 min-h-0 w-full max-w-full break-words text-pretty text-[clamp(0.7rem,2.3cqw+0.2rem,0.86rem)] italic leading-snug text-white/85 line-clamp-[10] max-lg:line-clamp-none max-lg:text-justify max-lg:hyphens-auto">
+        <p className="mt-1 min-h-0 w-full max-w-full break-words text-pretty text-[clamp(0.7rem,2.3cqw+0.2rem,0.86rem)] italic leading-snug text-white/85 line-clamp-[10] max-lg:line-clamp-none text-justify hyphens-auto">
           &ldquo;{message}&rdquo;
         </p>
         <p

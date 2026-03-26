@@ -44,7 +44,7 @@ const AcademicsSection = ({ content }: AcademicsProps) => {
                 <group.icon size={24} className={cardIconColors[i % 3]} />
               </div>
               <h3 className="fs-card-title-lg mb-2 font-semibold text-foreground">{group.title}</h3>
-              <p className="fs-body text-muted-foreground max-lg:text-justify max-lg:hyphens-auto">{group.description}</p>
+              <p className="fs-body text-muted-foreground text-justify hyphens-auto">{group.description}</p>
             </motion.div>
           ))}
         </div>

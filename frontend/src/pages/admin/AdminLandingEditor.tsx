@@ -26,8 +26,9 @@ const sections = [
 const defaults: Record<string, Record<string, any>> = {
   hero: {
     badge: "EIIN: 134209",
-    headline: "A Legacy of Excellence, A Network for Life.",
-    description: "Hamdard Public College Alumni Association connects over 1,500 graduates across Bangladesh. Join the network that celebrates achievements and builds futures.",
+    headline: "HPC Alumni Association – Connecting Alumni for Life",
+    description:
+      "Hamdard Public College Alumni Association connects graduates across Bangladesh. Join our growing network to build connections, share achievements, and create opportunities for the future. Official HPC Alumni Network for students, Teacher, professionals, and community leaders.",
     ctaPrimary: "Join the Network",
     ctaSecondary: "Learn More",
     motto: "Promoting Knowledge, Promoting Learning",

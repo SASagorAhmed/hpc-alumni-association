@@ -82,13 +82,16 @@ const AchievementsSection = () => {
         >
           <div className="fs-ui mb-3 inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-4 py-1.5 font-medium text-primary">
             <Award className="h-4 w-4" />
-            Achievements
+            HPC Alumni Achievements
           </div>
           <h2 className="fs-title font-bold text-foreground" style={{ fontFamily: "'Outfit', sans-serif" }}>
-            Achievements of Our Alumni
+            Achievements of HPC Alumni
           </h2>
-          <p className="fs-body mx-auto mt-3 max-w-xl text-muted-foreground max-lg:text-justify max-lg:hyphens-auto">
-            Celebrating the remarkable accomplishments of our alumni community
+          <p className="fs-body mx-auto mt-3 max-w-xl text-muted-foreground text-justify hyphens-auto">
+            We proudly celebrate the outstanding achievements of Hamdard Public College alumni who have excelled in diverse fields such as education, business, technology, research, and public service. Our alumni continue to make meaningful contributions both nationally and internationally, reflecting the values and excellence of HPC.
+            <br />
+            <br />
+            From academic success to professional leadership, these accomplishments highlight the strength of our alumni network and inspire current students to pursue their goals with dedication and confidence.
           </p>
         </motion.div>
 

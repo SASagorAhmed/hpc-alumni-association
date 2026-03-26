@@ -75,10 +75,16 @@ const MemoriesSection = () => {
           transition={{ duration: 0.5 }}
           className="mb-10 text-center"
         >
-          <p className="fs-eyebrow mb-2 font-semibold uppercase tracking-wider text-primary">Gallery</p>
-          <h2 className="mb-3 fs-title font-bold text-foreground">Our Memories</h2>
-          <p className="mx-auto max-w-2xl text-muted-foreground">
-            Cherished moments from our alumni gatherings, celebrations, and community events
+          <p className="fs-eyebrow mb-2 font-semibold uppercase tracking-wider text-primary">HPC Alumni Gallery</p>
+          <h2 className="mb-3 fs-title font-bold text-foreground">Our Alumni Memories &amp; Events</h2>
+          <p className="mx-auto max-w-2xl text-muted-foreground text-justify hyphens-auto">
+            Explore the memorable moments of the Hamdard Public College Alumni Association through our gallery of events,
+            reunions, and celebrations. These images reflect the strong bonds, shared experiences, and vibrant community spirit
+            of HPC alumni.
+            <br />
+            <br />
+            From alumni meetups and Iftar Mahfil to college picnics and reunions, each moment captures the essence of connection,
+            friendship, and lifelong memories within our growing alumni network.
           </p>
         </motion.div>
 

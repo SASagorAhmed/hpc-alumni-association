@@ -1073,6 +1073,24 @@
     animation: gold-shine 3s linear infinite;
   }
 
+  @keyframes hpcMottoShine {
+    0% {
+      transform: translateX(-120%);
+      opacity: 0;
+    }
+    12% {
+      opacity: 1;
+    }
+    45% {
+      transform: translateX(120%);
+      opacity: 0.9;
+    }
+    100% {
+      transform: translateX(120%);
+      opacity: 0;
+    }
+  }
+
   /* Section backgrounds */
   .section-bg-features {
     background:

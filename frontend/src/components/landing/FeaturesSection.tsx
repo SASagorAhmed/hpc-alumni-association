@@ -93,7 +93,7 @@ const FeaturesSection = ({ content }: FeaturesProps) => {
             {heading}
           </h2>
           <p
-            className="fs-body mx-auto mt-4 max-w-2xl text-muted-foreground max-lg:text-justify max-lg:hyphens-auto"
+            className="fs-body mx-auto mt-4 max-w-2xl text-muted-foreground text-justify hyphens-auto"
             style={{ fontFamily: "'Outfit', sans-serif" }}
           >
             {subtitle}
@@ -122,7 +122,7 @@ const FeaturesSection = ({ content }: FeaturesProps) => {
                       </div>
                       <h4 className="fs-card-title mb-2 font-bold text-foreground" style={{ fontFamily: "'Outfit', sans-serif" }}>{mod.title}</h4>
                       <p
-                        className="fs-ui text-muted-foreground max-lg:text-justify max-lg:hyphens-auto"
+                        className="fs-ui text-muted-foreground text-justify hyphens-auto"
                         style={{ fontFamily: "'Outfit', sans-serif" }}
                       >
                         {mod.description}

@@ -607,7 +607,7 @@ export function MobilePresidentCard({ member, roleLabel }: { member: DBMember; r
           {member.wishing_message && (
             <div className="rounded-md border p-3" style={{ backgroundColor: primaryTint, borderColor: primaryBorder }}>
               <p className="text-xs font-semibold" style={{ color: primary }}>Message</p>
-              <p className="mt-1 text-sm leading-relaxed text-muted-foreground italic">"{member.wishing_message}"</p>
+              <p className="mt-1 text-sm leading-relaxed text-muted-foreground italic text-justify hyphens-auto">"{member.wishing_message}"</p>
             </div>
           )}
         </div>
@@ -735,13 +735,9 @@ export function MobileMemberCard({ member, serial, postTitle }: { member: DBMemb
 /** Landing / page header for Alumni Executive Committee */
 export function AlumniExecutiveCommitteeIntro({
   totalMembers,
-  termName,
-  termDescription,
   compact = false,
 }: {
   totalMembers: number;
-  termName?: string | null;
-  termDescription?: string | null;
   /** Smaller margins when embedded on /committee page */
   compact?: boolean;
 }) {
@@ -757,19 +753,41 @@ export function AlumniExecutiveCommitteeIntro({
         className="mb-2 text-[13px] font-semibold tracking-wider"
         style={{ fontFamily: "'Outfit', sans-serif", color: "var(--committee-intro-eyebrow)" }}
       >
-        ALUMNI EXECUTIVE COMMITTEE
+        HPC Alumni Executive Committee
       </p>
-      <h2 className="text-3xl font-bold tracking-tight text-foreground md:text-4xl" style={{ fontFamily: "'Outfit', sans-serif" }}>
-        Alumni Executive Committee
+      <h2
+        className="text-3xl font-bold tracking-tight text-foreground md:text-4xl"
+        style={{ fontFamily: "'Outfit', sans-serif" }}
+      >
+        Alumni Executive Committee 2025–2027
       </h2>
-      <p className="mx-auto mt-3 max-w-xl text-[15px] text-muted-foreground">
-        Elected and appointed leadership of the HPC Alumni Association — not the general alumni directory.
+
+      <p className="mx-auto mt-3 max-w-2xl text-[15px] text-muted-foreground leading-relaxed text-justify hyphens-auto">
+        The Alumni Executive Committee represents the elected and appointed leadership of the Hamdard Public
+        College Alumni Association. These members are responsible for guiding the alumni network, organizing
+        activities, and supporting the growth of the HPC alumni community.
+        <br />
+        <br />
+        Meet the leadership team shaping the future of the HPC Alumni Association.
+        <br />
+        <br />
+        The Alumni Executive Committee serves as the core leadership body of the Hamdard Public College Alumni
+        Association. It is composed of elected and appointed members who are dedicated to guiding the vision, mission,
+        and strategic direction of the alumni network.
+        <br />
+        <br />
+        The committee plays a vital role in strengthening connections among alumni, organizing events, promoting
+        collaboration, and supporting initiatives that benefit both former and current students of the college. Through
+        active leadership and commitment, the committee ensures that the values, traditions, and reputation of Hamdard
+        Public College are upheld and carried forward.
+        <br />
+        <br />
+        By fostering communication, mentorship, and professional networking opportunities, the Alumni Executive
+        Committee continues to build a strong and united global alumni community that contributes positively to society
+        and the development of the institution.
       </p>
-      {termName ? <p className="mt-2 text-sm font-semibold text-foreground/80">{termName}</p> : null}
-      {termDescription ? (
-        <p className="mx-auto mt-1 max-w-xl text-sm text-muted-foreground">{termDescription}</p>
-      ) : null}
-      <p className="mt-1 text-sm text-muted-foreground/70">Total members: {totalMembers}</p>
+
+      <p className="mt-4 text-sm text-muted-foreground/70">Total Members: {totalMembers}</p>
     </motion.div>
   );
 }
