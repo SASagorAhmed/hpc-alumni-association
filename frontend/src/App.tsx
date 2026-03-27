@@ -49,6 +49,7 @@ import AdminAuditLogs from "./pages/admin/AdminAuditLogs.tsx";
 import AdminSettings from "./pages/admin/AdminSettings.tsx";
 import AdminLandingEditor from "./pages/admin/AdminLandingEditor.tsx";
 import AdminMemories from "./pages/admin/AdminMemories.tsx";
+import AdminUserProfile from "./pages/admin/AdminUserProfile.tsx";
 
 const queryClient = new QueryClient();
 
@@ -108,6 +109,7 @@ const App = () => (
                 <Route element={<DashboardLayout />}>
                   <Route path="/admin/dashboard" element={<AdminDashboard />} />
                   <Route path="/admin/users" element={<AdminUsers />} />
+                  <Route path="/admin/users/:id" element={<AdminUserProfile />} />
                   <Route path="/admin/committee" element={<AdminCommittee />} />
                   <Route path="/admin/elections" element={<AdminElections />} />
                   <Route path="/admin/candidates" element={<AdminCandidates />} />

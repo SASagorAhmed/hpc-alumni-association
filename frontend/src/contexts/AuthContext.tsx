@@ -32,6 +32,7 @@ export interface User {
   approved: boolean;
   blocked?: boolean;
   profilePending?: boolean;
+  profileReviewNote?: string;
 }
 
 interface AuthContextType {

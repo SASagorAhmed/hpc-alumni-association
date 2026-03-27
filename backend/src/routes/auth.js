@@ -106,6 +106,7 @@ async function getUserProfile(pool, userId) {
     approved: isApproved,
     blocked: Boolean(p.blocked),
     profilePending: Boolean(p.profile_pending),
+    profileReviewNote: p.profile_review_note || null,
   };
 }
 
@@ -305,18 +306,22 @@ router.get("/verify-email", async (req, res) => {
     if (!pool) return res.status(503).json({ ok: false, error: "MySQL not configured" });
 
     const token = req.query.token ? String(req.query.token) : null;
-    if (!token) return res.status(400).json({ ok: false, error: "Missing token" });
+    if (!token) {
+      return res.redirect(302, `${env.frontendOrigin}/verify-otp?status=missing_token`);
+    }
 
     const [tokenRows] = await pool.query(
       `SELECT * FROM email_verification_tokens WHERE token = ? AND used_at IS NULL LIMIT 1`,
       [token]
     );
     const row = tokenRows?.[0];
-    if (!row) return res.status(400).json({ ok: false, error: "Invalid or already used token" });
+    if (!row) {
+      return res.redirect(302, `${env.frontendOrigin}/verify-otp?status=invalid_or_used`);
+    }
 
     const expiresAt = row.expires_at ? new Date(row.expires_at) : null;
     if (!expiresAt || expiresAt.getTime() < Date.now()) {
-      return res.status(400).json({ ok: false, error: "Token expired" });
+      return res.redirect(302, `${env.frontendOrigin}/verify-otp?status=expired`);
     }
 
     // Mark verified
@@ -332,6 +337,43 @@ router.get("/verify-email", async (req, res) => {
     return res.redirect(302, redirectUrl);
   } catch (e) {
     return res.status(500).json({ ok: false, error: e.message || "Verification failed" });
+  }
+});
+
+// POST /api/auth/resend-verification
+router.post("/resend-verification", async (req, res) => {
+  try {
+    const pool = getOrCreatePool();
+    if (!pool) return res.status(503).json({ ok: false, error: "MySQL not configured" });
+
+    const email = String(req.body?.email || "").toLowerCase().trim();
+    if (!email) return res.status(400).json({ ok: false, error: "Email is required" });
+
+    const [users] = await pool.query("SELECT id, email_verified FROM users WHERE email = ? LIMIT 1", [email]);
+    const user = users?.[0];
+    if (!user) {
+      // Avoid email enumeration
+      return res.status(200).json({ ok: true, message: "If this email exists, a verification link has been sent." });
+    }
+    if (user.email_verified) {
+      return res.status(200).json({ ok: true, message: "Email is already verified. You can log in now." });
+    }
+
+    const token = uuidv4();
+    const tokenId = uuidv4();
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    await pool.query(
+      `INSERT INTO email_verification_tokens (id, user_id, token, expires_at, used_at)
+       VALUES (?, ?, ?, ?, NULL)`,
+      [tokenId, user.id, token, expiresAt]
+    );
+
+    const verificationLink = `${req.protocol}://${req.get("host")}/api/auth/verify-email?token=${encodeURIComponent(token)}`;
+    await sendVerificationEmail({ email, verificationLink });
+
+    return res.status(200).json({ ok: true, message: "Verification email sent. Please check your inbox." });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message || "Failed to resend verification email" });
   }
 });
 

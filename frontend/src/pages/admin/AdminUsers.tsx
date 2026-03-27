@@ -1,8 +1,11 @@
 import { useState, useEffect, useMemo } from "react";
+import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { API_BASE_URL } from "@/api-production/api.js";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -12,26 +15,38 @@ import {
   RefreshCw, Users, Clock, UserCheck, UserX, AlertCircle, Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 type ProfileRow = {
   id: string;
+  email?: string | null;
+  email_verified?: boolean | null;
   name: string;
   phone: string | null;
   batch: string | null;
+  roll?: string | null;
+  registration_number?: string | null;
+  gender?: string | null;
+  blood_group?: string | null;
   department: string | null;
+  session?: string | null;
+  passing_year?: string | null;
+  college_name?: string | null;
   profession: string | null;
+  job_status?: string | null;
+  job_title?: string | null;
   company: string | null;
   university: string | null;
   address: string | null;
   bio: string | null;
+  additional_info?: string | null;
+  social_links?: Record<string, string> | string | null;
   photo: string | null;
   verified: boolean | null;
   approved: boolean | null;
   blocked: boolean | null;
   profile_pending: boolean | null;
+  profile_review_note?: string | null;
   created_at: string | null;
 };
 
@@ -42,8 +57,10 @@ const AdminUsers = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
-  const [selectedUser, setSelectedUser] = useState<ProfileRow | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [rejectTarget, setRejectTarget] = useState<ProfileRow | null>(null);
+  const [rejectMessage, setRejectMessage] = useState("");
 
   const fetchProfiles = async () => {
     setLoading(true);
@@ -65,8 +82,8 @@ const AdminUsers = () => {
   const filtered = useMemo(() => {
     let list = profiles;
     if (filter === "pending") list = list.filter((p) => p.profile_pending);
-    else if (filter === "verified") list = list.filter((p) => p.verified && !p.blocked);
-    else if (filter === "unverified") list = list.filter((p) => !p.verified && !p.blocked);
+    else if (filter === "verified") list = list.filter((p) => p.verified && p.approved && !p.blocked);
+    else if (filter === "unverified") list = list.filter((p) => !(p.verified && p.approved) && !p.blocked);
     else if (filter === "blocked") list = list.filter((p) => p.blocked);
 
     if (search.trim()) {
@@ -85,8 +102,8 @@ const AdminUsers = () => {
   const counts = useMemo(() => ({
     all: profiles.length,
     pending: profiles.filter((p) => p.profile_pending).length,
-    verified: profiles.filter((p) => p.verified && !p.blocked).length,
-    unverified: profiles.filter((p) => !p.verified && !p.blocked).length,
+    verified: profiles.filter((p) => p.verified && p.approved && !p.blocked).length,
+    unverified: profiles.filter((p) => !(p.verified && p.approved) && !p.blocked).length,
     blocked: profiles.filter((p) => p.blocked).length,
   }), [profiles]);
 
@@ -109,18 +126,23 @@ const AdminUsers = () => {
       setProfiles((prev) =>
         prev.map((p) => (p.id === id ? { ...p, ...updates } as ProfileRow : p))
       );
-      if (selectedUser?.id === id) {
-        setSelectedUser((prev) => prev ? { ...prev, ...updates } as ProfileRow : null);
-      }
     }
     setActionLoading(null);
   };
 
   const approveProfile = (id: string) =>
-    updateUser(id, { profile_pending: false, approved: true }, "Profile approved.");
+    updateUser(id, { profile_pending: false, approved: true, profile_review_note: null }, "Profile approved.");
 
-  const rejectProfile = (id: string) =>
-    updateUser(id, { profile_pending: false }, "Profile update rejected.");
+  const rejectProfileWithMessage = (id: string, message: string) =>
+    updateUser(
+      id,
+      {
+        profile_pending: false,
+        approved: false,
+        profile_review_note: message.trim() || null,
+      },
+      "Profile update rejected with feedback."
+    );
 
   const verifyUser = (id: string) =>
     updateUser(id, { verified: true, approved: true }, "User verified.");
@@ -133,6 +155,24 @@ const AdminUsers = () => {
 
   const unblockUser = (id: string) =>
     updateUser(id, { blocked: false }, "User unblocked.");
+
+  const openRejectDialog = (p: ProfileRow) => {
+    setRejectTarget(p);
+    setRejectMessage(p.profile_review_note || "");
+    setRejectDialogOpen(true);
+  };
+
+  const submitReject = async () => {
+    if (!rejectTarget) return;
+    if (!rejectMessage.trim()) {
+      toast.error("Please write a message so user knows what to fix.");
+      return;
+    }
+    await rejectProfileWithMessage(rejectTarget.id, rejectMessage);
+    setRejectDialogOpen(false);
+    setRejectTarget(null);
+    setRejectMessage("");
+  };
 
   const deleteUser = async (id: string) => {
     const token = localStorage.getItem("hpc_auth_token");
@@ -163,7 +203,6 @@ const AdminUsers = () => {
 
       toast.success("Profile deleted.");
       setProfiles((prev) => prev.filter((p) => p.id !== id));
-      if (selectedUser?.id === id) setSelectedUser(null);
     } finally {
       setActionLoading(null);
     }
@@ -250,12 +289,9 @@ const AdminUsers = () => {
                     {filtered.map((p) => (
                       <TableRow key={p.id}>
                         <TableCell>
-                          <button
-                            onClick={() => setSelectedUser(p)}
-                            className="text-left hover:underline font-medium text-foreground"
-                          >
+                          <Link to={`/admin/users/${p.id}`} className="text-left font-medium text-foreground hover:underline">
                             {p.name || "—"}
-                          </button>
+                          </Link>
                           {p.phone && (
                             <p className="text-xs text-muted-foreground">{p.phone}</p>
                           )}
@@ -269,12 +305,21 @@ const AdminUsers = () => {
                                 <Clock className="w-3 h-3 mr-1" /> Pending
                               </Badge>
                             )}
+                            {p.email_verified ? (
+                              <Badge variant="outline" className="text-[10px] border-blue-300 bg-blue-50 text-blue-700">
+                                Email Verified
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary" className="text-[10px]">
+                                Email Unverified
+                              </Badge>
+                            )}
                             {p.blocked ? (
                               <Badge variant="destructive" className="text-[10px]">Blocked</Badge>
-                            ) : p.verified ? (
-                              <Badge className="bg-emerald-100 text-emerald-700 border-emerald-300 text-[10px]">Verified</Badge>
+                            ) : p.verified && p.approved ? (
+                              <Badge className="bg-emerald-100 text-emerald-700 border-emerald-300 text-[10px]">Admin Verified</Badge>
                             ) : (
-                              <Badge variant="secondary" className="text-[10px]">Unverified</Badge>
+                              <Badge variant="secondary" className="text-[10px]">Admin Unverified</Badge>
                             )}
                           </div>
                         </TableCell>
@@ -285,13 +330,36 @@ const AdminUsers = () => {
                                 <Button size="sm" variant="outline" className="h-7 text-xs gap-1 text-emerald-600" onClick={() => approveProfile(p.id)} disabled={actionLoading === p.id}>
                                   <CheckCircle2 className="w-3 h-3" /> Approve
                                 </Button>
-                                <Button size="sm" variant="outline" className="h-7 text-xs gap-1 text-destructive" onClick={() => rejectProfile(p.id)} disabled={actionLoading === p.id}>
+                                <Button size="sm" variant="outline" className="h-7 text-xs gap-1 text-destructive" onClick={() => openRejectDialog(p)} disabled={actionLoading === p.id}>
                                   <XCircle className="w-3 h-3" /> Reject
                                 </Button>
                               </>
                             )}
-                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setSelectedUser(p)}>
+                            {p.verified && p.approved ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs gap-1"
+                                onClick={() => unverifyUser(p.id)}
+                                disabled={actionLoading === p.id}
+                              >
+                                <ShieldOff className="w-3 h-3" /> Unverify
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs gap-1 text-emerald-700"
+                                onClick={() => verifyUser(p.id)}
+                                disabled={actionLoading === p.id}
+                              >
+                                <ShieldCheck className="w-3 h-3" /> Verify
+                              </Button>
+                            )}
+                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" asChild>
+                              <Link to={`/admin/users/${p.id}`}>
                               <Eye className="w-3.5 h-3.5" />
+                              </Link>
                             </Button>
                           </div>
                         </TableCell>
@@ -307,12 +375,9 @@ const AdminUsers = () => {
                   <div key={p.id} className="p-4 space-y-3">
                     <div className="flex items-start justify-between">
                       <div>
-                        <button
-                          onClick={() => setSelectedUser(p)}
-                          className="font-medium text-foreground text-sm hover:underline text-left"
-                        >
+                        <Link to={`/admin/users/${p.id}`} className="font-medium text-foreground text-sm hover:underline text-left">
                           {p.name || "—"}
-                        </button>
+                        </Link>
                         <p className="text-xs text-muted-foreground">
                           {[p.batch, p.department].filter(Boolean).join(" · ") || "—"}
                         </p>
@@ -323,12 +388,21 @@ const AdminUsers = () => {
                             Pending
                           </Badge>
                         )}
+                        {p.email_verified ? (
+                          <Badge variant="outline" className="text-[10px] border-blue-300 bg-blue-50 text-blue-700">
+                            Email Verified
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary" className="text-[10px]">
+                            Email Unverified
+                          </Badge>
+                        )}
                         {p.blocked ? (
                           <Badge variant="destructive" className="text-[10px]">Blocked</Badge>
-                        ) : p.verified ? (
-                          <Badge className="bg-emerald-100 text-emerald-700 border-emerald-300 text-[10px]">Verified</Badge>
+                        ) : p.verified && p.approved ? (
+                          <Badge className="bg-emerald-100 text-emerald-700 border-emerald-300 text-[10px]">Admin Verified</Badge>
                         ) : (
-                          <Badge variant="secondary" className="text-[10px]">Unverified</Badge>
+                          <Badge variant="secondary" className="text-[10px]">Admin Unverified</Badge>
                         )}
                       </div>
                     </div>
@@ -338,13 +412,36 @@ const AdminUsers = () => {
                           <Button size="sm" className="h-7 text-xs gap-1 flex-1" onClick={() => approveProfile(p.id)} disabled={actionLoading === p.id}>
                             <CheckCircle2 className="w-3 h-3" /> Approve
                           </Button>
-                          <Button size="sm" variant="outline" className="h-7 text-xs gap-1 flex-1 text-destructive" onClick={() => rejectProfile(p.id)} disabled={actionLoading === p.id}>
+                          <Button size="sm" variant="outline" className="h-7 text-xs gap-1 flex-1 text-destructive" onClick={() => openRejectDialog(p)} disabled={actionLoading === p.id}>
                             <XCircle className="w-3 h-3" /> Reject
                           </Button>
                         </>
                       )}
-                      <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => setSelectedUser(p)}>
+                      {p.verified && p.approved ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs gap-1"
+                          onClick={() => unverifyUser(p.id)}
+                          disabled={actionLoading === p.id}
+                        >
+                          <ShieldOff className="w-3 h-3" /> Unverify
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs gap-1 text-emerald-700"
+                          onClick={() => verifyUser(p.id)}
+                          disabled={actionLoading === p.id}
+                        >
+                          <ShieldCheck className="w-3 h-3" /> Verify
+                        </Button>
+                      )}
+                      <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" asChild>
+                        <Link to={`/admin/users/${p.id}`}>
                         <Eye className="w-3 h-3" /> View
+                        </Link>
                       </Button>
                     </div>
                   </div>
@@ -355,94 +452,32 @@ const AdminUsers = () => {
         </CardContent>
       </Card>
 
-      {/* User detail dialog */}
-      <Dialog open={!!selectedUser} onOpenChange={(open) => !open && setSelectedUser(null)}>
-        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
-          {selectedUser && (
-            <>
-              <DialogHeader>
-                <DialogTitle className="text-lg">{selectedUser.name || "User Details"}</DialogTitle>
-                <DialogDescription>Manage this user's profile and status</DialogDescription>
-              </DialogHeader>
-
-              <div className="space-y-4 mt-2">
-                {selectedUser.profile_pending && (
-                  <div className="flex items-start gap-2 p-3 rounded-md bg-amber-50 border border-amber-200 text-sm text-amber-800">
-                    <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-                    <p>This user has a pending profile update awaiting your review.</p>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  {[
-                    ["Name", selectedUser.name],
-                    ["Phone", selectedUser.phone],
-                    ["Batch", selectedUser.batch],
-                    ["Department", selectedUser.department],
-                    ["Profession", selectedUser.profession],
-                    ["Company", selectedUser.company],
-                    ["University", selectedUser.university],
-                    ["Address", selectedUser.address],
-                  ].map(([label, value]) => (
-                    <div key={label as string}>
-                      <p className="text-muted-foreground text-xs">{label}</p>
-                      <p className="font-medium text-foreground">{(value as string) || "—"}</p>
-                    </div>
-                  ))}
-                </div>
-
-                {selectedUser.bio && (
-                  <div className="text-sm">
-                    <p className="text-muted-foreground text-xs">Bio</p>
-                    <p className="text-foreground">{selectedUser.bio}</p>
-                  </div>
-                )}
-
-                <div className="flex flex-wrap gap-2 pt-2 border-t border-border">
-                  {selectedUser.profile_pending && (
-                    <>
-                      <Button size="sm" className="gap-1.5" onClick={() => approveProfile(selectedUser.id)} disabled={actionLoading === selectedUser.id}>
-                        <CheckCircle2 className="w-3.5 h-3.5" /> Approve Profile
-                      </Button>
-                      <Button size="sm" variant="outline" className="gap-1.5 text-destructive" onClick={() => rejectProfile(selectedUser.id)} disabled={actionLoading === selectedUser.id}>
-                        <XCircle className="w-3.5 h-3.5" /> Reject
-                      </Button>
-                    </>
-                  )}
-
-                  {!selectedUser.verified ? (
-                    <Button size="sm" variant="outline" className="gap-1.5 text-emerald-600" onClick={() => verifyUser(selectedUser.id)} disabled={actionLoading === selectedUser.id}>
-                      <ShieldCheck className="w-3.5 h-3.5" /> Verify
-                    </Button>
-                  ) : (
-                    <Button size="sm" variant="outline" className="gap-1.5" onClick={() => unverifyUser(selectedUser.id)} disabled={actionLoading === selectedUser.id}>
-                      <ShieldOff className="w-3.5 h-3.5" /> Unverify
-                    </Button>
-                  )}
-
-                  {!selectedUser.blocked ? (
-                    <Button size="sm" variant="destructive" className="gap-1.5" onClick={() => blockUser(selectedUser.id)} disabled={actionLoading === selectedUser.id}>
-                      <Ban className="w-3.5 h-3.5" /> Block
-                    </Button>
-                  ) : (
-                    <Button size="sm" variant="outline" className="gap-1.5" onClick={() => unblockUser(selectedUser.id)} disabled={actionLoading === selectedUser.id}>
-                      <Ban className="w-3.5 h-3.5" /> Unblock
-                    </Button>
-                  )}
-
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    className="gap-1.5"
-                    onClick={() => deleteUser(selectedUser.id)}
-                    disabled={actionLoading === selectedUser.id}
-                  >
-                    <Trash2 className="w-3.5 h-3.5" /> Delete Profile
-                  </Button>
-                </div>
-              </div>
-            </>
-          )}
+      <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reject and Send Feedback</DialogTitle>
+            <DialogDescription>
+              Tell the user what extra information or correction is needed. They can update profile and resubmit for verification.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="reject-message">Message to user</Label>
+            <Textarea
+              id="reject-message"
+              rows={5}
+              value={rejectMessage}
+              onChange={(e) => setRejectMessage(e.target.value)}
+              placeholder="Example: Please add your university name, blood group, and complete address."
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setRejectDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={submitReject} disabled={!rejectTarget || actionLoading === rejectTarget.id}>
+              Send Reject Message
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

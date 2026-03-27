@@ -39,6 +39,13 @@ const PendingVerification = () => {
             </div>
           </div>
 
+          {user?.profileReviewNote ? (
+            <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-foreground">
+              <p className="font-medium text-destructive">Admin feedback</p>
+              <p className="mt-1">{user.profileReviewNote}</p>
+            </div>
+          ) : null}
+
           <div className="rounded-md border p-3 text-sm">
             <p className="font-medium flex items-center gap-2">
               <UserCheck className="w-4 h-4 text-emerald-600" />

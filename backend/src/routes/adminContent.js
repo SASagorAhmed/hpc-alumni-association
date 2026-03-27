@@ -198,6 +198,15 @@ async function ensureAchievementBannerOverlayColumns(pool) {
   }
 }
 
+async function ensureProfileReviewNoteColumn(pool) {
+  try {
+    await pool.query("ALTER TABLE profiles ADD COLUMN profile_review_note TEXT NULL");
+  } catch (e) {
+    const msg = String(e && e.message ? e.message : e);
+    if (!/Duplicate column name/i.test(msg)) throw e;
+  }
+}
+
 function normalizeAchievementBannerTheme(raw) {
   const theme = String(raw ?? "").trim().toLowerCase();
   if (theme === "theme2" || theme === "tomato") return "theme2";
@@ -266,10 +275,37 @@ router.get("/users", requireAuth, async (req, res) => {
   try {
     const pool = await withAdmin(req, res);
     if (!pool) return;
-    const [rows] = await pool.query("SELECT * FROM profiles ORDER BY created_at DESC");
+    await ensureProfileReviewNoteColumn(pool);
+    const [rows] = await pool.query(
+      `SELECT p.*, u.email, u.email_verified
+       FROM profiles p
+       LEFT JOIN users u ON u.id = p.id
+       ORDER BY p.created_at DESC`
+    );
     res.status(200).json(rows || []);
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message || "Failed to load users" });
+  }
+});
+
+router.get("/users/:id", requireAuth, async (req, res) => {
+  try {
+    const pool = await withAdmin(req, res);
+    if (!pool) return;
+    await ensureProfileReviewNoteColumn(pool);
+    const [rows] = await pool.query(
+      `SELECT p.*, u.email, u.email_verified
+       FROM profiles p
+       LEFT JOIN users u ON u.id = p.id
+       WHERE p.id = ?
+       LIMIT 1`,
+      [req.params.id]
+    );
+    const row = rows?.[0];
+    if (!row) return res.status(404).json({ ok: false, error: "User not found" });
+    res.status(200).json(row);
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message || "Failed to load user profile" });
   }
 });
 
@@ -315,7 +351,8 @@ router.patch("/users/:id", requireAuth, async (req, res) => {
   try {
     const pool = await withAdmin(req, res);
     if (!pool) return;
-    const allowed = ["verified", "approved", "blocked", "profile_pending"];
+    await ensureProfileReviewNoteColumn(pool);
+    const allowed = ["verified", "approved", "blocked", "profile_pending", "profile_review_note"];
     const entries = Object.entries(req.body || {}).filter(([k]) => allowed.includes(k));
     if (!entries.length) return res.status(400).json({ ok: false, error: "Nothing to update" });
     const setClause = entries.map(([k]) => `\`${k}\` = ?`).join(", ");
