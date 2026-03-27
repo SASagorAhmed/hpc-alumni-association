@@ -30,7 +30,8 @@ type UserProfile = Record<string, unknown> & {
 };
 
 const AdminUserProfile = () => {
-  const { user: me } = useAuth();
+  const auth = useAuth();
+  const currentUser = auth.user;
   const { id } = useParams();
   const navigate = useNavigate();
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -139,10 +140,10 @@ const AdminUserProfile = () => {
   const isPrimaryTarget = profileEmail === PRIMARY_ADMIN_EMAIL;
   const isSecondaryAdmin = isAdminAccount && !isPrimaryTarget;
   const isPrimaryActor =
-    String(me?.email || "")
+    String(currentUser?.email || "")
       .trim()
       .toLowerCase() === PRIMARY_ADMIN_EMAIL;
-  const isViewingSelf = Boolean(me?.id && profile.id === me.id);
+  const isViewingSelf = Boolean(currentUser?.id && profile.id === currentUser.id);
   const canModerateThisProfile = !isViewingSelf;
   const canDeleteUser =
     !isViewingSelf && (!isAdminAccount || (isSecondaryAdmin && isPrimaryActor));
@@ -305,6 +306,8 @@ const AdminUserProfile = () => {
             <Label htmlFor="reject-note">Message</Label>
             <Textarea
               id="reject-note"
+              name="admin-reject-message"
+              autoComplete="off"
               rows={5}
               value={rejectMessage}
               onChange={(e) => setRejectMessage(e.target.value)}
