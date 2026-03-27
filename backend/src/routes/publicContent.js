@@ -1,6 +1,7 @@
 const express = require("express");
 const { getOrCreatePool } = require("../db/pool");
 const { ensureAchievementSettingsRow } = require("../utils/achievementSettings");
+const { sanitizeCommitteeMemberForPublic } = require("../utils/publicCommitteeSanitize");
 
 const router = express.Router();
 
@@ -35,7 +36,7 @@ async function loadStructuredCommittee(pool, termId = null) {
   );
   const postsWith = posts.map((p) => ({
     ...p,
-    members: members.filter((m) => m.post_id === p.id),
+    members: members.filter((m) => m.post_id === p.id).map(sanitizeCommitteeMemberForPublic),
   }));
   return { term, posts: postsWith };
 }
@@ -91,7 +92,10 @@ router.get("/committee-members", async (req, res) => {
 
     const activeOnly = String(req.query.active || "").toLowerCase() === "true";
     const [rows] = await pool.query(
-      `SELECT * FROM committee_members
+      `SELECT id, term_id, post_id, name, designation, category, batch, alumni_id, candidate_number,
+              college_name, institution, job_status, profession, about, wishing_message, winner_about,
+              photo_url, display_order, is_active, created_at, updated_at
+       FROM committee_members
        ${activeOnly ? "WHERE is_active = true" : ""}
        ORDER BY category ASC, display_order ASC`
     );
@@ -105,7 +109,13 @@ router.get("/committee-members/:id", async (req, res) => {
   try {
     const pool = getOrCreatePool();
     if (!pool) return res.status(503).json({ ok: false, error: "MySQL not configured" });
-    const [rows] = await pool.query("SELECT * FROM committee_members WHERE id = ? LIMIT 1", [req.params.id]);
+    const [rows] = await pool.query(
+      `SELECT id, term_id, post_id, name, designation, category, batch, alumni_id, candidate_number,
+              college_name, institution, job_status, profession, about, wishing_message, winner_about,
+              photo_url, display_order, is_active, created_at, updated_at
+       FROM committee_members WHERE id = ? LIMIT 1`,
+      [req.params.id]
+    );
     return res.status(200).json(rows?.[0] || null);
   } catch (e) {
     return res.status(500).json({ ok: false, error: e.message || "Failed to load member" });
@@ -328,7 +338,10 @@ router.get("/elections/:id/votes", async (req, res) => {
   try {
     const pool = getOrCreatePool();
     if (!pool) return res.status(503).json({ ok: false, error: "MySQL not configured" });
-    const [rows] = await pool.query("SELECT * FROM votes WHERE election_id = ?", [req.params.id]);
+    const [rows] = await pool.query(
+      "SELECT id, election_id, post_id, candidate_id, created_at FROM votes WHERE election_id = ?",
+      [req.params.id]
+    );
     return res.status(200).json(rows || []);
   } catch (e) {
     return res.status(500).json({ ok: false, error: e.message || "Failed to load votes" });

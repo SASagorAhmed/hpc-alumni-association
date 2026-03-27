@@ -22,6 +22,16 @@ const adminCommitteeModuleRoutes = require("./routes/adminCommitteeModule");
 
 const app = express();
 
+if (env.nodeEnv === "production") {
+  const secret = String(env.jwt.secret || "");
+  if (!secret || secret === "change_me" || secret.length < 32) {
+    console.error(
+      "[security] Production requires JWT_SECRET: set a random value with at least 32 characters (not the default)."
+    );
+    process.exit(1);
+  }
+}
+
 const allowedOrigins = String(env.frontendOrigin || "")
   .split(",")
   .map((v) => v.trim().replace(/\/$/, ""))

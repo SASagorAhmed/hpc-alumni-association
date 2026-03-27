@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Arena:wght@400;700&family=Cinzel:wght@700;900&family=Public+Sans:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -1108,12 +1106,30 @@
   }
 }
 
-/* iOS WebKit touch: stable text sizing in scaled/zoomed or flex-heavy card grids */
+/*
+ * iOS / WebKit (Safari, iOS Chrome shell): text sizing + wrapping
+ * - Prevents Safari from inflating/shrinking copy inside narrow flex/grid (matches Android/desktop rhythm).
+ * - `[overflow-wrap:anywhere]` compiles to mid-word breaks on WebKit; `break-word` only breaks when
+ *   needed to prevent overflow — same classes/layout as other browsers, softer line-breaking on Apple.
+ * Non‑WebKit browsers skip this entire block (Android Chrome, Windows desktop, etc.).
+ */
 @supports (-webkit-touch-callout: none) {
+  #root {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
   .committee-mobile-board,
   .hpc-ios-touch-text-root {
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
+  }
+
+  /* Arbitrary Tailwind utility: [overflow-wrap:anywhere] */
+  .\[overflow-wrap\:anywhere\] {
+    overflow-wrap: break-word !important;
+    word-wrap: break-word;
+    word-break: normal;
   }
 }
 

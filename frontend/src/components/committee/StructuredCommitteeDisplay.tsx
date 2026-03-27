@@ -98,7 +98,7 @@ const MemberRow = ({
       </Link>
       <div className="flex min-w-0 flex-1 flex-col justify-center gap-1">
         <Link to={`/member/${member.id}`} className="group">
-          <h3 className="text-lg font-bold text-foreground transition-colors group-hover:text-primary" style={{ fontFamily: "'Arena', sans-serif" }}>
+          <h3 className="text-lg font-bold text-foreground transition-colors group-hover:text-primary" style={{ fontFamily: "'Outfit', sans-serif" }}>
             {member.name}
           </h3>
         </Link>

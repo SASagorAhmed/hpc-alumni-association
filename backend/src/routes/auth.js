@@ -1,4 +1,5 @@
 const express = require("express");
+const rateLimit = require("express-rate-limit");
 const { v4: uuidv4 } = require("uuid");
 const { getOrCreatePool } = require("../db/pool");
 const { hashPassword, verifyPassword } = require("../auth/password");
@@ -13,6 +14,30 @@ const { getCloudinaryFolder } = require("../utils/uploadFolders");
 const router = express.Router();
 const GOOGLE_OAUTH_COOKIE = "hpc_google_oauth_token";
 const GOOGLE_OAUTH_COOKIE_MAX_MS = 10 * 60 * 1000;
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { ok: false, error: "Too many login attempts. Please try again later." },
+});
+
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 25,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { ok: false, error: "Too many registration attempts. Please try again later." },
+});
+
+const resendVerifyLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 12,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { ok: false, error: "Too many requests. Please try again later." },
+});
 
 const profileUpload = multer({
   storage: multer.memoryStorage(),
@@ -129,7 +154,7 @@ async function getUserProfile(pool, userId) {
 }
 
 // POST /api/auth/register (multipart/form-data; optional photo for Female, required for Male)
-router.post("/register", profileUpload.single("photo"), async (req, res) => {
+router.post("/register", registerLimiter, profileUpload.single("photo"), async (req, res) => {
   try {
     const pool = getOrCreatePool();
     if (!pool) return res.status(503).json({ ok: false, error: "MySQL not configured" });
@@ -316,13 +341,20 @@ router.post("/register", profileUpload.single("photo"), async (req, res) => {
       await sendVerificationEmail({ email: emailStr, verificationLink });
       return res.status(201).json({ ok: true, message: "Registration successful. Check your email for verification." });
     } catch (mailErr) {
-      // Keep registration usable during setup if SMTP is not configured yet.
-      return res.status(201).json({
+      // Keep registration usable during local/staging setup if SMTP is not configured yet.
+      // Never expose verification tokens in production API responses.
+      const body = {
         ok: true,
-        message: "Registration successful, but verification email could not be sent. Use verification_url for setup testing.",
-        verification_url: verificationLink,
+        message:
+          env.nodeEnv === "production"
+            ? "Registration successful, but verification email could not be sent. Contact support or try again later."
+            : "Registration successful, but verification email could not be sent. Use verification_url for setup testing.",
         email_error: mailErr.message || "SMTP send failed",
-      });
+      };
+      if (env.nodeEnv !== "production") {
+        body.verification_url = verificationLink;
+      }
+      return res.status(201).json(body);
     }
   } catch (e) {
     return res.status(500).json({ ok: false, error: e.message || "Registration failed" });
@@ -371,7 +403,7 @@ router.get("/verify-email", async (req, res) => {
 });
 
 // POST /api/auth/resend-verification
-router.post("/resend-verification", async (req, res) => {
+router.post("/resend-verification", resendVerifyLimiter, async (req, res) => {
   try {
     const pool = getOrCreatePool();
     if (!pool) return res.status(503).json({ ok: false, error: "MySQL not configured" });
@@ -408,7 +440,7 @@ router.post("/resend-verification", async (req, res) => {
 });
 
 // POST /api/auth/login
-router.post("/login", async (req, res) => {
+router.post("/login", loginLimiter, async (req, res) => {
   try {
     const pool = getOrCreatePool();
     if (!pool) return res.status(503).json({ ok: false, error: "MySQL not configured" });
@@ -517,7 +549,7 @@ router.get("/google/callback", (req, res, next) => {
 
       const query = new URLSearchParams();
       query.set("oauth_handoff", "1");
-      query.set("jwt", token);
+      // JWT is delivered only via httpOnly cookie + POST /oauth-handoff (not in URL — avoids history / referrer leaks).
 
       const approved = Boolean(user?.approved ?? info?.approved);
       const profileVerified = Boolean(user?.verified ?? info?.verified);

@@ -255,7 +255,7 @@ export function PresidentHeroCard({
           <h3
             className="font-bold leading-tight text-foreground"
             style={{
-              fontFamily: "'Cinzel', 'Arena', serif",
+              fontFamily: "'Cinzel', Georgia, serif",
               fontSize: "23px",
               fontWeight: 900,
               letterSpacing: "0.03em",
@@ -484,7 +484,7 @@ export function ExecutiveMemberCard({
                 title={member.name}
                 className="block w-full min-w-0 whitespace-nowrap font-bold leading-tight text-foreground"
                 style={{
-                  fontFamily: "'Cinzel', 'Arena', serif",
+                  fontFamily: "'Cinzel', Georgia, serif",
                   fontSize: governingBody ? "23px" : "21px",
                   fontWeight: 900,
                   letterSpacing: "0.02em",
@@ -675,7 +675,7 @@ export function MobilePresidentCard({ member, roleLabel }: { member: DBMember; r
           <h3
             className="break-words text-xl font-bold leading-tight [overflow-wrap:anywhere]"
             style={{
-              fontFamily: "'Cinzel', 'Arena', serif",
+              fontFamily: "'Cinzel', Georgia, serif",
               fontWeight: 900,
               letterSpacing: "0.03em",
               color: "#FFE566",
@@ -822,7 +822,7 @@ export function MobileMemberCard({
               governingBody ? "text-base" : "text-sm"
             )}
             style={{
-              fontFamily: "'Cinzel', 'Arena', serif",
+              fontFamily: "'Cinzel', Georgia, serif",
               fontWeight: 900,
               letterSpacing: "0.02em",
               color: "#FFB347",
