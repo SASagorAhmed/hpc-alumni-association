@@ -206,6 +206,7 @@ export function PresidentHeroCard({
 }) {
   const roleLine = roleLabel || member.designation || "President";
   const primary = "#FFFFFF";
+  const presidentBadgeYellow = "#FFE566";
   const primaryTint = "hsl(var(--primary) / 0.12)";
   const primaryBorder = "hsl(var(--primary) / 0.25)";
   const cardBg = "hsl(var(--card))";
@@ -252,15 +253,11 @@ export function PresidentHeroCard({
           <h3
             className="font-bold leading-tight text-foreground"
             style={{
-              fontFamily: "'Outfit', sans-serif",
+              fontFamily: "'Cinzel', 'Arena', serif",
               fontSize: "23px",
               fontWeight: 900,
-              letterSpacing: "0.02em",
-              color: "#FFB347",
-              WebkitTextStroke: "0.8px #FDBA74",
-              textShadow:
-                "0 1px 0 #7f1d1d, 0 2px 0 #7f1d1d, 0 3px 0 rgba(127,29,29,0.92), 0 2px 6px rgba(0,0,0,0.3), 0 0 2px rgba(251,146,60,0.45)",
-              animation: "hpcPresidentNameFire 1.4s infinite ease-in-out",
+              letterSpacing: "0.03em",
+              color: "#FFE566",
             }}
           >
             {member.name}
@@ -370,6 +367,20 @@ export function PresidentHeroCard({
                 <Camera className="h-[34px] w-[34px]" style={{ color: primary, opacity: 0.6 }} />
               </div>
             )}
+            <div className="pointer-events-none absolute inset-x-0 bottom-2 z-[12] flex justify-center px-2">
+              <span
+                className="inline-flex rounded-full border px-4 py-1.5 text-[14px] font-extrabold tracking-[0.16em]"
+                style={{
+                  color: "#FFE566",
+                  borderColor: "rgba(253,224,71,0.65)",
+                  backgroundColor: "rgba(0,0,0,0.42)",
+                  textShadow: "0 2px 4px rgba(0,0,0,0.7)",
+                  fontFamily: "Georgia, 'Times New Roman', serif",
+                }}
+              >
+                PRESIDENT
+              </span>
+            </div>
           </div>
         </div>
         </div>
@@ -471,7 +482,7 @@ export function ExecutiveMemberCard({
                 title={member.name}
                 className="block w-full min-w-0 whitespace-nowrap font-bold leading-tight text-foreground"
                 style={{
-                  fontFamily: "'Arena', sans-serif",
+                  fontFamily: "'Cinzel', 'Arena', serif",
                   fontSize: governingBody ? "23px" : "21px",
                   fontWeight: 900,
                   letterSpacing: "0.02em",
@@ -483,7 +494,12 @@ export function ExecutiveMemberCard({
 
               <div
                 className="inline-flex w-fit max-w-full items-center rounded-full border border-primary/20 px-2.5 py-0.5 text-[10.75px] font-semibold"
-                style={{ backgroundColor: primaryTint, color: primary }}
+                style={{
+                  backgroundColor: "rgba(251, 146, 60, 0.25)",
+                  borderColor: "rgba(253, 224, 71, 0.65)",
+                  color: "#FFF7D6",
+                  textShadow: "0 1px 4px rgba(0,0,0,0.55)",
+                }}
               >
                 {role}
               </div>
@@ -592,6 +608,7 @@ export function ExecutiveMemberCard({
 export function MobilePresidentCard({ member, roleLabel }: { member: DBMember; roleLabel?: string }) {
   const roleLine = roleLabel || member.designation || "President";
   const primary = "#FFFFFF";
+  const presidentBadgeYellow = "#FFE566";
   const primaryTint = "hsl(var(--primary) / 0.12)";
   const primaryBorder = "hsl(var(--primary) / 0.25)";
 
@@ -607,22 +624,6 @@ export function MobilePresidentCard({ member, roleLabel }: { member: DBMember; r
         className="cursor-pointer overflow-hidden rounded-[13px] border border-border/55 shadow-card"
         style={{ background: "linear-gradient(135deg, #0a6f62 0%, #075f54 48%, #045248 100%)" }}
       >
-        {/* KING + #01 badges — above photo */}
-        <div className="flex items-center gap-1.5 px-4 pt-4 pb-2">
-          <span className="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-bold"
-            style={{
-              backgroundColor: primaryTint,
-              borderColor: primaryBorder,
-              color: primary,
-            }}>
-            <Crown className="h-3.5 w-3.5" /> KING
-          </span>
-          <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold"
-            style={{ backgroundColor: primaryTint, borderColor: primaryBorder, color: primary }}>
-            #01
-          </span>
-        </div>
-
         {/* Photo */}
         <div className="relative w-full overflow-hidden bg-muted" style={{ aspectRatio: "1/1" }}>
           {member.photo_url ? (
@@ -637,6 +638,33 @@ export function MobilePresidentCard({ member, roleLabel }: { member: DBMember; r
               <Camera className="h-12 w-12" style={{ color: primary, opacity: 0.5 }} />
             </div>
           )}
+          {/* Mobile president: KING badge on image; hide serial number */}
+          <div className="absolute left-3 top-3 z-[7]">
+            <span
+              className="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-bold"
+              style={{
+                backgroundColor: primaryTint,
+                borderColor: primaryBorder,
+                color: presidentBadgeYellow,
+              }}
+            >
+              <Crown className="h-3.5 w-3.5" /> KING
+            </span>
+          </div>
+          <div className="pointer-events-none absolute inset-x-0 bottom-2 z-[8] flex justify-center px-2">
+            <span
+              className="inline-flex rounded-full border px-5 py-2 text-[16px] font-extrabold tracking-[0.18em]"
+              style={{
+                color: "#FFE566",
+                borderColor: "rgba(253,224,71,0.65)",
+                backgroundColor: "rgba(0,0,0,0.42)",
+                textShadow: "0 0 10px rgba(255,229,102,0.42), 0 2px 4px rgba(0,0,0,0.7)",
+                fontFamily: "Georgia, 'Times New Roman', serif",
+              }}
+            >
+              PRESIDENT
+            </span>
+          </div>
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/60 to-transparent" />
         </div>
 
@@ -645,14 +673,10 @@ export function MobilePresidentCard({ member, roleLabel }: { member: DBMember; r
           <h3
             className="text-xl font-bold leading-tight"
             style={{
-              fontFamily: "'Outfit', sans-serif",
+              fontFamily: "'Cinzel', 'Arena', serif",
               fontWeight: 900,
-              letterSpacing: "0.02em",
-              color: "#FFB347",
-              WebkitTextStroke: "0.8px #FDBA74",
-              textShadow:
-                "0 1px 0 #7f1d1d, 0 2px 0 #7f1d1d, 0 3px 0 rgba(127,29,29,0.92), 0 2px 6px rgba(0,0,0,0.3), 0 0 2px rgba(251,146,60,0.45)",
-              animation: "hpcPresidentNameFire 1.4s infinite ease-in-out",
+              letterSpacing: "0.03em",
+              color: "#FFE566",
             }}
           >
             {member.name}
@@ -777,7 +801,7 @@ export function MobileMemberCard({
               governingBody ? "text-base" : "text-sm"
             )}
             style={{
-              fontFamily: "'Arena', sans-serif",
+              fontFamily: "'Cinzel', 'Arena', serif",
               fontWeight: 900,
               letterSpacing: "0.02em",
               color: "#FFB347",
@@ -786,7 +810,12 @@ export function MobileMemberCard({
             {member.name}
           </h3>
           <span className="inline-flex w-fit max-w-full items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold"
-            style={{ backgroundColor: primaryTint, borderColor: primaryBorder, color: primary }}>
+            style={{
+              backgroundColor: "rgba(251, 146, 60, 0.25)",
+              borderColor: "rgba(253, 224, 71, 0.65)",
+              color: "#FFF7D6",
+              textShadow: "0 1px 4px rgba(0,0,0,0.55)",
+            }}>
             {role}
           </span>
         </div>
@@ -895,7 +924,7 @@ export function AlumniExecutiveCommitteeIntro({
         Alumni Executive Committee 2025–2027
       </h2>
 
-      <p className="mx-auto mt-3 max-w-2xl text-[15px] text-muted-foreground leading-relaxed text-justify hyphens-auto">
+      <p className="mt-3 w-full max-w-none text-[15px] text-muted-foreground leading-relaxed text-justify hyphens-auto">
         The Alumni Executive Committee represents the elected and appointed leadership of the Hamdard Public
         College Alumni Association. These members are responsible for guiding the alumni network, organizing
         activities, and supporting the growth of the HPC alumni community.

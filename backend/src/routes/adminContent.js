@@ -85,6 +85,7 @@ async function ensureAchievementBannerOverlayColumns(pool) {
     "ADD COLUMN `banner_photo_batch_text` TEXT NULL",
     "ADD COLUMN `banner_photo_tagline` TEXT NULL",
     "ADD COLUMN `banner_congratulations_text` VARCHAR(120) NULL",
+    "ADD COLUMN `banner_theme` VARCHAR(32) NULL DEFAULT 'default'",
   ];
   for (const frag of fragments) {
     try {
@@ -94,6 +95,12 @@ async function ensureAchievementBannerOverlayColumns(pool) {
       if (!/Duplicate column name/i.test(msg)) throw e;
     }
   }
+}
+
+function normalizeAchievementBannerTheme(raw) {
+  const theme = String(raw ?? "").trim().toLowerCase();
+  if (theme === "theme2" || theme === "tomato") return "theme2";
+  return "default";
 }
 
 function achievementInsertRow(body, id) {
@@ -119,6 +126,7 @@ function achievementInsertRow(body, id) {
     banner_photo_batch_text: nullableTrim(b.banner_photo_batch_text),
     banner_photo_tagline: nullableTrim(b.banner_photo_tagline),
     banner_congratulations_text: nullableTrim(b.banner_congratulations_text),
+    banner_theme: normalizeAchievementBannerTheme(b.banner_theme),
   };
 }
 
@@ -149,6 +157,7 @@ function achievementUpdatePatch(body) {
   if ("banner_photo_batch_text" in b) patch.banner_photo_batch_text = nullableTrim(b.banner_photo_batch_text);
   if ("banner_photo_tagline" in b) patch.banner_photo_tagline = nullableTrim(b.banner_photo_tagline);
   if ("banner_congratulations_text" in b) patch.banner_congratulations_text = nullableTrim(b.banner_congratulations_text);
+  if ("banner_theme" in b) patch.banner_theme = normalizeAchievementBannerTheme(b.banner_theme);
   return patch;
 }
 
@@ -311,6 +320,7 @@ router.post("/achievements", requireAuth, async (req, res) => {
   try {
     const pool = await withAdmin(req, res);
     if (!pool) return;
+    await ensureAchievementBannerOverlayColumns(pool);
     const id = uuidv4();
     const row = achievementInsertRow(req.body, id);
     if (!row.name || !row.achievement_title) {
@@ -391,7 +401,7 @@ router.put("/achievement-settings/:id", requireAuth, async (req, res) => {
     }
     if ("banner_theme" in b) {
       const raw = String(b.banner_theme || "").trim().toLowerCase();
-      patch.banner_theme = raw === "tomato" ? "tomato" : "default";
+      patch.banner_theme = raw === "theme2" || raw === "tomato" ? "theme2" : "default";
     }
     if (Object.keys(patch).length === 0) {
       return res.status(400).json({ ok: false, error: "No valid fields to update" });

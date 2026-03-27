@@ -39,6 +39,7 @@ interface Achievement {
   banner_photo_batch_text?: string | null;
   banner_photo_tagline?: string | null;
   banner_congratulations_text?: string | null;
+  banner_theme?: "default" | "theme2" | null;
 }
 
 interface AchievementSettings {
@@ -46,7 +47,7 @@ interface AchievementSettings {
   banner_enabled: boolean;
   slide_duration: number;
   max_display_count: number | null;
-  banner_theme?: "default" | "tomato";
+  banner_theme?: "default" | "theme2";
 }
 
 const emptyForm = {
@@ -64,6 +65,7 @@ const emptyForm = {
   banner_photo_batch_text: "",
   banner_photo_tagline: "",
   banner_congratulations_text: "",
+  banner_theme: "default" as "default" | "theme2",
 };
 
 const AdminAchievements = () => {
@@ -178,11 +180,14 @@ const AdminAchievements = () => {
         banner_enabled: s.banner_enabled === true || s.banner_enabled === 1 || s.banner_enabled === "1",
         slide_duration: slide,
         max_display_count: maxDisplay,
-        banner_theme:
-          (typeof (s as { banner_theme?: unknown }).banner_theme === "string" &&
-          String((s as { banner_theme?: unknown }).banner_theme).toLowerCase() === "tomato")
-            ? "tomato"
-            : "default",
+        banner_theme: (() => {
+          const rawTheme =
+            typeof (s as { banner_theme?: unknown }).banner_theme === "string"
+              ? String((s as { banner_theme?: unknown }).banner_theme).toLowerCase()
+              : "";
+          if (rawTheme === "theme2" || rawTheme === "tomato") return "theme2";
+          return "default";
+        })(),
       });
     }
   };
@@ -217,6 +222,10 @@ const AdminAchievements = () => {
       banner_photo_batch_text: a.banner_photo_batch_text ?? "",
       banner_photo_tagline: a.banner_photo_tagline ?? "",
       banner_congratulations_text: a.banner_congratulations_text ?? "",
+      banner_theme:
+        a.banner_theme === "theme2" || a.banner_theme === "tomato"
+          ? "theme2"
+          : "default",
     });
     setDialogOpen(true);
   };
@@ -260,6 +269,7 @@ const AdminAchievements = () => {
       banner_photo_batch_text: form.banner_photo_batch_text.trim() || null,
       banner_photo_tagline: form.banner_photo_tagline.trim() || null,
       banner_congratulations_text: form.banner_congratulations_text.trim() || null,
+      banner_theme: form.banner_theme,
     };
 
     const readErr = async (res: Response) => {
@@ -410,13 +420,14 @@ const AdminAchievements = () => {
                       <TableHead>Name</TableHead>
                       <TableHead>Achievement</TableHead>
                       <TableHead>Tag</TableHead>
+                      <TableHead>Theme</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filtered.length === 0 ? (
-                      <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">No achievements found</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No achievements found</TableCell></TableRow>
                     ) : filtered.map((a) => (
                       <TableRow key={a.id} className={cn(!a.is_active && "opacity-50")}>
                         <TableCell>
@@ -436,6 +447,15 @@ const AdminAchievements = () => {
                         </TableCell>
                         <TableCell className="text-sm">{a.achievement_title}</TableCell>
                         <TableCell>{a.tag && <Badge variant="outline" className="text-xs">{a.tag}</Badge>}</TableCell>
+                        <TableCell>
+                          <Badge variant="secondary" className="text-xs">
+                            {a.banner_theme === "tomato"
+                              ? "Theme 2"
+                              : a.banner_theme === "theme2"
+                                ? "Theme 2"
+                                : "Default"}
+                          </Badge>
+                        </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <Switch checked={Boolean(a.is_active)} onCheckedChange={() => toggleActive(a)} />
@@ -501,13 +521,16 @@ const AdminAchievements = () => {
                       <Select
                         value={settings.banner_theme || "default"}
                         onValueChange={(v) =>
-                          setSettings({ ...settings, banner_theme: v === "tomato" ? "tomato" : "default" })
+                          setSettings({
+                            ...settings,
+                            banner_theme: v === "theme2" ? "theme2" : "default",
+                          })
                         }
                       >
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="default">Default (current)</SelectItem>
-                          <SelectItem value="tomato">Vibrant Tomato</SelectItem>
+                          <SelectItem value="theme2">Theme 2</SelectItem>
                         </SelectContent>
                       </Select>
                       <p className="text-xs text-muted-foreground">Default stays unchanged unless you switch it.</p>
@@ -557,6 +580,27 @@ const AdminAchievements = () => {
                 />
                 <p className="text-xs text-muted-foreground">
                   {countWords(form.achievement_title)} / {BANNER_MAX_WORDS} words (banner)
+                </p>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Banner Theme (This Post)</Label>
+                <Select
+                  value={form.banner_theme}
+                  onValueChange={(v) =>
+                    setForm({
+                      ...form,
+                      banner_theme: v === "theme2" ? "theme2" : "default",
+                    })
+                  }
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="default">Default</SelectItem>
+                    <SelectItem value="theme2">Theme 2</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Applies only to this banner post. You can mix different themes across posts.
                 </p>
               </div>
               <div className="space-y-1.5">

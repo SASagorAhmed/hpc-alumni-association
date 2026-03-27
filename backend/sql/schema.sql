@@ -251,6 +251,7 @@ CREATE TABLE IF NOT EXISTS `achievements` (
   `display_order` INT NULL DEFAULT 0,
   `is_active` BOOLEAN NULL DEFAULT TRUE,
   `is_pinned` BOOLEAN NULL DEFAULT FALSE,
+  `banner_theme` VARCHAR(32) NULL DEFAULT 'default',
   `banner_photo_batch_text` TEXT NULL,
   `banner_photo_tagline` TEXT NULL,
   `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,

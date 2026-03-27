@@ -171,9 +171,7 @@ export function StructuredCommitteeDisplay({
           <h2 className="text-3xl font-bold tracking-tight text-foreground md:text-4xl" style={{ fontFamily: "'Outfit', sans-serif" }}>
             {term.name}
           </h2>
-          {term.description && (
-            <p className="mx-auto mt-3 max-w-2xl text-[15px] text-muted-foreground">{term.description}</p>
-          )}
+          {term.description && <p className="mt-3 w-full max-w-none text-[15px] text-muted-foreground">{term.description}</p>}
         </div>
       )}
 

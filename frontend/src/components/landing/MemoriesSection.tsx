@@ -193,7 +193,7 @@ const MemoriesSection = () => {
         >
           <p className="fs-eyebrow mb-2 font-semibold uppercase tracking-wider text-primary">HPC Alumni Gallery</p>
           <h2 className="mb-3 fs-title font-bold text-foreground">Our Alumni Memories &amp; Events</h2>
-          <p className="mx-auto max-w-2xl text-justify text-muted-foreground hyphens-auto">
+          <p className="w-full max-w-none text-justify text-muted-foreground hyphens-auto">
             Explore the memorable moments of the Hamdard Public College Alumni Association through our gallery of events,
             reunions, and celebrations. These images reflect the strong bonds, shared experiences, and vibrant community spirit
             of HPC alumni.

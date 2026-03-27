@@ -57,10 +57,26 @@ const defaults: Record<string, Record<string, any>> = {
     sectionLabel: "OUR PURPOSE",
     heading: "Vision, Mission & Goals",
     items: [
-      { title: "Vision", description: "To be the most connected and impactful alumni network of any college in Bangladesh, fostering lifelong bonds and opportunities." },
-      { title: "Mission", description: "Reconnect every HPC graduate, support current students through mentorship, and contribute to the college's growth and reputation." },
-      { title: "Goals", description: "Build a 5,000-member network by 2028, launch scholarship programs, organize annual reunions, and create a job placement platform." },
-      { title: "Values", description: "Brotherhood, academic excellence, social responsibility, and the spirit of giving back to the community that shaped us." },
+      {
+        title: "Vision",
+        description:
+          "HPC Alumni Association (Hamdard Public College Alumni Association - হামদার্দ পাবলিক কলেজ অ্যালামনাই অ্যাসোসিয়েশন) aims to become the most connected and impactful alumni network in Bangladesh, bringing together all HPC alumni to build lifelong relationships, leadership, and opportunities across the country and beyond.",
+      },
+      {
+        title: "Mission",
+        description:
+          "The mission of HPC Alumni Association is to reconnect every Hamdard Public College (HPC) graduate, support current students through mentorship and guidance, and strengthen the college's growth, reputation, and alumni network both nationally and globally.",
+      },
+      {
+        title: "Goals",
+        description:
+          "HPC Alumni Network focuses on building a strong and active alumni community by reaching over 5,000 members, launching scholarship programs, organizing alumni reunions and networking events, and creating a job placement and career support platform for Hamdard Public College alumni in Bangladesh.",
+      },
+      {
+        title: "Values",
+        description:
+          "HPC Alumni Association believes in brotherhood, unity, academic excellence, social responsibility, leadership, and giving back to the community, fostering a strong connection among Hamdard Public College alumni (HPC Alumni BD) and contributing positively to society.",
+      },
     ],
   },
   features: {

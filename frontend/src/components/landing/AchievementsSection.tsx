@@ -213,7 +213,7 @@ const AchievementsSection = () => {
           <h2 className="fs-title font-bold text-foreground" style={{ fontFamily: "'Outfit', sans-serif" }}>
             Achievements of HPC Alumni
           </h2>
-          <p className="fs-body mx-auto mt-3 max-w-xl text-muted-foreground text-justify hyphens-auto">
+          <p className="fs-body mt-3 w-full max-w-none text-muted-foreground text-justify hyphens-auto">
             We proudly celebrate the outstanding achievements of Hamdard Public College alumni who have excelled in diverse fields such as education, business, technology, research, and public service. Our alumni continue to make meaningful contributions both nationally and internationally, reflecting the values and excellence of HPC.
             <br />
             <br />
