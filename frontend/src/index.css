@@ -1108,6 +1108,15 @@
   }
 }
 
+/* iOS WebKit touch: stable text sizing in scaled/zoomed or flex-heavy card grids */
+@supports (-webkit-touch-callout: none) {
+  .committee-mobile-board,
+  .hpc-ios-touch-text-root {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+}
+
 @keyframes gold-shine {
   0% { background-position: 200% center; }
   100% { background-position: -200% center; }

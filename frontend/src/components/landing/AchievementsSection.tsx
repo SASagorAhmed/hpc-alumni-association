@@ -1,7 +1,8 @@
-import { useState, useEffect, useLayoutEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, type CSSProperties } from "react";
 import { motion } from "framer-motion";
 import { Award, Calendar, GraduationCap, PartyPopper, Camera, Building2 } from "lucide-react";
 import { API_BASE_URL } from "@/api-production/api.js";
+import { isIosSafariViewport } from "@/lib/iosSafari";
 
 interface Achievement {
   id: string;
@@ -28,7 +29,7 @@ function AchievementGridCard({ a, i }: { a: Achievement; i: number }) {
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ duration: 0.5 }}
-      className="group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all duration-300 hover:border-primary/50 hover:shadow-lg"
+      className="group relative flex min-w-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all duration-300 hover:border-primary/50 hover:shadow-lg"
       style={{ background: "var(--achievement-card-bg)" }}
     >
       <div className="h-1" style={{ background: "var(--achievement-card-accent-bar)" }} />
@@ -43,22 +44,25 @@ function AchievementGridCard({ a, i }: { a: Achievement; i: number }) {
         )}
       </div>
 
-      <div className="flex flex-1 flex-col items-center gap-2 p-3 text-center">
+      <div className="flex min-w-0 flex-1 flex-col items-center gap-2 p-3 text-center">
         <span className="text-[0.68rem] font-semibold uppercase tracking-wider text-amber-600">
           #{String(i + 1).padStart(2, "0")} Achievement
         </span>
 
-        <h3 className="text-sm font-bold leading-snug text-foreground" style={{ fontFamily: "'Outfit', sans-serif" }}>
+        <h3
+          className="break-words text-sm font-bold leading-snug text-foreground [overflow-wrap:anywhere]"
+          style={{ fontFamily: "'Outfit', sans-serif" }}
+        >
           {a.name}
         </h3>
 
         {a.achievement_title && (
-          <span className="inline-flex items-center rounded-full bg-primary px-2.5 py-0.5 text-xs font-semibold text-primary-foreground">
+          <span className="inline-flex max-w-full items-center break-words rounded-full bg-primary px-2.5 py-0.5 text-xs font-semibold text-primary-foreground [overflow-wrap:anywhere]">
             {a.achievement_title}
           </span>
         )}
 
-        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+        <div className="flex min-w-0 flex-wrap items-center justify-center gap-x-3 gap-y-1">
           {a.batch && (
             <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
               <GraduationCap size={11} className="shrink-0 text-primary" />
@@ -72,7 +76,7 @@ function AchievementGridCard({ a, i }: { a: Achievement; i: number }) {
             </span>
           )}
           {a.institution && (
-            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+            <span className="inline-flex max-w-full min-w-0 items-center gap-1 break-words text-xs text-muted-foreground [overflow-wrap:anywhere]">
               <Building2 className="h-2.5 w-2.5 shrink-0 text-primary" />
               {a.institution}
             </span>
@@ -80,13 +84,15 @@ function AchievementGridCard({ a, i }: { a: Achievement; i: number }) {
         </div>
 
         {a.message && (
-          <div className="mt-auto w-full border-t border-border pt-2">
+          <div className="mt-auto w-full min-w-0 border-t border-border pt-2">
             <div className="rounded-lg border border-primary/20 bg-primary/5 p-2.5 text-left">
               <div className="mb-1 flex items-center gap-1.5">
                 <PartyPopper className="h-3 w-3 shrink-0 text-primary" />
                 <span className="text-[0.6rem] font-semibold uppercase tracking-wider text-primary">Congratulations</span>
               </div>
-              <p className="text-xs leading-relaxed text-foreground/85 whitespace-pre-wrap">{a.message}</p>
+              <p className="break-words text-xs leading-relaxed text-foreground/85 whitespace-pre-wrap [overflow-wrap:anywhere]">
+                {a.message}
+              </p>
             </div>
           </div>
         )}
@@ -195,6 +201,8 @@ const AchievementsSection = () => {
   const scaled = !isNarrowViewport && gridScale < 1;
   const isMobileGrid = isNarrowViewport && narrowGridW < 540;
   const mobileZoom = isMobileGrid && narrowGridW < MOBILE_REF_W ? narrowGridW / MOBILE_REF_W : 1;
+  const mobileGridZoomStyle =
+    isNarrowViewport && mobileZoom < 1 && !isIosSafariViewport() ? ({ zoom: mobileZoom } as CSSProperties) : undefined;
 
   return (
     <section id="achievements" className="border-t border-border/60 bg-background py-10 sm:py-20">
@@ -225,8 +233,8 @@ const AchievementsSection = () => {
         {isNarrowViewport ? (
           <div ref={narrowGridOuterRef} className="w-full min-w-0">
             <div
-              className="grid w-full grid-cols-2 gap-3 sm:gap-4 md:gap-5"
-              style={mobileZoom < 1 ? { zoom: mobileZoom } : undefined}
+              className="hpc-ios-touch-text-root grid w-full min-w-0 grid-cols-2 gap-3 sm:gap-4 md:gap-5"
+              style={mobileGridZoomStyle}
             >
               {achievements.slice(0, visibleCount).map((a, i) => (
                 <AchievementGridCard key={a.id} a={a} i={i} />

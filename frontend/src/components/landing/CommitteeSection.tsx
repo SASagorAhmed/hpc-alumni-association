@@ -1,4 +1,4 @@
-import { useState, useRef, useLayoutEffect } from "react";
+import { useState, useRef, useLayoutEffect, type CSSProperties } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { StructuredCommitteePayload } from "@/components/committee/StructuredCommitteeDisplay";
 import { API_BASE_URL } from "@/api-production/api.js";
@@ -12,6 +12,7 @@ import {
   type DBMember,
 } from "@/components/committee/AlumniExecutiveCommitteeBoard";
 import { Skeleton } from "@/components/ui/skeleton";
+import { isIosSafariViewport } from "@/lib/iosSafari";
 
 
 const COMMITTEE_DESIGN_W = 1024;
@@ -119,6 +120,10 @@ const CommitteeSection = ({ showAll = false }: { showAll?: boolean }) => {
   const isLegacyMobile = legacyW < 540;
   const legacyScaled = legacyScale < 1;
   const legacyMobileZoom = isLegacyMobile && legacyW < MOBILE_REF_W ? legacyW / MOBILE_REF_W : 1;
+  const legacyMobileZoomStyle =
+    isLegacyMobile && legacyMobileZoom < 1 && !isIosSafariViewport()
+      ? ({ zoom: legacyMobileZoom } as CSSProperties)
+      : undefined;
   // Always render 2-column cards on mobile; zoom scaling already keeps it fitting.
   const legacyTwoColMobile = isLegacyMobile;
 
@@ -131,8 +136,8 @@ const CommitteeSection = ({ showAll = false }: { showAll?: boolean }) => {
           {isLegacyMobile ? (
             /* ── MOBILE layout (<540 px): zooms on narrow phones ── */
             <div
-              className={legacyTwoColMobile ? "grid grid-cols-2 gap-4" : "flex flex-col gap-4"}
-              style={legacyMobileZoom < 1 ? { zoom: legacyMobileZoom } : undefined}
+              className={`hpc-ios-touch-text-root min-w-0 ${legacyTwoColMobile ? "grid grid-cols-2 gap-4" : "flex flex-col gap-4"}`}
+              style={legacyMobileZoomStyle}
             >
               {presidentMember && (
                 <div className={legacyTwoColMobile ? "col-span-2" : undefined}>

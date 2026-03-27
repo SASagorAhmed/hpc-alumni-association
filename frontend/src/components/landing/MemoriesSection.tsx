@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, type CSSProperties } from "react";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
@@ -6,6 +6,7 @@ import { Calendar, ImageIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { API_BASE_URL } from "@/api-production/api.js";
+import { isIosSafariViewport } from "@/lib/iosSafari";
 
 const CATEGORIES = [
   "All",
@@ -41,7 +42,7 @@ function MemoryGridCard({ memory, i }: { memory: MemoryItem; i: number }) {
     >
       <Link
         to={`/memories/${memory.id}`}
-        className="group relative flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-all duration-300 hover:border-primary/40 hover:shadow-lg"
+        className="group relative flex min-w-0 flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-all duration-300 hover:border-primary/40 hover:shadow-lg"
       >
         <div className="relative aspect-[4/3] overflow-hidden bg-muted">
           {memory.photo_url ? (
@@ -57,19 +58,21 @@ function MemoryGridCard({ memory, i }: { memory: MemoryItem; i: number }) {
             </div>
           )}
           {memory.description && (
-            <div className="absolute inset-0 flex items-end bg-foreground/70 p-3 opacity-0 transition-opacity duration-300 group-hover:opacity-100 sm:p-4">
-              <p className="line-clamp-4 text-sm text-primary-foreground">{memory.description}</p>
+            <div className="absolute inset-0 flex min-w-0 items-end bg-foreground/70 p-3 opacity-0 transition-opacity duration-300 group-hover:opacity-100 sm:p-4">
+              <p className="line-clamp-4 break-words text-sm text-primary-foreground [overflow-wrap:anywhere]">
+                {memory.description}
+              </p>
             </div>
           )}
         </div>
 
-        <div className="p-3 sm:p-4">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <Badge variant="secondary" className="shrink-0 text-[0.65rem] sm:text-xs">
+        <div className="min-w-0 p-3 sm:p-4">
+          <div className="mb-2 flex min-w-0 items-center justify-between gap-2">
+            <Badge variant="secondary" className="min-w-0 max-w-[55%] shrink break-words text-[0.65rem] sm:max-w-none sm:text-xs [overflow-wrap:anywhere]">
               {memory.category}
             </Badge>
             {memory.event_date && (
-              <span className="flex items-center gap-1 text-[0.65rem] text-muted-foreground sm:text-xs">
+              <span className="flex shrink-0 items-center gap-1 text-[0.65rem] text-muted-foreground sm:text-xs">
                 <Calendar className="h-3 w-3 shrink-0" />
                 {new Date(memory.event_date).toLocaleDateString("en-US", {
                   year: "numeric",
@@ -79,7 +82,7 @@ function MemoryGridCard({ memory, i }: { memory: MemoryItem; i: number }) {
               </span>
             )}
           </div>
-          <h3 className="line-clamp-2 text-sm font-semibold text-foreground transition-colors group-hover:text-primary">
+          <h3 className="line-clamp-2 min-w-0 break-words text-sm font-semibold text-foreground transition-colors group-hover:text-primary [overflow-wrap:anywhere]">
             {memory.title}
           </h3>
         </div>
@@ -180,6 +183,8 @@ const MemoriesSection = () => {
   const scaled = !isNarrowViewport && gridScale < 1;
   const isMobileGrid = isNarrowViewport && narrowGridW < 540;
   const mobileZoom = isMobileGrid && narrowGridW < MOBILE_REF_W ? narrowGridW / MOBILE_REF_W : 1;
+  const mobileGridZoomStyle =
+    isNarrowViewport && mobileZoom < 1 && !isIosSafariViewport() ? ({ zoom: mobileZoom } as CSSProperties) : undefined;
 
   return (
     <section id="memories" className="border-t border-border/60 bg-background py-16 md:py-24">
@@ -253,8 +258,8 @@ const MemoriesSection = () => {
         {isNarrowViewport ? (
           <div ref={narrowGridOuterRef} className="w-full min-w-0">
             <div
-              className="grid w-full grid-cols-2 gap-3 sm:gap-4 md:gap-5"
-              style={mobileZoom < 1 ? { zoom: mobileZoom } : undefined}
+              className="hpc-ios-touch-text-root grid w-full min-w-0 grid-cols-2 gap-3 sm:gap-4 md:gap-5"
+              style={mobileGridZoomStyle}
             >
               {filtered.slice(0, visibleCount).map((memory, i) => (
                 <MemoryGridCard key={memory.id} memory={memory} i={i} />

@@ -14,6 +14,7 @@ export interface User {
   gender?: string;
   bloodGroup?: string;
   department?: string;
+  faculty?: string;
   session?: string;
   passingYear?: string;
   collegeName?: string;
@@ -52,7 +53,8 @@ interface RegisterData {
   password: string;
   phone: string;
   batch: string;
-  department?: string;
+  section: string;
+  faculty: string;
   roll: string;
   gender: string;
   photoFile?: File;
@@ -120,7 +122,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     fd.set("name", data.name);
     fd.set("phone", data.phone);
     fd.set("batch", data.batch);
-    fd.set("department", data.department || "");
+    fd.set("section", data.section || "");
+    fd.set("faculty", data.faculty || "");
     fd.set("roll", data.roll);
     fd.set("gender", data.gender);
     fd.set("bloodGroup", data.bloodGroup);

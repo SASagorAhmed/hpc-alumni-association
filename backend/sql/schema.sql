@@ -63,6 +63,7 @@ CREATE TABLE IF NOT EXISTS `profiles` (
   `gender` TEXT NULL,
   `blood_group` TEXT NULL,
   `department` TEXT NULL,
+  `faculty` VARCHAR(32) NULL,
   `session` TEXT NULL,
   `passing_year` TEXT NULL,
   `college_name` TEXT NULL,

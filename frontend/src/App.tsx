@@ -26,6 +26,7 @@ import Profile from "./pages/profile/Profile.tsx";
 // Alumni pages
 import Committee from "./pages/alumni/Committee.tsx";
 import Directory from "./pages/alumni/Directory.tsx";
+import DirectoryProfile from "./pages/alumni/DirectoryProfile.tsx";
 import Elections from "./pages/alumni/Elections.tsx";
 import Events from "./pages/alumni/Events.tsx";
 import EventDetail from "./pages/alumni/EventDetail.tsx";
@@ -87,6 +88,7 @@ const App = () => (
                   <Route path="/dashboard" element={<AlumniDashboard />} />
                   <Route path="/committee" element={<Committee />} />
                   <Route path="/directory" element={<Directory />} />
+                  <Route path="/directory/:id" element={<DirectoryProfile />} />
                   <Route path="/elections" element={<Elections />} />
                   <Route path="/events" element={<Events />} />
                   <Route path="/events/:id" element={<EventDetail />} />

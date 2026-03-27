@@ -55,6 +55,23 @@ async function deleteCloudinaryImageByUrl(url) {
 
 const FIXED_COLLEGE_NAME = "Hamdard Public Collage";
 
+const REGISTER_FACULTY_MAP = {
+  science: "Science",
+  arts: "Arts",
+  commerce: "Commerce",
+};
+
+async function ensureProfileFacultyColumn(pool) {
+  try {
+    await pool.query("ALTER TABLE profiles ADD COLUMN faculty VARCHAR(32) NULL AFTER department");
+  } catch (e) {
+    const msg = String(e?.message || "");
+    const code = e?.code ?? e?.errno;
+    if (String(code) === "1060" || msg.toLowerCase().includes("duplicate column")) return;
+    console.error("[auth] ensure profile faculty column:", msg.slice(0, 200));
+  }
+}
+
 function trimOrNull(v) {
   const s = String(v ?? "").trim();
   return s ? s : null;
@@ -88,6 +105,7 @@ async function getUserProfile(pool, userId) {
     gender: p.gender || null,
     bloodGroup: p.blood_group || null,
     department: p.department || null,
+    faculty: p.faculty || null,
     session: p.session || null,
     passingYear: p.passing_year || null,
     collegeName: p.college_name || null,
@@ -115,6 +133,7 @@ router.post("/register", profileUpload.single("photo"), async (req, res) => {
   try {
     const pool = getOrCreatePool();
     if (!pool) return res.status(503).json({ ok: false, error: "MySQL not configured" });
+    await ensureProfileFacultyColumn(pool);
 
     const {
       email,
@@ -122,7 +141,9 @@ router.post("/register", profileUpload.single("photo"), async (req, res) => {
       name,
       phone,
       batch,
+      section,
       department,
+      faculty,
       roll,
       gender,
       bloodGroup,
@@ -136,8 +157,15 @@ router.post("/register", profileUpload.single("photo"), async (req, res) => {
       instagram,
       linkedin,
     } = req.body || {};
-    if (!email || !password || !name || !batch || !department || !roll || !gender) {
+    const sectionRaw = section != null && String(section).trim() !== "" ? section : department;
+    const facultyRaw = String(faculty ?? "").trim();
+    const facultyKey = facultyRaw.toLowerCase();
+    const facultyNorm = REGISTER_FACULTY_MAP[facultyKey];
+    if (!email || !password || !name || !batch || !sectionRaw || !roll || !gender) {
       return res.status(400).json({ ok: false, error: "Missing required fields" });
+    }
+    if (!facultyNorm) {
+      return res.status(400).json({ ok: false, error: "Department must be Science, Arts, or Commerce" });
     }
 
     const emailStr = String(email).toLowerCase().trim();
@@ -157,9 +185,10 @@ router.post("/register", profileUpload.single("photo"), async (req, res) => {
     }
     const batchNorm = String(batchNum).padStart(2, "0");
 
-    // Department is used as "section" in this app: A..J
+    // `profiles.department` stores section letter A..J (alumni ID prefix).
+    // Form sends `section`; legacy clients may still send `department` for the letter.
     // (Backward compatible: allow numeric "1".."10" too.)
-    let dep = String(department ?? "").trim().toUpperCase();
+    let dep = String(sectionRaw ?? "").trim().toUpperCase();
     if (/^\d+$/.test(dep)) {
       const n = Number(dep);
       if (Number.isFinite(n) && n >= 1 && n <= 10) dep = String.fromCharCode(64 + n); // 1->A
@@ -238,17 +267,18 @@ router.post("/register", profileUpload.single("photo"), async (req, res) => {
 
     await pool.query(
       `INSERT INTO profiles
-        (id, name, phone, batch, department, roll, registration_number,
+        (id, name, phone, batch, department, faculty, roll, registration_number,
          gender, photo, blood_group, college_name, university, company, profession,
          address, bio, additional_info, social_links,
          verified, approved, blocked, profile_pending)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, false, false, false, false)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, false, false, false, false)`,
       [
         userId,
         name,
         phone || null,
         batchNorm,
         dep,
+        facultyNorm,
         rollDigits,
         alumniId,
         genderNorm,

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,8 +10,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { UserPlus, Eye, EyeOff, Facebook, Instagram, Linkedin } from "lucide-react";
 import hpcLogo from "@/assets/hpc-logo.png";
+import { ProfilePhotoCropDialog } from "@/components/auth/ProfilePhotoCropDialog";
 
 const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
+const FACULTY_OPTIONS = ["Science", "Arts", "Commerce"] as const;
 
 const Register = () => {
   const { register } = useAuth();
@@ -21,6 +23,9 @@ const Register = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [confirmImmutable, setConfirmImmutable] = useState(false);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [cropDialogOpen, setCropDialogOpen] = useState(false);
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
+  const cropObjectUrlRef = useRef<string | null>(null);
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -28,7 +33,8 @@ const Register = () => {
     confirmPassword: "",
     phone: "",
     batch: "",
-    department: "",
+    faculty: "",
+    section: "",
     roll: "",
     gender: "",
     bloodGroup: "",
@@ -50,6 +56,48 @@ const Register = () => {
 
   const batchOptions = Array.from({ length: 50 }, (_, i) => String(i + 1).padStart(2, "0"));
 
+  const revokeCropPreview = () => {
+    if (cropObjectUrlRef.current) {
+      URL.revokeObjectURL(cropObjectUrlRef.current);
+      cropObjectUrlRef.current = null;
+    }
+    setCropImageSrc(null);
+  };
+
+  useEffect(() => {
+    return () => revokeCropPreview();
+  }, []);
+
+  const handlePhotoFileChosen = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (e.target) e.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file.");
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error("Please select an image under 8MB.");
+      return;
+    }
+    revokeCropPreview();
+    const url = URL.createObjectURL(file);
+    cropObjectUrlRef.current = url;
+    setCropImageSrc(url);
+    setCropDialogOpen(true);
+  };
+
+  const handleCroppedPhoto = async (blob: Blob) => {
+    if (blob.size > 2 * 1024 * 1024) {
+      toast.error("Cropped image is too large (max 2MB). Please zoom out and crop again.");
+      return;
+    }
+    const cropped = new File([blob], "profile-photo.jpg", { type: "image/jpeg" });
+    setPhotoFile(cropped);
+    toast.success("Profile photo cropped and ready.");
+    revokeCropPreview();
+  };
+
   const validate = () => {
     const e: Record<string, string> = {};
     if (!form.name.trim()) e.name = "Name is required";
@@ -58,7 +106,8 @@ const Register = () => {
     if (form.password !== form.confirmPassword) e.confirmPassword = "Passwords do not match";
     if (!form.phone.trim() || !/^[\d+\-() ]{7,15}$/.test(form.phone)) e.phone = "Enter a valid phone number";
     if (!form.batch) e.batch = "Please select a batch";
-    if (!form.department) e.department = "Please select section (A..J)";
+    if (!form.faculty) e.faculty = "Please select department (Science, Arts, or Commerce)";
+    if (!form.section) e.section = "Please select section (A..J)";
     if (!form.roll.trim()) e.roll = "Collage ID (Roll) is required";
     if (form.roll.trim() && !/^\d+$/.test(form.roll.trim())) e.roll = "Collage ID (Roll) must be digits only";
     if (form.roll.trim() && form.roll.trim().length > 20) e.roll = "Collage ID (Roll) is too long (max 20 digits)";
@@ -87,7 +136,8 @@ const Register = () => {
       password: form.password,
       phone: form.phone,
       batch: form.batch,
-      department: form.department,
+      section: form.section,
+      faculty: form.faculty,
       roll: form.roll,
       gender: form.gender,
       photoFile: photoFile || undefined,
@@ -192,9 +242,25 @@ const Register = () => {
                     {errors.batch && <p className="text-xs text-destructive">{errors.batch}</p>}
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="department">Section (A..J) *</Label>
-                    <Select value={form.department} onValueChange={(v) => setForm({ ...form, department: v })}>
-                      <SelectTrigger id="department">
+                    <Label htmlFor="faculty">Department *</Label>
+                    <Select value={form.faculty} onValueChange={(v) => setForm({ ...form, faculty: v })}>
+                      <SelectTrigger id="faculty">
+                        <SelectValue placeholder="Select department" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {FACULTY_OPTIONS.map((f) => (
+                          <SelectItem key={f} value={f}>
+                            {f}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {errors.faculty && <p className="text-xs text-destructive">{errors.faculty}</p>}
+                  </div>
+                  <div className="space-y-1.5 md:col-span-2">
+                    <Label htmlFor="section">Section (A..J) *</Label>
+                    <Select value={form.section} onValueChange={(v) => setForm({ ...form, section: v })}>
+                      <SelectTrigger id="section">
                         <SelectValue placeholder="Select section" />
                       </SelectTrigger>
                       <SelectContent>
@@ -205,7 +271,7 @@ const Register = () => {
                         ))}
                       </SelectContent>
                     </Select>
-                    {errors.department && <p className="text-xs text-destructive">{errors.department}</p>}
+                    {errors.section && <p className="text-xs text-destructive">{errors.section}</p>}
                   </div>
                 </div>
                 <div className="mt-4 space-y-1.5">
@@ -261,15 +327,13 @@ const Register = () => {
                     id="photo"
                     type="file"
                     accept="image/*"
-                    onChange={(e) => {
-                      const f = e.target.files?.[0] || null;
-                      setPhotoFile(f);
-                    }}
+                    onChange={handlePhotoFileChosen}
                   />
+                  {photoFile ? <p className="text-xs text-emerald-700">Selected: {photoFile.name}</p> : null}
                   {form.gender === "Male" ? (
-                    <p className="text-xs text-amber-800">Male users must upload a profile picture to register.</p>
+                    <p className="text-xs text-amber-800">Male users must upload and crop a profile picture to register.</p>
                   ) : (
-                    <p className="text-xs text-muted-foreground">Female users can register without a profile picture.</p>
+                    <p className="text-xs text-muted-foreground">Female users can register without a profile picture. If uploaded, cropping is required.</p>
                   )}
                   {errors.photo && <p className="text-xs text-destructive">{errors.photo}</p>}
                 </div>
@@ -347,8 +411,9 @@ const Register = () => {
               <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm">
                 <p className="font-semibold text-amber-900">Warning</p>
                 <p className="mt-1 text-amber-900/90">
-                  After you submit registration, <strong>Section</strong>, <strong>Batch</strong>, <strong>Collage ID (Roll)</strong>, and your{" "}
-                  <strong>Alumni ID</strong> are fixed and you cannot edit them later. Complete the rest of your profile now. Please check before you submit.
+                  After you submit registration, <strong>Department</strong>, <strong>Section</strong>, <strong>Batch</strong>,{" "}
+                  <strong>Collage ID (Roll)</strong>, and your <strong>Alumni ID</strong> are fixed and you cannot edit them later. Complete the
+                  rest of your profile now. Please check before you submit.
                 </p>
                 <label className="mt-3 flex items-start gap-2 text-amber-900/90 cursor-pointer">
                   <input type="checkbox" checked={confirmImmutable} onChange={(e) => setConfirmImmutable(e.target.checked)} className="mt-1" />
@@ -375,6 +440,15 @@ const Register = () => {
           </CardContent>
         </Card>
       </div>
+      <ProfilePhotoCropDialog
+        open={cropDialogOpen}
+        imageSrc={cropImageSrc}
+        onOpenChange={(open) => {
+          setCropDialogOpen(open);
+          if (!open) revokeCropPreview();
+        }}
+        onCropped={handleCroppedPhoto}
+      />
     </div>
   );
 };

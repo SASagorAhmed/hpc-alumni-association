@@ -5,6 +5,7 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  type CSSProperties,
   type RefObject,
 } from "react";
 import { motion } from "framer-motion";
@@ -18,6 +19,7 @@ import {
   resolveBoardSection,
 } from "@/components/committee/boardSections";
 import { cn } from "@/lib/utils";
+import { isIosSafariViewport } from "@/lib/iosSafari";
 import {
   Briefcase,
   Camera,
@@ -419,21 +421,21 @@ export function ExecutiveMemberCard({
   const cameraClassName = governingBody ? "h-[42px] w-[42px]" : "h-[34px] w-[34px]";
 
   return (
-    <Link to={href} aria-label={`Open profile: ${member.name}`} className="block w-full">
+    <Link to={href} aria-label={`Open profile: ${member.name}`} className="block h-full w-full">
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
         transition={{ duration: 0.5 }}
         className={cn(
-          "relative min-h-[216px] w-full min-w-0 cursor-pointer overflow-hidden rounded-[13px] border border-border/55 bg-card shadow-card transition-shadow hover:shadow-card-hover",
+          "relative flex h-full min-h-[216px] w-full min-w-0 cursor-pointer flex-col overflow-hidden rounded-[13px] border border-border/55 bg-card shadow-card transition-shadow hover:shadow-card-hover",
           governingBody && "min-h-[260px]"
         )}
         style={{
           background: "linear-gradient(135deg, #0a6f62 0%, #075f54 48%, #045248 100%)",
         }}
       >
-        <div className="flex w-full flex-col">
+        <div className="flex h-full w-full flex-col">
         <div className={cn("p-3.5", !governingBody && "p-3")}>
           <div className={cn("flex items-start", governingBody ? "gap-3.5" : "gap-2.5")}>
             <div
@@ -578,7 +580,7 @@ export function ExecutiveMemberCard({
         </div>
 
         {wishingYouText ? (
-          <div className="space-y-1 px-2.5 pb-2.5">
+          <div className="mt-auto space-y-1 px-2.5 pb-2.5">
             <div
               className="committee-member-wishing-box w-full rounded-md border p-2"
               style={{ backgroundColor: "#A6D9C7", borderColor: "rgba(6, 88, 76, 0.35)" }}
@@ -669,9 +671,9 @@ export function MobilePresidentCard({ member, roleLabel }: { member: DBMember; r
         </div>
 
         {/* Info */}
-        <div className="flex flex-col gap-3 p-4">
+        <div className="flex min-w-0 flex-col gap-3 p-4">
           <h3
-            className="text-xl font-bold leading-tight"
+            className="break-words text-xl font-bold leading-tight [overflow-wrap:anywhere]"
             style={{
               fontFamily: "'Cinzel', 'Arena', serif",
               fontWeight: 900,
@@ -682,13 +684,15 @@ export function MobilePresidentCard({ member, roleLabel }: { member: DBMember; r
             {member.name}
           </h3>
 
-          <span className="inline-flex w-fit items-center rounded-full border px-3 py-1 text-sm font-semibold"
+          <span
+            className="inline-flex max-w-full min-w-0 items-center break-words rounded-full border px-3 py-1 text-sm font-semibold [overflow-wrap:anywhere]"
             style={{
               backgroundColor: "rgba(251, 146, 60, 0.25)",
               borderColor: "rgba(253, 224, 71, 0.65)",
               color: "#FFF7D6",
               textShadow: "0 1px 4px rgba(0,0,0,0.55)",
-            }}>
+            }}
+          >
             {roleLine}
           </span>
 
@@ -698,29 +702,44 @@ export function MobilePresidentCard({ member, roleLabel }: { member: DBMember; r
             style={{ fontFamily: "Georgia, 'Times New Roman', serif", color: "#FFFFFF" }}
           >
             {/* Left column: Alumni Id · Batch · Profession */}
-            <div className="flex min-w-0 flex-col gap-y-1">
+            <div className="flex min-w-0 flex-1 flex-col gap-y-1">
               <span className="inline-flex min-w-0 items-start gap-1">
                 <Hash className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color: primary }} />
-                <span className="min-w-0 truncate"><span className="font-semibold" style={{ color: primary }}>Alumni Id: </span>{member.alumni_id ?? "N/A"}</span>
+                <span className="min-w-0 break-words [overflow-wrap:anywhere]">
+                  <span className="font-semibold" style={{ color: primary }}>Alumni Id: </span>
+                  {member.alumni_id ?? "N/A"}
+                </span>
               </span>
               <span className="inline-flex min-w-0 items-start gap-1">
                 <GraduationCap className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color: primary }} />
-                <span className="whitespace-nowrap"><span className="font-semibold" style={{ color: primary }}>Batch: </span>{member.batch ?? "N/A"}</span>
+                <span className="min-w-0 break-words [overflow-wrap:anywhere]">
+                  <span className="font-semibold" style={{ color: primary }}>Batch: </span>
+                  {member.batch ?? "N/A"}
+                </span>
               </span>
               <span className="inline-flex min-w-0 items-start gap-1">
                 <Briefcase className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color: primary }} />
-                <span className="whitespace-nowrap"><span className="font-semibold" style={{ color: primary }}>Profession: </span>{member.profession ?? "N/A"}</span>
+                <span className="min-w-0 break-words [overflow-wrap:anywhere]">
+                  <span className="font-semibold" style={{ color: primary }}>Profession: </span>
+                  {member.profession ?? "N/A"}
+                </span>
               </span>
             </div>
             {/* Right column: College · University */}
-            <div className="flex min-w-0 flex-col gap-y-1">
+            <div className="flex min-w-0 flex-1 flex-col gap-y-1">
               <span className="inline-flex min-w-0 items-start gap-1">
                 <GraduationCap className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color: primary }} />
-                <span className="min-w-0 truncate"><span className="font-semibold" style={{ color: primary }}>College: </span>{member.college_name || "N/A"}</span>
+                <span className="min-w-0 break-words [overflow-wrap:anywhere]">
+                  <span className="font-semibold" style={{ color: primary }}>College: </span>
+                  {member.college_name || "N/A"}
+                </span>
               </span>
               <span className="inline-flex min-w-0 items-start gap-1">
                 <Building2 className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color: primary }} />
-                <span className="min-w-0 truncate"><span className="font-semibold" style={{ color: primary }}>University: </span>{member.institution ?? "N/A"}</span>
+                <span className="min-w-0 break-words [overflow-wrap:anywhere]">
+                  <span className="font-semibold" style={{ color: primary }}>University: </span>
+                  {member.institution ?? "N/A"}
+                </span>
               </span>
             </div>
           </div>
@@ -728,7 +747,9 @@ export function MobilePresidentCard({ member, roleLabel }: { member: DBMember; r
           {member.wishing_message && (
             <div className="rounded-md border p-3" style={{ backgroundColor: "#A6D9C7", borderColor: "rgba(6, 88, 76, 0.35)" }}>
               <p className="text-xs font-semibold" style={{ color: "#000000" }}>Message</p>
-              <p className="mt-1 text-sm leading-relaxed italic text-justify hyphens-auto text-black">"{member.wishing_message}"</p>
+              <p className="mt-1 break-words text-sm leading-relaxed italic text-justify hyphens-auto text-black [overflow-wrap:anywhere]">
+                "{member.wishing_message}"
+              </p>
             </div>
           )}
         </div>
@@ -760,16 +781,16 @@ export function MobileMemberCard({
   const href = `/committee/member/${member.id}`;
 
   return (
-    <Link to={href} aria-label={`Open profile: ${member.name}`} className="block w-full">
+    <Link to={href} aria-label={`Open profile: ${member.name}`} className="block h-full w-full">
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
         transition={{ duration: 0.5 }}
-        className="cursor-pointer overflow-hidden rounded-[13px] border border-border/55 shadow-card"
+        className="flex h-full min-w-0 cursor-pointer flex-col overflow-hidden rounded-[13px] border border-border/55 shadow-card"
         style={{ background: "linear-gradient(135deg, #0a6f62 0%, #075f54 48%, #045248 100%)" }}
       >
-      <div className={cn("flex p-3", governingBody ? "gap-3" : "gap-2")}>
+      <div className={cn("flex min-w-0 p-3", governingBody ? "gap-3" : "gap-2")}>
         {/* Photo */}
         <div className="relative h-[88px] w-[88px] shrink-0 overflow-hidden rounded-md border" style={{ borderColor: primaryBorder }}>
           <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, hsl(var(--primary) / 0.12) 0%, transparent 60%)` }} />
@@ -797,7 +818,7 @@ export function MobileMemberCard({
           </span>
           <h3
             className={cn(
-              "truncate font-bold leading-tight text-foreground",
+              "break-words font-bold leading-tight text-foreground [overflow-wrap:anywhere]",
               governingBody ? "text-base" : "text-sm"
             )}
             style={{
@@ -809,13 +830,15 @@ export function MobileMemberCard({
           >
             {member.name}
           </h3>
-          <span className="inline-flex w-fit max-w-full items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold"
+          <span
+            className="inline-flex max-w-full min-w-0 items-center break-words rounded-full border px-2.5 py-0.5 text-xs font-semibold [overflow-wrap:anywhere]"
             style={{
               backgroundColor: "rgba(251, 146, 60, 0.25)",
               borderColor: "rgba(253, 224, 71, 0.65)",
               color: "#FFF7D6",
               textShadow: "0 1px 4px rgba(0,0,0,0.55)",
-            }}>
+            }}
+          >
             {role}
           </span>
         </div>
@@ -823,28 +846,28 @@ export function MobileMemberCard({
 
       {/* Bottom fields (serially in one column) */}
       <div
-        className="mx-3 mb-2 flex flex-col gap-0.5 text-xs"
+        className="mx-3 mb-2 flex min-w-0 flex-col gap-0.5 text-xs"
         style={{ fontFamily: "Georgia, 'Times New Roman', serif", color: "#FFFFFF" }}
       >
-        <span className="inline-flex items-start gap-1.5">
+        <span className="inline-flex min-w-0 items-start gap-1.5">
           <Hash className="mt-0.5 h-3 w-3 shrink-0" style={{ color: "#FFFFFF" }} />
-          <span className="min-w-0 truncate">
+          <span className="min-w-0 break-words [overflow-wrap:anywhere]">
             <span className="font-semibold" style={{ color: "#FFFFFF" }}>Alumni Id: </span>
             {member.alumni_id ?? "N/A"}
           </span>
         </span>
 
-        <span className="inline-flex items-start gap-1.5">
+        <span className="inline-flex min-w-0 items-start gap-1.5">
           <GraduationCap className="mt-0.5 h-3 w-3 shrink-0" style={{ color: "#FFFFFF" }} />
-          <span className="min-w-0 truncate">
+          <span className="min-w-0 break-words [overflow-wrap:anywhere]">
             <span className="font-semibold" style={{ color: "#FFFFFF" }}>Batch: </span>
             {member.batch ?? "N/A"}
           </span>
         </span>
 
-        <span className="inline-flex items-start gap-1.5">
+        <span className="inline-flex min-w-0 items-start gap-1.5">
           <Briefcase className="mt-0.5 h-3 w-3 shrink-0" style={{ color: "#FFFFFF" }} />
-          <span className="min-w-0 truncate">
+          <span className="min-w-0 break-words [overflow-wrap:anywhere]">
             <span className="font-semibold" style={{ color: "#FFFFFF" }}>Profession: </span>
             {member.profession ?? "N/A"}
           </span>
@@ -853,20 +876,20 @@ export function MobileMemberCard({
 
       {/* College/University shown without bordered box */}
           <div
-            className="mx-3 mb-2 flex flex-col gap-0.5 text-xs"
+            className="mx-3 mb-2 flex min-w-0 flex-col gap-0.5 text-xs"
             style={{ fontFamily: "Georgia, 'Times New Roman', serif", color: "#FFFFFF" }}
           >
-        <span className="inline-flex items-start gap-1.5">
+        <span className="inline-flex min-w-0 items-start gap-1.5">
               <GraduationCap className="mt-0.5 h-3 w-3 shrink-0" style={{ color: "#FFFFFF" }} />
-          <span className="min-w-0 truncate">
+          <span className="min-w-0 break-words [overflow-wrap:anywhere]">
                 <span className="font-semibold" style={{ color: "#FFFFFF" }}>College: </span>
             {member.college_name || "N/A"}
           </span>
         </span>
 
-        <span className="inline-flex items-start gap-1.5">
+        <span className="inline-flex min-w-0 items-start gap-1.5">
               <Building2 className="mt-0.5 h-3 w-3 shrink-0" style={{ color: "#FFFFFF" }} />
-          <span className="min-w-0 truncate text-[10px] leading-snug">
+          <span className="min-w-0 break-words text-[10px] leading-snug [overflow-wrap:anywhere]">
                 <span className="font-semibold" style={{ color: "#FFFFFF" }}>Uni: </span>
             {member.institution ?? "N/A"}
           </span>
@@ -875,12 +898,12 @@ export function MobileMemberCard({
 
       {wishingText && (
         <div
-          className="mx-3 mb-2 rounded-md border p-2.5"
+          className="mx-3 mb-2 mt-auto min-w-0 rounded-md border p-2.5"
           style={{ backgroundColor: "#A6D9C7", borderColor: "rgba(6, 88, 76, 0.35)" }}
         >
           <p className="text-[10px] font-semibold" style={{ color: "#000000" }}>Message</p>
           <p
-            className="mt-0.5 text-xs leading-relaxed text-muted-foreground italic break-words"
+            className="mt-0.5 break-words text-xs leading-relaxed text-muted-foreground italic [overflow-wrap:anywhere]"
             style={{ color: "#000000" }}
           >
             "{wishingText}"
@@ -1106,6 +1129,8 @@ export function AlumniExecutiveCommitteeBoard({
   const isMobile = boardW < 540;
   const twoColMobile = isMobile;
   const mobileZoom = isMobile && boardW < MOBILE_REF_W ? boardW / MOBILE_REF_W : 1;
+  const mobileGridZoomStyle =
+    isMobile && mobileZoom < 1 && !isIosSafariViewport() ? ({ zoom: mobileZoom } as CSSProperties) : undefined;
 
   const renderRevealBar = (sec: CollapsibleSection, colSpan2: boolean) => {
     const items = sectionItemsFor(withSerial, sec);
@@ -1238,7 +1263,7 @@ export function AlumniExecutiveCommitteeBoard({
             style={scaled ? { gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "20px" } : undefined}
           >
             {items.map((item) => (
-              <div key={item.row.id} className="min-w-0">
+              <div key={item.row.id} className="min-w-0 h-full">
                 <ExecutiveMemberCard
                   member={committeeRowToDBMember(item.row)}
                   serial={item.serial}
@@ -1285,7 +1310,7 @@ export function AlumniExecutiveCommitteeBoard({
             style={scaled ? { gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "20px" } : undefined}
           >
             {items.map((item) => (
-              <div key={item.row.id} className="min-w-0">
+              <div key={item.row.id} className="min-w-0 h-full">
                 <ExecutiveMemberCard
                   member={committeeRowToDBMember(item.row)}
                   serial={item.serial}
@@ -1324,8 +1349,11 @@ export function AlumniExecutiveCommitteeBoard({
           /* ── MOBILE layout (<540 px): 4 sections + 2-col cards ── */
           <div
             ref={innerRef}
-            className={twoColMobile ? "grid grid-cols-2 gap-4" : "grid grid-cols-1 gap-4"}
-            style={mobileZoom < 1 ? { zoom: mobileZoom } : undefined}
+            className={cn(
+              "committee-mobile-board hpc-ios-touch-text-root min-w-0",
+              twoColMobile ? "grid grid-cols-2 gap-4" : "grid grid-cols-1 gap-4"
+            )}
+            style={mobileGridZoomStyle}
           >
             {presidentPick && !presidentInGoverning ? (
               <div className={twoColMobile ? "col-span-2" : undefined}>

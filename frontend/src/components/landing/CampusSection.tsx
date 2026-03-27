@@ -89,18 +89,18 @@ const CampusSection = ({ content }: CampusProps) => {
         </motion.div>
 
         {isNarrowViewport ? (
-          <div className="w-full min-w-0 space-y-8">
+          <div className="hpc-ios-touch-text-root w-full min-w-0 space-y-8">
             {/* Narrow mode (mobile/tablet): native responsive layout, no transform scaling */}
             <div className="grid grid-cols-1 gap-8">
               <motion.div initial={{ opacity: 0, y: 8 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.5, ease: [0.2, 0, 0, 1] }}>
                 <h3 className="fs-card-title mb-4 font-semibold text-foreground">Facilities</h3>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                   {facilities.map((f: any) => (
-                    <div key={f.label} className="group flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2.5 shadow-sm transition-all duration-300 hover:border-primary/35 hover:shadow-md sm:gap-3 sm:px-4 sm:py-3">
+                    <div key={f.label} className="group flex min-w-0 items-center gap-2 rounded-lg border border-border bg-card px-3 py-2.5 shadow-sm transition-all duration-300 hover:border-primary/35 hover:shadow-md sm:gap-3 sm:px-4 sm:py-3">
                       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 transition-colors duration-300 group-hover:bg-primary/20">
                         <f.icon size={16} className="text-primary" />
                       </div>
-                      <span className="fs-body font-medium text-foreground">{f.label}</span>
+                      <span className="fs-body min-w-0 break-words font-medium text-foreground [overflow-wrap:anywhere]">{f.label}</span>
                     </div>
                   ))}
                 </div>
@@ -110,7 +110,7 @@ const CampusSection = ({ content }: CampusProps) => {
                 <h3 className="fs-card-title mb-4 font-semibold text-foreground">Student Clubs & Organizations</h3>
                 <div className="flex flex-wrap gap-2">
                   {clubs.map((club: string) => (
-                    <span key={club} className="fs-ui rounded-full border border-border bg-card px-3 py-1.5 font-medium text-muted-foreground shadow-sm transition-all duration-300 hover:border-primary/40 hover:bg-primary/5 hover:text-foreground">{club}</span>
+                    <span key={club} className="fs-ui max-w-full min-w-0 break-words rounded-full border border-border bg-card px-3 py-1.5 font-medium text-muted-foreground shadow-sm transition-all duration-300 hover:border-primary/40 hover:bg-primary/5 hover:text-foreground [overflow-wrap:anywhere]">{club}</span>
                   ))}
                 </div>
               </motion.div>
@@ -126,7 +126,7 @@ const CampusSection = ({ content }: CampusProps) => {
                     <h4 className="fs-eyebrow mb-3 font-semibold tracking-wider text-primary">{cat.title.toUpperCase()}</h4>
                     <ul className="space-y-2">
                       {cat.items.map((item: string) => (
-                        <li key={item} className="fs-body text-muted-foreground">
+                        <li key={item} className="fs-body break-words text-muted-foreground [overflow-wrap:anywhere]">
                           {item}
                         </li>
                       ))}

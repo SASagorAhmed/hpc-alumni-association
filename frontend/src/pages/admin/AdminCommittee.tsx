@@ -30,8 +30,10 @@ import {
   Send,
   Building2,
   Loader2,
+  X,
 } from "lucide-react";
 import { BOARD_SECTION_OPTIONS, type BoardSectionKey } from "@/components/committee/boardSections";
+import { CommitteePhotoCropDialog } from "@/components/admin/CommitteePhotoCropDialog";
 
 const authHeaders = () => ({
   Authorization: `Bearer ${localStorage.getItem("hpc_auth_token")}`,
@@ -154,6 +156,9 @@ const AdminCommittee = () => {
   const [editingMember, setEditingMember] = useState<CommitteeMember | null>(null);
   const [memberForm, setMemberForm] = useState(emptyMemberForm);
   const [uploading, setUploading] = useState(false);
+  const [cropOpen, setCropOpen] = useState(false);
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
+  const [cropFileName, setCropFileName] = useState("committee-photo.jpg");
 
   // Profession options CRUD
   const [professionManageOpen, setProfessionManageOpen] = useState(false);
@@ -488,6 +493,22 @@ const AdminCommittee = () => {
 
   const posts = fullData?.posts ? [...fullData.posts].sort((a, b) => a.display_order - b.display_order) : [];
   const term = fullData?.term;
+  const selectedPost = posts.find((p) => p.id === memberForm.post_id);
+
+  const getCommitteePhotoPreset = (post: CommitteePost | undefined) => {
+    if (!post) {
+      return { label: "Committee member", outputSize: 560 };
+    }
+    if (isPresidentLikeCommitteePost(post)) {
+      return { label: "President", outputSize: 900 };
+    }
+    const section = String(post.board_section || "").trim();
+    if (section === "governing_body") return { label: "Governing Body", outputSize: 760 };
+    if (section === "executive_committee") return { label: "Executive Committee", outputSize: 680 };
+    if (section === "committee_heads") return { label: "Committee Heads", outputSize: 620 };
+    return { label: "Committee Members", outputSize: 560 };
+  };
+  const committeePhotoPreset = getCommitteePhotoPreset(selectedPost);
 
   const openAddPost = () => {
     setEditingPost(null);
@@ -1020,16 +1041,44 @@ const AdminCommittee = () => {
                   onChange={async (e) => {
                     const f = e.target.files?.[0];
                     if (!f) return;
-                    try {
-                      const url = await uploadCommitteePhoto(f);
-                      setMemberForm((prev) => ({ ...prev, photo_url: url }));
-                      toast({ title: "Photo uploaded" });
-                    } catch (err) {
-                      toast({ title: "Upload failed", description: (err as Error).message, variant: "destructive" });
-                    }
+                    const localUrl = URL.createObjectURL(f);
+                    setCropImageSrc(localUrl);
+                    setCropFileName(f.name || "committee-photo.jpg");
+                    setCropOpen(true);
+                    e.currentTarget.value = "";
                   }}
                 />
                 {uploading && <Loader2 className="h-4 w-4 animate-spin" />}
+              </div>
+              {memberForm.photo_url ? (
+                <div className="col-span-2">
+                  <div className="flex items-center gap-3 rounded-md border p-2">
+                    <div className="h-14 w-14 shrink-0 overflow-hidden rounded-md border bg-muted">
+                      <img src={memberForm.photo_url} alt="Member" className="h-full w-full object-cover" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-xs text-muted-foreground">{memberForm.photo_url}</p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8 shrink-0"
+                      title="Remove photo"
+                      onClick={() => setMemberForm((prev) => ({ ...prev, photo_url: "" }))}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Click X then Save to remove this photo from member profile (old cloud photo will be cleaned automatically).
+                  </p>
+                </div>
+              ) : null}
+              <div className="col-span-2">
+                <p className="text-xs text-muted-foreground">
+                  Photo is cropped before upload ({committeePhotoPreset.label}: {committeePhotoPreset.outputSize}x{committeePhotoPreset.outputSize}px square).
+                </p>
               </div>
               <div className="col-span-2">
                 <Label>Photo URL</Label>
@@ -1129,6 +1178,36 @@ const AdminCommittee = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <CommitteePhotoCropDialog
+        open={cropOpen}
+        imageSrc={cropImageSrc}
+        onOpenChange={(open) => {
+          setCropOpen(open);
+          if (!open && cropImageSrc) {
+            URL.revokeObjectURL(cropImageSrc);
+            setCropImageSrc(null);
+          }
+        }}
+        presetLabel={committeePhotoPreset.label}
+        outputSize={committeePhotoPreset.outputSize}
+        onCropped={async (blob) => {
+          const baseName = cropFileName.replace(/\.[^/.]+$/, "") || "committee-photo";
+          const croppedFile = new File([blob], `${baseName}-cropped.jpg`, { type: "image/jpeg" });
+          try {
+            const url = await uploadCommitteePhoto(croppedFile);
+            setMemberForm((prev) => ({ ...prev, photo_url: url }));
+            toast({ title: "Photo cropped and uploaded" });
+          } catch (err) {
+            toast({ title: "Upload failed", description: (err as Error).message, variant: "destructive" });
+          } finally {
+            if (cropImageSrc) {
+              URL.revokeObjectURL(cropImageSrc);
+              setCropImageSrc(null);
+            }
+          }
+        }}
+      />
 
       {/* Profession options CRUD */}
       <Dialog

@@ -3,6 +3,17 @@ const { getOrCreatePool } = require("../db/pool");
 
 const router = express.Router();
 
+async function ensureProfileFacultyColumn(pool) {
+  try {
+    await pool.query("ALTER TABLE profiles ADD COLUMN faculty VARCHAR(32) NULL AFTER department");
+  } catch (e) {
+    const msg = String(e?.message || "");
+    const code = e?.code ?? e?.errno;
+    if (String(code) === "1060" || msg.toLowerCase().includes("duplicate column")) return;
+    console.error("[publicDirectory] ensure profile faculty column:", msg.slice(0, 200));
+  }
+}
+
 // GET /api/public/directory/alumni
 // Visibility rules:
 // - verified = true OR approved = true (some deployments only set `verified`)
@@ -11,6 +22,7 @@ router.get("/directory/alumni", async (req, res) => {
   try {
     const pool = getOrCreatePool();
     if (!pool) return res.status(503).json({ ok: false, error: "MySQL not configured" });
+    await ensureProfileFacultyColumn(pool);
 
     const [rows] = await pool.query(
       `SELECT
@@ -22,6 +34,7 @@ router.get("/directory/alumni", async (req, res) => {
         gender,
         blood_group,
         department,
+        faculty,
         university,
         job_status,
         job_title,

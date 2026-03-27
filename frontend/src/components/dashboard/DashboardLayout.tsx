@@ -137,6 +137,7 @@ const SidebarContent = ({
 );
 
 const DashboardLayout = ({ children }: DashboardLayoutProps) => {
+  const showThemeToggle = false; // Match public Navbar / floating toggle — keep code, hidden for now.
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const { user, logout } = useAuth();
@@ -203,11 +204,13 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             </div>
 
             <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-              <ThemeToggle
-                rootClassName="shrink-0"
-                buttonClassName="!h-6 !w-6 min-h-0 border-white/20 bg-white/10 text-white hover:bg-white/15 hover:text-white"
-                iconClassName="!h-3 !w-3 !text-white"
-              />
+              {showThemeToggle ? (
+                <ThemeToggle
+                  rootClassName="shrink-0"
+                  buttonClassName="!h-6 !w-6 min-h-0 border-white/20 bg-white/10 text-white hover:bg-white/15 hover:text-white"
+                  iconClassName="!h-3 !w-3 !text-white"
+                />
+              ) : null}
               <div className="shrink-0">
                 <NotificationDropdown compact />
               </div>
