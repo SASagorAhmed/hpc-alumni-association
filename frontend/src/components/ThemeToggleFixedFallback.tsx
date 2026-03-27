@@ -6,14 +6,16 @@ import { ThemeToggle } from "@/components/ThemeToggle";
  */
 export function ThemeToggleFixedFallback() {
   const { pathname } = useLocation();
+  const showThemeToggle = false; // Keep floating toggle code for later; hidden for now.
 
   const show =
-    pathname === "/login" ||
-    pathname === "/register" ||
-    pathname === "/admin/login" ||
-    pathname.startsWith("/verify-otp") ||
-    pathname.startsWith("/set-password") ||
-    pathname.startsWith("/member/");
+    showThemeToggle &&
+    (pathname === "/login" ||
+      pathname === "/register" ||
+      pathname === "/admin/login" ||
+      pathname.startsWith("/verify-otp") ||
+      pathname.startsWith("/set-password") ||
+      pathname.startsWith("/member/"));
 
   if (!show) return null;
 

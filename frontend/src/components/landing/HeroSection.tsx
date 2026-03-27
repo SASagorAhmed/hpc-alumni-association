@@ -23,7 +23,7 @@ const HeroSection = ({ content }: HeroProps) => {
     "Hamdard Public College Alumni Association connects graduates across Bangladesh. Join our growing network to build connections, share achievements, and create opportunities for the future. Official HPC Alumni Network for students, Teacher, professionals, and community leaders.";
   const ctaPrimary = content?.ctaPrimary ?? "Join the Network";
   const ctaSecondary = content?.ctaSecondary ?? "Learn More";
-  const motto = content?.motto ?? "HAMDARD PUBLIC COLLAGE";
+  const motto = content?.motto ?? "HAMDARD PUBLIC COLLEGE, DHAKA";
   const stats = content?.stats
     ? content.stats.map((s: any) => ({ icon: iconMap[s.label] || Calendar, label: s.label, value: s.value }))
     : defaultStats;

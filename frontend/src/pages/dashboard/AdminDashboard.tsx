@@ -1,12 +1,25 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { Users, Vote, Award, CalendarDays, FileText, Bell, Shield, Settings, ClipboardList, UserCheck, Trophy, FolderOpen, ScrollText } from "lucide-react";
+import { API_BASE_URL } from "@/api-production/api.js";
 
 
 const AdminDashboard = () => {
   const { user } = useAuth();
+  const [cleanupLoading, setCleanupLoading] = useState(false);
+  const [cleanupResult, setCleanupResult] = useState<null | {
+    dry_run?: boolean;
+    referenced_count?: number;
+    managed_count?: number;
+    orphan_count?: number;
+    deleted_count?: number;
+    delete_error_count?: number;
+    sample_orphans?: string[];
+  }>(null);
+  const [cleanupError, setCleanupError] = useState<string | null>(null);
 
   const stats = [
     { label: "Total Users", value: "0", icon: Users, color: "bg-primary/10 text-primary" },
@@ -38,6 +51,29 @@ const AdminDashboard = () => {
     { icon: ScrollText, label: "Audit Logs", href: "/admin/audit-logs", desc: "Activity history" },
     { icon: Settings, label: "Settings", href: "/admin/settings", desc: "System config" },
   ];
+
+  const runCloudinaryCleanup = async (apply: boolean) => {
+    const token = localStorage.getItem("hpc_auth_token");
+    setCleanupLoading(true);
+    setCleanupError(null);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/cloudinary/cleanup-orphans`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ apply }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error((body && body.error) || "Cloud cleanup failed");
+      setCleanupResult(body);
+    } catch (e) {
+      setCleanupError(e instanceof Error ? e.message : "Cloud cleanup failed");
+    } finally {
+      setCleanupLoading(false);
+    }
+  };
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -92,6 +128,55 @@ const AdminDashboard = () => {
             ))}
           </div>
         </div>
+
+        {/* Cloud storage cleanup */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Cloud Storage Cleanup</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Use this tool to keep Cloudinary storage clean.{" "}
+              <span className="font-medium text-foreground">Scan Orphans</span> only checks unused images safely.
+              <span className="font-medium text-foreground"> Delete Orphans</span> removes images that are no longer linked
+              in the database (old replaced/deleted photos).
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={cleanupLoading}
+                onClick={() => runCloudinaryCleanup(false)}
+              >
+                {cleanupLoading ? "Scanning..." : "Scan Orphans"}
+              </Button>
+              <Button
+                size="sm"
+                disabled={cleanupLoading}
+                onClick={() => runCloudinaryCleanup(true)}
+              >
+                {cleanupLoading ? "Deleting..." : "Delete Orphans"}
+              </Button>
+            </div>
+
+            {cleanupError ? (
+              <p className="text-sm text-destructive">{cleanupError}</p>
+            ) : null}
+
+            {cleanupResult ? (
+              <div className="rounded-md border border-border bg-muted/40 p-3 text-xs sm:text-sm">
+                <p>
+                  Mode: <span className="font-medium">{cleanupResult.dry_run ? "Dry run (safe scan)" : "Delete mode"}</span>
+                </p>
+                <p>Referenced in DB: {cleanupResult.referenced_count ?? 0}</p>
+                <p>Managed in Cloudinary: {cleanupResult.managed_count ?? 0}</p>
+                <p>Orphans found: {cleanupResult.orphan_count ?? 0}</p>
+                <p>Deleted: {cleanupResult.deleted_count ?? 0}</p>
+                <p>Delete errors: {cleanupResult.delete_error_count ?? 0}</p>
+              </div>
+            ) : null}
+          </CardContent>
+        </Card>
     </div>
   );
 };

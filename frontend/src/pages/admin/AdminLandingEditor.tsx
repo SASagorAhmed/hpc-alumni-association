@@ -31,7 +31,7 @@ const defaults: Record<string, Record<string, any>> = {
       "Hamdard Public College Alumni Association connects graduates across Bangladesh. Join our growing network to build connections, share achievements, and create opportunities for the future. Official HPC Alumni Network for students, Teacher, professionals, and community leaders.",
     ctaPrimary: "Join the Network",
     ctaSecondary: "Learn More",
-    motto: "Promoting Knowledge, Promoting Learning",
+    motto: "HAMDARD PUBLIC COLLEGE, DHAKA",
     stats: [
       { label: "Est.", value: "2010" },
       { label: "Alumni", value: "1,500+" },

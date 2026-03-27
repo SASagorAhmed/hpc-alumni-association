@@ -4,6 +4,7 @@ const { ensureAchievementSettingsRow } = require("../utils/achievementSettings")
 const { getOrCreatePool } = require("../db/pool");
 const { requireAuth } = require("../auth/jwt");
 const cloudinary = require("../config/cloudinary");
+const { getCloudinaryFolder } = require("../utils/uploadFolders");
 
 const router = express.Router();
 
@@ -13,6 +14,106 @@ function extractCloudinaryPublicIdFromUrl(url) {
   // https://res.cloudinary.com/<cloud>/image/upload/v1712345678/<folder>/<publicId>.<ext>
   const m = clean.match(/\/upload\/v\d+\/(.+?)\.[a-zA-Z0-9]+$/);
   return m?.[1] || null;
+}
+
+async function deleteCloudinaryImageByUrl(url) {
+  const publicId = extractCloudinaryPublicIdFromUrl(url);
+  if (!publicId) return;
+  try {
+    await cloudinary.uploader.destroy(publicId, { resource_type: "image" });
+  } catch (_e) {
+    // Best effort cleanup; do not block DB writes/deletes.
+  }
+}
+
+function collectPublicIdsFromRows(rows, keys, outSet) {
+  for (const row of rows || []) {
+    for (const key of keys) {
+      const v = row?.[key];
+      const pid = extractCloudinaryPublicIdFromUrl(v);
+      if (pid) outSet.add(pid);
+    }
+  }
+}
+
+async function getReferencedCloudinaryImagePublicIds(pool) {
+  const referenced = new Set();
+
+  const [profileRows] = await pool.query("SELECT photo FROM profiles WHERE photo IS NOT NULL AND TRIM(photo) <> ''");
+  collectPublicIdsFromRows(profileRows, ["photo"], referenced);
+
+  const [achievementRows] = await pool.query(
+    "SELECT photo_url FROM achievements WHERE photo_url IS NOT NULL AND TRIM(photo_url) <> ''"
+  );
+  collectPublicIdsFromRows(achievementRows, ["photo_url"], referenced);
+
+  const [committeeRows] = await pool.query(
+    "SELECT photo_url FROM committee_members WHERE photo_url IS NOT NULL AND TRIM(photo_url) <> ''"
+  );
+  collectPublicIdsFromRows(committeeRows, ["photo_url"], referenced);
+
+  const [memoryRows] = await pool.query(
+    "SELECT photo_url FROM memories WHERE photo_url IS NOT NULL AND TRIM(photo_url) <> ''"
+  );
+  collectPublicIdsFromRows(memoryRows, ["photo_url"], referenced);
+
+  const [candidateRows] = await pool.query(
+    "SELECT photo_url FROM candidates WHERE photo_url IS NOT NULL AND TRIM(photo_url) <> ''"
+  );
+  collectPublicIdsFromRows(candidateRows, ["photo_url"], referenced);
+
+  const [eventRows] = await pool.query(
+    "SELECT banner_url FROM events WHERE banner_url IS NOT NULL AND TRIM(banner_url) <> ''"
+  );
+  collectPublicIdsFromRows(eventRows, ["banner_url"], referenced);
+
+  const [noticeRows] = await pool.query(
+    "SELECT image_url FROM notices WHERE image_url IS NOT NULL AND TRIM(image_url) <> ''"
+  );
+  collectPublicIdsFromRows(noticeRows, ["image_url"], referenced);
+
+  return referenced;
+}
+
+async function listCloudinaryImagePublicIdsByPrefix(prefix) {
+  const out = new Set();
+  let nextCursor = undefined;
+  do {
+    const resp = await cloudinary.api.resources({
+      type: "upload",
+      resource_type: "image",
+      prefix,
+      max_results: 500,
+      next_cursor: nextCursor,
+    });
+    for (const r of resp?.resources || []) {
+      if (r?.public_id) out.add(r.public_id);
+    }
+    nextCursor = resp?.next_cursor;
+  } while (nextCursor);
+  return out;
+}
+
+async function listManagedCloudinaryImagePublicIds() {
+  const managed = new Set();
+  const prefixes = [
+    getCloudinaryFolder("profile"),
+    getCloudinaryFolder("achievements"),
+    getCloudinaryFolder("memories"),
+    getCloudinaryFolder("committee"),
+    getCloudinaryFolder("events"),
+    getCloudinaryFolder("notices"),
+    getCloudinaryFolder("candidates"),
+  ];
+  const seenPrefix = new Set();
+  for (const p of prefixes) {
+    const prefix = String(p || "").trim();
+    if (!prefix || seenPrefix.has(prefix)) continue;
+    seenPrefix.add(prefix);
+    const ids = await listCloudinaryImagePublicIdsByPrefix(prefix);
+    for (const id of ids) managed.add(id);
+  }
+  return managed;
 }
 
 async function requireAdmin(pool, userId) {
@@ -287,7 +388,14 @@ router.put("/committee-members/:id", requireAuth, async (req, res) => {
   try {
     const pool = await withAdmin(req, res);
     if (!pool) return;
+    const [rows] = await pool.query("SELECT photo_url FROM committee_members WHERE id = ? LIMIT 1", [req.params.id]);
+    const existing = rows?.[0] || null;
+    const hadPhoto = Object.prototype.hasOwnProperty.call(req.body || {}, "photo_url");
+    const nextPhotoUrl = hadPhoto ? nullableTrim(req.body?.photo_url) : existing?.photo_url;
     await pool.query("UPDATE committee_members SET ? WHERE id = ?", [req.body, req.params.id]);
+    if (hadPhoto && existing?.photo_url && existing.photo_url !== nextPhotoUrl) {
+      await deleteCloudinaryImageByUrl(existing.photo_url);
+    }
     res.status(200).json({ ok: true });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message || "Failed to update member" });
@@ -298,6 +406,8 @@ router.delete("/committee-members/:id", requireAuth, async (req, res) => {
   try {
     const pool = await withAdmin(req, res);
     if (!pool) return;
+    const [rows] = await pool.query("SELECT photo_url FROM committee_members WHERE id = ? LIMIT 1", [req.params.id]);
+    await deleteCloudinaryImageByUrl(rows?.[0]?.photo_url || null);
     await pool.query("DELETE FROM committee_members WHERE id = ?", [req.params.id]);
     res.status(200).json({ ok: true });
   } catch (e) {
@@ -341,6 +451,8 @@ router.put("/achievements/:id", requireAuth, async (req, res) => {
     const pool = await withAdmin(req, res);
     if (!pool) return;
     await ensureAchievementBannerOverlayColumns(pool);
+    const [existingRows] = await pool.query("SELECT photo_url FROM achievements WHERE id = ? LIMIT 1", [req.params.id]);
+    const existing = existingRows?.[0] || null;
     const patch = achievementUpdatePatch(req.body);
     if (Object.keys(patch).length === 0) {
       return res.status(400).json({ ok: false, error: "No fields to update" });
@@ -348,6 +460,12 @@ router.put("/achievements/:id", requireAuth, async (req, res) => {
     const wcErr = validateAchievementBannerWordLimits(patch);
     if (wcErr) return res.status(400).json({ ok: false, error: wcErr });
     await pool.query("UPDATE achievements SET ? WHERE id = ?", [patch, req.params.id]);
+    if (Object.prototype.hasOwnProperty.call(patch, "photo_url")) {
+      const nextPhotoUrl = patch.photo_url;
+      if (existing?.photo_url && existing.photo_url !== nextPhotoUrl) {
+        await deleteCloudinaryImageByUrl(existing.photo_url);
+      }
+    }
     res.status(200).json({ ok: true });
   } catch (e) {
     console.error("[admin] PUT /achievements/:id", e);
@@ -359,6 +477,8 @@ router.delete("/achievements/:id", requireAuth, async (req, res) => {
   try {
     const pool = await withAdmin(req, res);
     if (!pool) return;
+    const [rows] = await pool.query("SELECT photo_url FROM achievements WHERE id = ? LIMIT 1", [req.params.id]);
+    await deleteCloudinaryImageByUrl(rows?.[0]?.photo_url || null);
     await pool.query("DELETE FROM achievements WHERE id = ?", [req.params.id]);
     res.status(200).json({ ok: true });
   } catch (e) {
@@ -414,6 +534,56 @@ router.put("/achievement-settings/:id", requireAuth, async (req, res) => {
   }
 });
 
+/**
+ * Admin-only Cloudinary orphan cleanup.
+ * - apply=false (default): dry run
+ * - apply=true: delete orphaned image resources
+ */
+router.post("/cloudinary/cleanup-orphans", requireAuth, async (req, res) => {
+  try {
+    const pool = await withAdmin(req, res);
+    if (!pool) return;
+
+    const apply = req.body?.apply === true || req.body?.apply === 1 || req.body?.apply === "1";
+    const referenced = await getReferencedCloudinaryImagePublicIds(pool);
+    const managed = await listManagedCloudinaryImagePublicIds();
+    const orphans = [...managed].filter((pid) => !referenced.has(pid));
+
+    let deleted = 0;
+    let deleteErrors = 0;
+    if (apply && orphans.length > 0) {
+      for (let i = 0; i < orphans.length; i += 100) {
+        const chunk = orphans.slice(i, i + 100);
+        try {
+          const result = await cloudinary.api.delete_resources(chunk, {
+            resource_type: "image",
+            type: "upload",
+          });
+          const deletedMap = result?.deleted || {};
+          for (const key of Object.keys(deletedMap)) {
+            if (deletedMap[key] === "deleted") deleted += 1;
+          }
+        } catch (_e) {
+          deleteErrors += chunk.length;
+        }
+      }
+    }
+
+    res.status(200).json({
+      ok: true,
+      dry_run: !apply,
+      referenced_count: referenced.size,
+      managed_count: managed.size,
+      orphan_count: orphans.length,
+      deleted_count: deleted,
+      delete_error_count: deleteErrors,
+      sample_orphans: orphans.slice(0, 30),
+    });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message || "Failed to cleanup Cloudinary orphans" });
+  }
+});
+
 router.get("/memories", requireAuth, async (req, res) => {
   try {
     const pool = await withAdmin(req, res);
@@ -441,7 +611,14 @@ router.put("/memories/:id", requireAuth, async (req, res) => {
   try {
     const pool = await withAdmin(req, res);
     if (!pool) return;
+    const [existingRows] = await pool.query("SELECT photo_url FROM memories WHERE id = ? LIMIT 1", [req.params.id]);
+    const existing = existingRows?.[0] || null;
+    const photoWasProvided = Object.prototype.hasOwnProperty.call(req.body || {}, "photo_url");
+    const nextPhotoUrl = photoWasProvided ? nullableTrim(req.body?.photo_url) : existing?.photo_url;
     await pool.query("UPDATE memories SET ? WHERE id = ?", [req.body, req.params.id]);
+    if (photoWasProvided && existing?.photo_url && existing.photo_url !== nextPhotoUrl) {
+      await deleteCloudinaryImageByUrl(existing.photo_url);
+    }
     res.status(200).json({ ok: true });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message || "Failed to update memory" });
@@ -452,6 +629,8 @@ router.delete("/memories/:id", requireAuth, async (req, res) => {
   try {
     const pool = await withAdmin(req, res);
     if (!pool) return;
+    const [rows] = await pool.query("SELECT photo_url FROM memories WHERE id = ? LIMIT 1", [req.params.id]);
+    await deleteCloudinaryImageByUrl(rows?.[0]?.photo_url || null);
     await pool.query("DELETE FROM memories WHERE id = ?", [req.params.id]);
     res.status(200).json({ ok: true });
   } catch (e) {
@@ -486,7 +665,14 @@ router.put("/events/:id", requireAuth, async (req, res) => {
   try {
     const pool = await withAdmin(req, res);
     if (!pool) return;
+    const [existingRows] = await pool.query("SELECT banner_url FROM events WHERE id = ? LIMIT 1", [req.params.id]);
+    const existing = existingRows?.[0] || null;
+    const hadBanner = Object.prototype.hasOwnProperty.call(req.body || {}, "banner_url");
+    const nextBannerUrl = hadBanner ? nullableTrim(req.body?.banner_url) : existing?.banner_url;
     await pool.query("UPDATE events SET ? WHERE id = ?", [req.body, req.params.id]);
+    if (hadBanner && existing?.banner_url && existing.banner_url !== nextBannerUrl) {
+      await deleteCloudinaryImageByUrl(existing.banner_url);
+    }
     res.status(200).json({ ok: true });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message || "Failed to update event" });
@@ -497,6 +683,8 @@ router.delete("/events/:id", requireAuth, async (req, res) => {
   try {
     const pool = await withAdmin(req, res);
     if (!pool) return;
+    const [rows] = await pool.query("SELECT banner_url FROM events WHERE id = ? LIMIT 1", [req.params.id]);
+    await deleteCloudinaryImageByUrl(rows?.[0]?.banner_url || null);
     await pool.query("DELETE FROM events WHERE id = ?", [req.params.id]);
     res.status(200).json({ ok: true });
   } catch (e) {
@@ -531,7 +719,14 @@ router.put("/notices/:id", requireAuth, async (req, res) => {
   try {
     const pool = await withAdmin(req, res);
     if (!pool) return;
+    const [existingRows] = await pool.query("SELECT image_url FROM notices WHERE id = ? LIMIT 1", [req.params.id]);
+    const existing = existingRows?.[0] || null;
+    const hadImage = Object.prototype.hasOwnProperty.call(req.body || {}, "image_url");
+    const nextImageUrl = hadImage ? nullableTrim(req.body?.image_url) : existing?.image_url;
     await pool.query("UPDATE notices SET ? WHERE id = ?", [req.body, req.params.id]);
+    if (hadImage && existing?.image_url && existing.image_url !== nextImageUrl) {
+      await deleteCloudinaryImageByUrl(existing.image_url);
+    }
     res.status(200).json({ ok: true });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message || "Failed to update notice" });
@@ -542,6 +737,8 @@ router.delete("/notices/:id", requireAuth, async (req, res) => {
   try {
     const pool = await withAdmin(req, res);
     if (!pool) return;
+    const [rows] = await pool.query("SELECT image_url FROM notices WHERE id = ? LIMIT 1", [req.params.id]);
+    await deleteCloudinaryImageByUrl(rows?.[0]?.image_url || null);
     await pool.query("DELETE FROM notices WHERE id = ?", [req.params.id]);
     res.status(200).json({ ok: true });
   } catch (e) {
@@ -644,7 +841,14 @@ router.put("/candidates/:id", requireAuth, async (req, res) => {
   try {
     const pool = await withAdmin(req, res);
     if (!pool) return;
+    const [existingRows] = await pool.query("SELECT photo_url FROM candidates WHERE id = ? LIMIT 1", [req.params.id]);
+    const existing = existingRows?.[0] || null;
+    const hadPhoto = Object.prototype.hasOwnProperty.call(req.body || {}, "photo_url");
+    const nextPhotoUrl = hadPhoto ? nullableTrim(req.body?.photo_url) : existing?.photo_url;
     await pool.query("UPDATE candidates SET ? WHERE id = ?", [req.body, req.params.id]);
+    if (hadPhoto && existing?.photo_url && existing.photo_url !== nextPhotoUrl) {
+      await deleteCloudinaryImageByUrl(existing.photo_url);
+    }
     res.status(200).json({ ok: true });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message || "Failed to update candidate" });
@@ -655,6 +859,8 @@ router.delete("/candidates/:id", requireAuth, async (req, res) => {
   try {
     const pool = await withAdmin(req, res);
     if (!pool) return;
+    const [rows] = await pool.query("SELECT photo_url FROM candidates WHERE id = ? LIMIT 1", [req.params.id]);
+    await deleteCloudinaryImageByUrl(rows?.[0]?.photo_url || null);
     await pool.query("DELETE FROM candidates WHERE id = ?", [req.params.id]);
     res.status(200).json({ ok: true });
   } catch (e) {

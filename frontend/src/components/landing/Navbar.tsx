@@ -38,6 +38,7 @@ const Navbar = () => {
   const { user, isLoading, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const showThemeToggle = false; // Keep code for later; hidden for now.
 
   const dashboardPath = user?.role === "admin" ? "/admin/dashboard" : "/dashboard";
 
@@ -137,7 +138,10 @@ const Navbar = () => {
             >
               Hamdard Public College
             </span>
-            <span className="mt-px block truncate text-[7px] font-extrabold tracking-wide text-gradient-gold-shine md:text-[8px]">
+            <span
+              className="mt-px block truncate bg-gradient-to-r from-[#fb4d3d] via-[#16a34a] to-[#22c55e] bg-clip-text text-[7px] font-extrabold tracking-wide text-transparent md:text-[8px]"
+              style={{ textShadow: "0 0 0.15px rgba(0,0,0,0.25)" }}
+            >
               ALUMNI ASSOCIATION
             </span>
           </div>
@@ -188,7 +192,9 @@ const Navbar = () => {
                 <LogOut size={12} className="shrink-0" />
                 Logout
               </button>
-              <ThemeToggle rootClassName="shrink-0" buttonClassName="!h-8 !w-8 min-h-0" iconClassName="!h-4 !w-4" />
+              {showThemeToggle ? (
+                <ThemeToggle rootClassName="shrink-0" buttonClassName="!h-8 !w-8 min-h-0" iconClassName="!h-4 !w-4" />
+              ) : null}
             </div>
           ) : (
             <div className="ml-2 flex shrink-0 items-center gap-2 border-l border-border/40 pl-3 lg:ml-3 lg:gap-2.5 lg:pl-4">
@@ -204,7 +210,9 @@ const Navbar = () => {
               >
                 Join Alumni
               </Link>
-              <ThemeToggle rootClassName="shrink-0" buttonClassName="!h-8 !w-8 min-h-0" iconClassName="!h-4 !w-4" />
+              {showThemeToggle ? (
+                <ThemeToggle rootClassName="shrink-0" buttonClassName="!h-8 !w-8 min-h-0" iconClassName="!h-4 !w-4" />
+              ) : null}
             </div>
           )}
         </div>
@@ -287,9 +295,11 @@ const Navbar = () => {
                   </Link>
                 </>
               )}
-              <div className="mt-1.5 flex justify-end border-t border-border/60 pt-1.5">
-                <ThemeToggle buttonClassName="!h-9 !w-9 min-h-0" iconClassName="!h-4 !w-4" />
-              </div>
+              {showThemeToggle ? (
+                <div className="mt-1.5 flex justify-end border-t border-border/60 pt-1.5">
+                  <ThemeToggle buttonClassName="!h-9 !w-9 min-h-0" iconClassName="!h-4 !w-4" />
+                </div>
+              ) : null}
             </div>
           </motion.div>
         )}

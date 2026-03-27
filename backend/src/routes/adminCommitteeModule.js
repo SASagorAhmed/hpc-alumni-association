@@ -31,6 +31,16 @@ function extractCloudinaryPublicIdFromUrl(url) {
   return m?.[1] || null;
 }
 
+async function deleteCloudinaryImageByUrl(url) {
+  const publicId = extractCloudinaryPublicIdFromUrl(url);
+  if (!publicId) return;
+  try {
+    await cloudinary.uploader.destroy(publicId, { resource_type: "image" });
+  } catch (e) {
+    console.error("[admin] Failed Cloudinary cleanup", e?.message || e);
+  }
+}
+
 async function requireAdmin(pool, userId) {
   const [rows] = await pool.query(
     "SELECT id FROM user_roles WHERE user_id = ? AND role = 'admin' LIMIT 1",
@@ -134,6 +144,10 @@ router.delete("/committee/terms/:id", requireAuth, async (req, res) => {
   try {
     const pool = await withAdmin(req, res);
     if (!pool) return;
+    const [memberRows] = await pool.query("SELECT photo_url FROM committee_members WHERE term_id = ?", [req.params.id]);
+    for (const m of memberRows || []) {
+      await deleteCloudinaryImageByUrl(m?.photo_url || null);
+    }
     await pool.query("DELETE FROM committee_terms WHERE id = ?", [req.params.id]);
     res.status(200).json({ ok: true });
   } catch (e) {
@@ -276,6 +290,10 @@ router.delete("/committee/posts/:id", requireAuth, async (req, res) => {
   try {
     const pool = await withAdmin(req, res);
     if (!pool) return;
+    const [memberRows] = await pool.query("SELECT photo_url FROM committee_members WHERE post_id = ?", [req.params.id]);
+    for (const m of memberRows || []) {
+      await deleteCloudinaryImageByUrl(m?.photo_url || null);
+    }
     await pool.query("DELETE FROM committee_posts WHERE id = ?", [req.params.id]);
     res.status(200).json({ ok: true });
   } catch (e) {
@@ -751,6 +769,8 @@ router.delete("/committee/members/:id", requireAuth, async (req, res) => {
   try {
     const pool = await withAdmin(req, res);
     if (!pool) return;
+    const [rows] = await pool.query("SELECT photo_url FROM committee_members WHERE id = ? LIMIT 1", [req.params.id]);
+    await deleteCloudinaryImageByUrl(rows?.[0]?.photo_url || null);
     await pool.query("DELETE FROM committee_members WHERE id = ?", [req.params.id]);
     res.status(200).json({ ok: true });
   } catch (e) {

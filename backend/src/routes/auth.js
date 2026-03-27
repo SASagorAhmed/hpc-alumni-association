@@ -36,6 +36,23 @@ async function uploadToCloudinary(file, { folder, resourceType } = {}) {
   };
 }
 
+function extractCloudinaryPublicIdFromUrl(url) {
+  if (!url || typeof url !== "string") return null;
+  const clean = url.split("?")[0];
+  const m = clean.match(/\/upload\/v\d+\/(.+?)\.[a-zA-Z0-9]+$/);
+  return m?.[1] || null;
+}
+
+async function deleteCloudinaryImageByUrl(url) {
+  const publicId = extractCloudinaryPublicIdFromUrl(url);
+  if (!publicId) return;
+  try {
+    await cloudinary.uploader.destroy(publicId, { resource_type: "image" });
+  } catch (_e) {
+    // Best-effort cleanup only.
+  }
+}
+
 const FIXED_COLLEGE_NAME = "Hamdard Public Collage";
 
 function trimOrNull(v) {
@@ -517,10 +534,17 @@ router.put("/profile", requireAuth, async (req, res) => {
     }
     if (!updates.length) return res.status(400).json({ ok: false, error: "Nothing to update" });
 
+    const oldPhotoUrl = currentProfile.photo || null;
+    const photoWasProvided = Object.prototype.hasOwnProperty.call(req.body || {}, "photo");
+    const nextPhotoUrl = photoWasProvided ? (req.body.photo ?? null) : oldPhotoUrl;
+
     await pool.query(`UPDATE profiles SET ${updates.join(", ")}, profile_pending = true WHERE id = ?`, [
       ...values,
       req.auth.userId,
     ]);
+    if (photoWasProvided && oldPhotoUrl && oldPhotoUrl !== nextPhotoUrl) {
+      await deleteCloudinaryImageByUrl(oldPhotoUrl);
+    }
 
     const [userRows] = await pool.query(`SELECT * FROM users WHERE id = ? LIMIT 1`, [req.auth.userId]);
     const user = userRows?.[0];
