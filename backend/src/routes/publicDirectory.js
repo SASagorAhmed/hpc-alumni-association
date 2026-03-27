@@ -14,6 +14,17 @@ async function ensureProfileFacultyColumn(pool) {
   }
 }
 
+async function ensureProfileDirectoryVisibleColumn(pool) {
+  try {
+    await pool.query("ALTER TABLE profiles ADD COLUMN directory_visible TINYINT(1) NOT NULL DEFAULT 1");
+  } catch (e) {
+    const msg = String(e?.message || "");
+    const code = e?.code ?? e?.errno;
+    if (String(code) === "1060" || msg.toLowerCase().includes("duplicate column")) return;
+    console.error("[publicDirectory] ensure directory_visible:", msg.slice(0, 200));
+  }
+}
+
 // GET /api/public/directory/alumni
 // Visibility rules:
 // - verified = true OR approved = true (some deployments only set `verified`)
@@ -53,6 +64,7 @@ router.get("/directory/alumni", async (req, res) => {
       FROM profiles
       WHERE (verified = true OR approved = true)
         AND (blocked = false OR blocked IS NULL)
+        AND (directory_visible = 1 OR directory_visible IS NULL)
       ORDER BY name ASC`
     );
 

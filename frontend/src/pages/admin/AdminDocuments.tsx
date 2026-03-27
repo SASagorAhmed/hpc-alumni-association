@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { getAuthToken } from "@/lib/authToken";
+import { useSyncedQueryState } from "@/hooks/useSyncedQueryState";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -29,8 +31,8 @@ function formatFileSize(bytes: number | null) {
 
 const AdminDocuments = () => {
   const { documents, loading, refetch } = useDocuments(true);
-  const [search, setSearch] = useState("");
-  const [catFilter, setCatFilter] = useState("all");
+  const [search, setSearch] = useSyncedQueryState("q", "");
+  const [catFilter, setCatFilter] = useSyncedQueryState("cat", "all");
   const [formOpen, setFormOpen] = useState(false);
   const [editDoc, setEditDoc] = useState<Document | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -45,7 +47,7 @@ const AdminDocuments = () => {
   const handleDelete = async () => {
     if (!deleteId) return;
     setDeleting(true);
-    const token = localStorage.getItem("hpc_auth_token");
+    const token = getAuthToken();
     if (!token) {
       toast.error("Not authenticated");
       setDeleting(false);
@@ -70,7 +72,7 @@ const AdminDocuments = () => {
   };
 
   const togglePublish = async (doc: Document) => {
-    const token = localStorage.getItem("hpc_auth_token");
+    const token = getAuthToken();
     if (!token) {
       toast.error("Not authenticated");
       return;
@@ -93,7 +95,7 @@ const AdminDocuments = () => {
   };
 
   const togglePin = async (doc: Document) => {
-    const token = localStorage.getItem("hpc_auth_token");
+    const token = getAuthToken();
     if (!token) {
       toast.error("Not authenticated");
       return;

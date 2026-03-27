@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { API_BASE_URL } from "@/api-production/api.js";
+import { getAuthToken } from "@/lib/authToken";
 async function apiGet(path: string) {
   const res = await fetch(`${API_BASE_URL}${path}`);
   if (!res.ok) throw new Error(`Request failed (${res.status})`);
@@ -8,7 +9,7 @@ async function apiGet(path: string) {
 }
 
 async function apiAuth(path: string, method: string, body?: Record<string, unknown>) {
-  const token = localStorage.getItem("hpc_auth_token");
+  const token = getAuthToken();
   const res = await fetch(`${API_BASE_URL}${path}`, {
     method,
     headers: {

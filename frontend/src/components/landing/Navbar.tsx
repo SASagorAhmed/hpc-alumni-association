@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, LogOut } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAdminViewAsAlumni } from "@/contexts/AdminViewAsAlumniContext";
 import { cn } from "@/lib/utils";
 import hpcLogo from "@/assets/hpc-logo.png";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -36,11 +37,13 @@ const Navbar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeSection, setActiveSection] = useState("#");
   const { user, isLoading, logout } = useAuth();
+  const { viewAsAlumni } = useAdminViewAsAlumni();
   const location = useLocation();
   const navigate = useNavigate();
   const showThemeToggle = false; // Keep code for later; hidden for now.
 
-  const dashboardPath = user?.role === "admin" ? "/admin/dashboard" : "/dashboard";
+  const dashboardPath =
+    user?.role === "admin" && !viewAsAlumni ? "/admin/dashboard" : "/dashboard";
 
   /** SPA-safe: go to `/` + hash and scroll (hash-only links break off-home and often don’t scroll with RR). */
   const handleLandingNavClick = useCallback(

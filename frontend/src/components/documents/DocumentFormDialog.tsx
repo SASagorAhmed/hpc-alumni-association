@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { API_BASE_URL } from "@/api-production/api.js";
+import { getAuthToken } from "@/lib/authToken";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -66,7 +67,7 @@ export default function DocumentFormDialog({ open, onOpenChange, document, onSuc
 
     setSaving(true);
     try {
-      const token = localStorage.getItem("hpc_auth_token");
+      const token = getAuthToken();
       if (!token) {
         toast.error("Not authenticated");
         return;

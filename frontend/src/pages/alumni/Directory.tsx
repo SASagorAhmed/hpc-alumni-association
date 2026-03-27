@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { Search, User, X, Briefcase, GraduationCap, Phone, Droplets, Facebook, I
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { API_BASE_URL } from "@/api-production/api.js";
+import { useSyncedQueryState } from "@/hooks/useSyncedQueryState";
 
 const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 const GENDERS = ["Male", "Female", "Other"];
@@ -20,7 +21,8 @@ const SORT_OPTIONS = [
   { value: "batch_asc", label: "Batch (Oldest)" },
   { value: "batch_desc", label: "Batch (Newest)" },
   { value: "recent", label: "Recently Joined" },
-];
+] as const;
+const SORT_VALUES = new Set<string>(SORT_OPTIONS.map((o) => o.value));
 
 interface AlumniProfile {
   id: string;
@@ -59,14 +61,15 @@ const fetchAlumni = async (): Promise<AlumniProfile[]> => {
 
 const Directory = () => {
   const { user } = useAuth();
-  const [search, setSearch] = useState("");
-  const [filterBatch, setFilterBatch] = useState("");
-  const [filterBlood, setFilterBlood] = useState("");
-  const [filterGender, setFilterGender] = useState("");
-  const [filterJobStatus, setFilterJobStatus] = useState("");
-  const [filterUniversity, setFilterUniversity] = useState("");
-  const [filterFaculty, setFilterFaculty] = useState("");
-  const [sort, setSort] = useState("name_asc");
+  const [search, setSearch] = useSyncedQueryState("q", "");
+  const [filterBatch, setFilterBatch] = useSyncedQueryState("batch", "");
+  const [filterBlood, setFilterBlood] = useSyncedQueryState("blood", "");
+  const [filterGender, setFilterGender] = useSyncedQueryState("gender", "");
+  const [filterJobStatus, setFilterJobStatus] = useSyncedQueryState("job", "");
+  const [filterUniversity, setFilterUniversity] = useSyncedQueryState("uni", "");
+  const [filterFaculty, setFilterFaculty] = useSyncedQueryState("faculty", "");
+  const [sortParam, setSortParam] = useSyncedQueryState("sort", "name_asc");
+  const sort = SORT_VALUES.has(sortParam) ? sortParam : "name_asc";
 
   const { data: alumni = [], isLoading } = useQuery({
     queryKey: ["alumni-directory"],
@@ -78,7 +81,7 @@ const Directory = () => {
   const batches = useMemo(() => [...new Set(alumni.map((a) => a.batch).filter(Boolean))].sort(), [alumni]);
   const universities = useMemo(() => [...new Set(alumni.map((a) => a.university).filter(Boolean))].sort(), [alumni]);
 
-  const activeFilterCount = [
+  const dropdownFilterCount = [
     filterBatch,
     filterBlood,
     filterGender,
@@ -86,14 +89,18 @@ const Directory = () => {
     filterUniversity,
     filterFaculty,
   ].filter(Boolean).length;
+  const activeFilterCount =
+    dropdownFilterCount + (search.trim() ? 1 : 0) + (sort !== "name_asc" ? 1 : 0);
 
   const clearFilters = () => {
+    setSearch("");
     setFilterBatch("");
     setFilterBlood("");
     setFilterGender("");
     setFilterJobStatus("");
     setFilterUniversity("");
     setFilterFaculty("");
+    setSortParam("name_asc");
   };
 
   // Filter + search
@@ -213,7 +220,7 @@ const Directory = () => {
       {/* Sort + count bar */}
       <div className="flex items-center justify-between">
         <p className="text-xs text-muted-foreground">{filtered.length} result{filtered.length !== 1 ? "s" : ""}</p>
-        <Select value={sort} onValueChange={setSort}>
+        <Select value={sort} onValueChange={setSortParam}>
           <SelectTrigger className="w-40 text-xs h-8"><SelectValue /></SelectTrigger>
           <SelectContent>{SORT_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
         </Select>
@@ -231,7 +238,7 @@ const Directory = () => {
           <CardContent className="p-12 text-center">
             <User className="w-10 h-10 mx-auto text-muted-foreground mb-3" />
             <p className="text-sm text-muted-foreground font-medium">
-              {search || activeFilterCount > 0 ? "No alumni found matching your search." : "No verified alumni available yet."}
+              {search.trim() || dropdownFilterCount > 0 ? "No alumni found matching your search." : "No verified alumni available yet."}
             </p>
           </CardContent>
         </Card>

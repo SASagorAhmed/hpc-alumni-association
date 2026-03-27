@@ -6,6 +6,7 @@ import {
   MessageSquareQuote, Lightbulb, Crown, UserCheck,
 } from "lucide-react";
 import { API_BASE_URL } from "@/api-production/api.js";
+import { getAuthToken } from "@/lib/authToken";
 import { useAuth } from "@/contexts/AuthContext";
 import Navbar from "@/components/landing/Navbar";
 import Footer from "@/components/landing/Footer";
@@ -49,7 +50,7 @@ export default function CommitteeMemberProfile() {
   useEffect(() => {
     if (!id) return;
     setLoading(true);
-    const token = localStorage.getItem("hpc_auth_token");
+    const token = getAuthToken();
     fetch(`${API_BASE_URL}/api/public/committee/member/${id}`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     })

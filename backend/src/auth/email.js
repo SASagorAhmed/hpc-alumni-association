@@ -39,7 +39,32 @@ async function sendVerificationEmail({ email, verificationLink }) {
   });
 }
 
+async function sendPasswordResetEmail({ email, resetLink }) {
+  const transporter = createTransporter();
+  if (!transporter) {
+    throw new Error("SMTP is not configured (set SMTP_HOST/SMTP_USER/SMTP_PASS in backend/.env).");
+  }
+
+  const subject = "Reset your HPC Alumni Association password";
+  const html = `
+    <div style="font-family: Arial, sans-serif;">
+      <h2>Password reset</h2>
+      <p>We received a request to reset the password for your HPC Alumni Association account. Click the link below to choose a new password:</p>
+      <p><a href="${resetLink}">Reset password</a></p>
+      <p>This link expires in one hour. If you did not request a reset, you can ignore this email.</p>
+    </div>
+  `;
+
+  await transporter.sendMail({
+    from: env.smtp.from,
+    to: email,
+    subject,
+    html,
+  });
+}
+
 module.exports = {
   sendVerificationEmail,
+  sendPasswordResetEmail,
 };
 

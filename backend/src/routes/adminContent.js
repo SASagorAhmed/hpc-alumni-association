@@ -124,6 +124,34 @@ async function requireAdmin(pool, userId) {
   return (rows || []).length > 0;
 }
 
+const PRIMARY_ADMIN_EMAIL = String(process.env.PRIMARY_ADMIN_EMAIL || "sagormimmarriage@gmail.com")
+  .trim()
+  .toLowerCase();
+
+async function userHasAdminRole(pool, userId) {
+  const [rows] = await pool.query(
+    "SELECT 1 FROM user_roles WHERE user_id = ? AND role = 'admin' LIMIT 1",
+    [userId]
+  );
+  return (rows || []).length > 0;
+}
+
+async function getUserEmailNormalized(pool, userId) {
+  const [rows] = await pool.query("SELECT email FROM users WHERE id = ? LIMIT 1", [userId]);
+  return String(rows?.[0]?.email || "")
+    .trim()
+    .toLowerCase();
+}
+
+function mapProfileRowWithAdminFlag(row) {
+  if (!row) return row;
+  const { admin_role_count: _arc, ...rest } = row;
+  return {
+    ...rest,
+    is_admin: Number(_arc || 0) > 0,
+  };
+}
+
 async function withAdmin(req, res) {
   const pool = getOrCreatePool();
   if (!pool) {
@@ -207,6 +235,15 @@ async function ensureProfileReviewNoteColumn(pool) {
   }
 }
 
+async function ensureProfileDirectoryVisibleColumn(pool) {
+  try {
+    await pool.query("ALTER TABLE profiles ADD COLUMN directory_visible TINYINT(1) NOT NULL DEFAULT 1");
+  } catch (e) {
+    const msg = String(e && e.message ? e.message : e);
+    if (!/Duplicate column name/i.test(msg)) throw e;
+  }
+}
+
 function normalizeAchievementBannerTheme(raw) {
   const theme = String(raw ?? "").trim().toLowerCase();
   if (theme === "theme2" || theme === "tomato") return "theme2";
@@ -276,13 +313,15 @@ router.get("/users", requireAuth, async (req, res) => {
     const pool = await withAdmin(req, res);
     if (!pool) return;
     await ensureProfileReviewNoteColumn(pool);
+    await ensureProfileDirectoryVisibleColumn(pool);
     const [rows] = await pool.query(
-      `SELECT p.*, u.email, u.email_verified
+      `SELECT p.*, u.email, u.email_verified,
+        (SELECT COUNT(*) FROM user_roles ur WHERE ur.user_id = p.id AND ur.role = 'admin') AS admin_role_count
        FROM profiles p
        LEFT JOIN users u ON u.id = p.id
        ORDER BY p.created_at DESC`
     );
-    res.status(200).json(rows || []);
+    res.status(200).json((rows || []).map((r) => mapProfileRowWithAdminFlag(r)));
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message || "Failed to load users" });
   }
@@ -293,8 +332,10 @@ router.get("/users/:id", requireAuth, async (req, res) => {
     const pool = await withAdmin(req, res);
     if (!pool) return;
     await ensureProfileReviewNoteColumn(pool);
+    await ensureProfileDirectoryVisibleColumn(pool);
     const [rows] = await pool.query(
-      `SELECT p.*, u.email, u.email_verified
+      `SELECT p.*, u.email, u.email_verified,
+        (SELECT COUNT(*) FROM user_roles ur WHERE ur.user_id = p.id AND ur.role = 'admin') AS admin_role_count
        FROM profiles p
        LEFT JOIN users u ON u.id = p.id
        WHERE p.id = ?
@@ -303,7 +344,7 @@ router.get("/users/:id", requireAuth, async (req, res) => {
     );
     const row = rows?.[0];
     if (!row) return res.status(404).json({ ok: false, error: "User not found" });
-    res.status(200).json(row);
+    res.status(200).json(mapProfileRowWithAdminFlag(row));
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message || "Failed to load user profile" });
   }
@@ -352,11 +393,38 @@ router.patch("/users/:id", requireAuth, async (req, res) => {
     const pool = await withAdmin(req, res);
     if (!pool) return;
     await ensureProfileReviewNoteColumn(pool);
-    const allowed = ["verified", "approved", "blocked", "profile_pending", "profile_review_note"];
-    const entries = Object.entries(req.body || {}).filter(([k]) => allowed.includes(k));
+    await ensureProfileDirectoryVisibleColumn(pool);
+    const allowed = [
+      "verified",
+      "approved",
+      "blocked",
+      "profile_pending",
+      "profile_review_note",
+      "directory_visible",
+    ];
+    let entries = Object.entries(req.body || {}).filter(([k]) => allowed.includes(k));
     if (!entries.length) return res.status(400).json({ ok: false, error: "Nothing to update" });
-    const setClause = entries.map(([k]) => `\`${k}\` = ?`).join(", ");
-    const values = entries.map(([, v]) => v);
+
+    if (req.params.id === req.auth.userId) {
+      entries = entries.filter(([k]) => k === "directory_visible");
+      if (!entries.length) {
+        return res.status(403).json({
+          ok: false,
+          error: "You cannot verify, block, or approve your own account from User Management.",
+        });
+      }
+    }
+
+    const normalized = entries.map(([k, v]) => {
+      if (k === "directory_visible") {
+        const on = v === true || v === 1 || v === "1" || v === "true";
+        return [k, on ? 1 : 0];
+      }
+      return [k, v];
+    });
+
+    const setClause = normalized.map(([k]) => `\`${k}\` = ?`).join(", ");
+    const values = normalized.map(([, v]) => v);
     await pool.query(`UPDATE profiles SET ${setClause} WHERE id = ?`, [...values, req.params.id]);
     res.status(200).json({ ok: true });
   } catch (e) {
@@ -367,11 +435,91 @@ router.patch("/users/:id", requireAuth, async (req, res) => {
 // Admin: hard-delete a user + profile.
 // Important: this deletes the Cloudinary photo first (best-effort), then deletes `users` row
 // (profiles + roles cascade via foreign keys).
+// List administrator accounts (admin UI).
+router.get("/admins", requireAuth, async (req, res) => {
+  try {
+    const pool = await withAdmin(req, res);
+    if (!pool) return;
+    const [rows] = await pool.query(
+      `SELECT u.id, u.email, u.email_verified AS email_verified, p.name AS name
+       FROM user_roles ur
+       INNER JOIN users u ON u.id = ur.user_id
+       LEFT JOIN profiles p ON p.id = u.id
+       WHERE ur.role = 'admin'
+       ORDER BY u.email ASC`
+    );
+    res.status(200).json({ ok: true, admins: rows || [] });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message || "Failed to load admins" });
+  }
+});
+
+// Grant admin role to an existing alumni account (by email).
+router.post("/admins/grant", requireAuth, async (req, res) => {
+  try {
+    const pool = await withAdmin(req, res);
+    if (!pool) return;
+    const email = String(req.body?.email || "")
+      .toLowerCase()
+      .trim();
+    if (!email) return res.status(400).json({ ok: false, error: "Email is required" });
+
+    const [users] = await pool.query(`SELECT id FROM users WHERE email = ? LIMIT 1`, [email]);
+    const user = users?.[0];
+    if (!user) return res.status(404).json({ ok: false, error: "No user found with that email" });
+
+    const [profiles] = await pool.query(`SELECT id FROM profiles WHERE id = ? LIMIT 1`, [user.id]);
+    if (!profiles?.[0]) {
+      return res.status(400).json({ ok: false, error: "That account has no profile; only registered alumni can be admins" });
+    }
+
+    const [existing] = await pool.query(
+      `SELECT id FROM user_roles WHERE user_id = ? AND role = 'admin' LIMIT 1`,
+      [user.id]
+    );
+    if (existing?.length) {
+      return res.status(200).json({ ok: true, message: "This account is already an administrator", alreadyAdmin: true });
+    }
+
+    await pool.query(`INSERT INTO user_roles (id, user_id, role) VALUES (?, ?, 'admin')`, [uuidv4(), user.id]);
+    return res.status(201).json({ ok: true, message: "Administrator access granted", userId: user.id });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message || "Failed to grant admin" });
+  }
+});
+
 router.delete("/users/:id", requireAuth, async (req, res) => {
   try {
     const pool = await withAdmin(req, res);
     if (!pool) return;
     const id = req.params.id;
+
+    if (id === req.auth.userId) {
+      return res.status(403).json({
+        ok: false,
+        error: "You cannot delete your own account from User Management.",
+      });
+    }
+
+    const [urows] = await pool.query("SELECT email FROM users WHERE id = ? LIMIT 1", [id]);
+    const email = String(urows?.[0]?.email || "")
+      .trim()
+      .toLowerCase();
+    if (email === PRIMARY_ADMIN_EMAIL) {
+      return res.status(403).json({
+        ok: false,
+        error: "The primary administrator account cannot be deleted.",
+      });
+    }
+    if (await userHasAdminRole(pool, id)) {
+      const actorEmail = await getUserEmailNormalized(pool, req.auth.userId);
+      if (actorEmail !== PRIMARY_ADMIN_EMAIL) {
+        return res.status(403).json({
+          ok: false,
+          error: "Only the primary administrator can remove other administrator accounts.",
+        });
+      }
+    }
 
     const [profileRows] = await pool.query("SELECT photo FROM profiles WHERE id = ? LIMIT 1", [id]);
     const photoUrl = profileRows?.[0]?.photo || null;

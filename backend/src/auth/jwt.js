@@ -1,8 +1,21 @@
 const jwt = require("jsonwebtoken");
 const env = require("../config/env");
 
-function signJwt(userId) {
-  return jwt.sign({ sub: userId }, env.jwt.secret, { expiresIn: env.jwt.expiresIn });
+/**
+ * @param {string} userId
+ * @param {{ rememberMe?: boolean; expiresIn?: string }} [options]
+ * - If `expiresIn` is set, it wins.
+ * - Else if `rememberMe` is set, uses env.jwt.expiresInRemember or expiresInSession.
+ * - Else uses env.jwt.expiresIn (backward compatible default).
+ */
+function signJwt(userId, options = {}) {
+  let expiresIn = env.jwt.expiresIn;
+  if (options.expiresIn) {
+    expiresIn = options.expiresIn;
+  } else if (Object.prototype.hasOwnProperty.call(options, "rememberMe")) {
+    expiresIn = options.rememberMe ? env.jwt.expiresInRemember : env.jwt.expiresInSession;
+  }
+  return jwt.sign({ sub: userId }, env.jwt.secret, { expiresIn });
 }
 
 function verifyJwt(token) {

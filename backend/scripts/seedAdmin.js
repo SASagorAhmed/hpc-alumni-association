@@ -3,10 +3,12 @@ const mysql = require("mysql2/promise");
 const bcrypt = require("bcryptjs");
 const { v4: uuid } = require("uuid");
 
+/** Default production admin email (override with ADMIN_EMAIL in .env). */
+const DEFAULT_ADMIN_EMAIL = "sagormimmarriage@gmail.com";
+
 async function main() {
-  const email = "admin@gmail.com";
-  const password = "123456";
-  const passwordHash = await bcrypt.hash(password, 12);
+  const email = (process.env.ADMIN_EMAIL || DEFAULT_ADMIN_EMAIL).trim().toLowerCase();
+  const password = process.env.ADMIN_SEED_PASSWORD;
 
   const conn = await mysql.createConnection({
     host: process.env.DB_HOST,
@@ -22,11 +24,19 @@ async function main() {
     const userId = urows[0]?.id || uuid();
 
     if (!urows.length) {
+      if (!password || !String(password).trim()) {
+        console.error(
+          "SEED_ADMIN_FAILED: ADMIN_SEED_PASSWORD must be set in .env to create the admin user."
+        );
+        process.exit(1);
+      }
+      const passwordHash = await bcrypt.hash(String(password), 12);
       await conn.query(
         "INSERT INTO users (id, email, password_hash, email_verified) VALUES (?, ?, ?, true)",
         [userId, email, passwordHash]
       );
-    } else {
+    } else if (password && String(password).trim()) {
+      const passwordHash = await bcrypt.hash(String(password), 12);
       await conn.query("UPDATE users SET password_hash = ?, email_verified = true WHERE id = ?", [
         passwordHash,
         userId,
@@ -54,7 +64,12 @@ async function main() {
       await conn.query("INSERT INTO user_roles (id, user_id, role) VALUES (?, ?, 'admin')", [uuid(), userId]);
     }
 
-    console.log("ADMIN_READY", userId);
+    console.log("ADMIN_READY", userId, email);
+    if (!password || !String(password).trim()) {
+      console.log(
+        "Note: Password unchanged (user already existed). Set ADMIN_SEED_PASSWORD to rotate it."
+      );
+    }
   } finally {
     await conn.end();
   }
@@ -64,4 +79,3 @@ main().catch((e) => {
   console.error("SEED_ADMIN_FAILED", e.message || e);
   process.exit(1);
 });
-

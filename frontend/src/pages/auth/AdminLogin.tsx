@@ -60,7 +60,7 @@ const AdminLogin = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-1.5">
                 <Label htmlFor="email">Admin Email</Label>
-                <Input id="email" type="email" placeholder="admin@hpc.edu" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+                <Input id="email" type="email" placeholder="Your registered admin email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="password">Password</Label>

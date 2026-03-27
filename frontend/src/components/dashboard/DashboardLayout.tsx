@@ -1,7 +1,9 @@
-import { useState } from "react";
-import { Link, useLocation, Outlet } from "react-router-dom";
+import { useState, useEffect, useRef } from "react";
+import { flushSync } from "react-dom";
+import { Link, useLocation, Outlet, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAdminViewAsAlumni } from "@/contexts/AdminViewAsAlumniContext";
 import hpcLogo from "@/assets/hpc-logo.png";
 import {
   Menu,
@@ -24,11 +26,24 @@ import {
   ScrollText,
   ChevronDown,
   Home,
+  GraduationCap,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import TopNoticeBar from "@/components/notices/TopNoticeBar";
 import ActiveElectionBanner from "@/components/elections/ActiveElectionBanner";
 import NotificationDropdown from "@/components/notifications/NotificationDropdown";
+
+const SIDEBAR_OPEN_KEY = "hpc_layout_dashboard_sidebar_open";
+
+function readSidebarOpenFromSession(): boolean {
+  try {
+    return sessionStorage.getItem(SIDEBAR_OPEN_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
 
 interface DashboardLayoutProps {
   children?: React.ReactNode;
@@ -51,6 +66,7 @@ const adminMenu = [
   { icon: Home, label: "Home", href: "/" },
   { icon: LayoutDashboard, label: "Dashboard", href: "/admin/dashboard" },
   { icon: Users, label: "Users", href: "/admin/users" },
+  { icon: Settings, label: "Settings", href: "/admin/settings" },
   { icon: Shield, label: "Committee", href: "/admin/committee" },
   { icon: Vote, label: "Elections", href: "/admin/elections" },
   { icon: ClipboardList, label: "Candidates", href: "/admin/candidates" },
@@ -61,7 +77,6 @@ const adminMenu = [
   { icon: FileText, label: "Notices", href: "/admin/notices" },
   { icon: FolderOpen, label: "Documents", href: "/admin/documents" },
   { icon: ScrollText, label: "Audit Logs", href: "/admin/audit-logs" },
-  { icon: Settings, label: "Settings", href: "/admin/settings" },
   { icon: LayoutDashboard, label: "Landing Page", href: "/admin/landing-editor" },
   { icon: Award, label: "Memories", href: "/admin/memories" },
 ];
@@ -73,6 +88,8 @@ const SidebarContent = ({
   logout,
   onNavigate,
   showClose,
+  dashboardHref,
+  panelSubtitle,
 }: {
   menu: typeof alumniMenu;
   isActive: (href: string) => boolean;
@@ -80,18 +97,20 @@ const SidebarContent = ({
   logout: () => void;
   onNavigate?: () => void;
   showClose?: boolean;
+  dashboardHref: string;
+  panelSubtitle: string;
 }) => (
   <>
     <div
       className="flex h-14 shrink-0 items-center justify-between border-b border-white/10 px-2"
       style={{ background: "var(--theme-navbar-bg)" }}
     >
-      <Link to={user?.role === "admin" ? "/admin/dashboard" : "/dashboard"} className="flex min-w-0 items-center gap-1.5">
+      <Link to={dashboardHref} className="flex min-w-0 items-center gap-1.5">
         <img src={hpcLogo} alt="HPC Logo" className="h-7 w-7 shrink-0 rounded-full shadow-sm ring-1 ring-[hsl(43,96%,56%)]/50" />
         <div className="min-w-0 leading-none">
           <span className="block truncate text-[10px] font-bold tracking-tight text-white">Hamdard Public College</span>
           <span className="mt-px block truncate text-[7px] font-semibold uppercase tracking-wide" style={{ color: "hsl(43, 96%, 56%)" }}>
-            {user?.role === "admin" ? "Admin Panel" : "Alumni Association"}
+            {panelSubtitle}
           </span>
         </div>
       </Link>
@@ -138,12 +157,74 @@ const SidebarContent = ({
 
 const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const showThemeToggle = false; // Match public Navbar / floating toggle — keep code, hidden for now.
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(readSidebarOpenFromSession);
   const [profileOpen, setProfileOpen] = useState(false);
   const { user, logout } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
+  const { viewAsAlumni, setViewAsAlumni } = useAdminViewAsAlumni();
+  /**
+   * After turning preview ON we still briefly sit on /admin/*. Stays true until we're on a non-admin path.
+   */
+  const pendingAlumniNavigationRef = useRef(false);
+  /**
+   * False until we've left the /admin tree once with preview on. First /admin segment redirects to /dashboard
+   * (covers refresh); a later /admin visit while preview stays on exits preview (e.g. Settings link).
+   */
+  const alumniPreviewDidLeaveAdminTreeRef = useRef(false);
 
-  const menu = user?.role === "admin" ? adminMenu : alumniMenu;
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(SIDEBAR_OPEN_KEY, sidebarOpen ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  }, [sidebarOpen]);
+
+  const isAdmin = user?.role === "admin";
+  const useAlumniShell = !isAdmin || viewAsAlumni;
+  const menu = useAlumniShell ? alumniMenu : adminMenu;
+  const dashboardHref = useAlumniShell ? "/dashboard" : "/admin/dashboard";
+  const panelSubtitle =
+    isAdmin && viewAsAlumni ? "Alumni view (preview)" : isAdmin ? "Admin Panel" : "Alumni Association";
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    if (!viewAsAlumni) {
+      pendingAlumniNavigationRef.current = false;
+      alumniPreviewDidLeaveAdminTreeRef.current = false;
+      return;
+    }
+    if (!location.pathname.startsWith("/admin")) {
+      pendingAlumniNavigationRef.current = false;
+      alumniPreviewDidLeaveAdminTreeRef.current = true;
+      return;
+    }
+
+    if (!alumniPreviewDidLeaveAdminTreeRef.current) {
+      alumniPreviewDidLeaveAdminTreeRef.current = true;
+      pendingAlumniNavigationRef.current = true;
+      navigate("/dashboard", { replace: true });
+      return;
+    }
+    if (pendingAlumniNavigationRef.current) {
+      return;
+    }
+    setViewAsAlumni(false);
+  }, [isAdmin, viewAsAlumni, location.pathname, setViewAsAlumni, navigate]);
+
+  const onViewAsAlumniChange = (checked: boolean) => {
+    if (checked) {
+      pendingAlumniNavigationRef.current = true;
+      flushSync(() => setViewAsAlumni(true));
+      navigate("/dashboard", { replace: true });
+    } else {
+      pendingAlumniNavigationRef.current = false;
+      setViewAsAlumni(false);
+      navigate("/admin/dashboard", { replace: true });
+    }
+  };
+
   const isActive = (href: string) => location.pathname === href;
 
   return (
@@ -170,6 +251,8 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             logout={logout}
             showClose={sidebarOpen}
             onNavigate={() => setSidebarOpen(false)}
+            dashboardHref={dashboardHref}
+            panelSubtitle={panelSubtitle}
           />
         </div>
       </aside>
@@ -204,6 +287,24 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             </div>
 
             <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+              {isAdmin ? (
+                <div
+                  className="flex items-center gap-1.5 rounded-md border border-white/25 bg-black/25 px-1.5 py-0.5 sm:px-2 shadow-sm"
+                  title="See the same sidebar and pages as alumni (your account stays an admin)"
+                >
+                  <GraduationCap className="h-3 w-3 text-amber-300 shrink-0 hidden sm:block" />
+                  <Label htmlFor="view-as-alumni" className="text-[10px] text-white cursor-pointer whitespace-nowrap hidden md:inline">
+                    View as alumni
+                  </Label>
+                  <Switch
+                    id="view-as-alumni"
+                    checked={viewAsAlumni}
+                    onCheckedChange={onViewAsAlumniChange}
+                    className="scale-[0.65] sm:scale-75 origin-center border border-white/20 data-[state=unchecked]:bg-white/15 data-[state=checked]:bg-amber-500 [&>span]:bg-white"
+                    aria-label="View as alumni"
+                  />
+                </div>
+              ) : null}
               {showThemeToggle ? (
                 <ThemeToggle
                   rootClassName="shrink-0"

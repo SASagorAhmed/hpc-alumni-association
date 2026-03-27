@@ -34,9 +34,10 @@ import {
 } from "lucide-react";
 import { BOARD_SECTION_OPTIONS, type BoardSectionKey } from "@/components/committee/boardSections";
 import { CommitteePhotoCropDialog } from "@/components/admin/CommitteePhotoCropDialog";
+import { getAuthToken } from "@/lib/authToken";
 
 const authHeaders = () => ({
-  Authorization: `Bearer ${localStorage.getItem("hpc_auth_token")}`,
+  Authorization: `Bearer ${getAuthToken()}`,
 });
 
 const FIXED_COLLEGE_NAME = "Hamdard Public Collage";

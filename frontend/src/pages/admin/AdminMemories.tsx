@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { API_BASE_URL } from "@/api-production/api.js";
+import { getAuthToken } from "@/lib/authToken";
 import {
   Select,
   SelectContent,
@@ -64,7 +65,6 @@ const emptyForm: MemoryForm = {
 
 const AdminMemories = () => {
   const queryClient = useQueryClient();
-  const token = localStorage.getItem("hpc_auth_token");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<MemoryForm>(emptyForm);
@@ -72,6 +72,7 @@ const AdminMemories = () => {
   const { data: memories = [], isLoading } = useQuery({
     queryKey: ["admin-memories"],
     queryFn: async () => {
+      const token = getAuthToken();
       const res = await fetch(`${API_BASE_URL}/api/admin/memories`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -82,18 +83,19 @@ const AdminMemories = () => {
 
   const saveMutation = useMutation({
     mutationFn: async (data: MemoryForm & { id?: string }) => {
+      const auth = getAuthToken();
       const { id, ...rest } = data;
       if (id) {
         const res = await fetch(`${API_BASE_URL}/api/admin/memories/${id}`, {
           method: "PUT",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth}` },
           body: JSON.stringify(rest),
         });
         if (!res.ok) throw new Error("Failed to update memory");
       } else {
         const res = await fetch(`${API_BASE_URL}/api/admin/memories`, {
           method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth}` },
           body: JSON.stringify(rest),
         });
         if (!res.ok) throw new Error("Failed to create memory");
@@ -109,9 +111,10 @@ const AdminMemories = () => {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      const auth = getAuthToken();
       const res = await fetch(`${API_BASE_URL}/api/admin/memories/${id}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${auth}` },
       });
       if (!res.ok) throw new Error("Failed to delete memory");
     },
@@ -151,11 +154,12 @@ const AdminMemories = () => {
     }
     const reader = new FileReader();
     reader.onloadend = async () => {
+      const auth = getAuthToken();
       const fd = new FormData();
       fd.append("file", file);
       const res = await fetch(`${API_BASE_URL}/api/admin/uploads/memories`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${auth}` },
         body: fd,
       });
       const body = await res.json().catch(() => ({}));

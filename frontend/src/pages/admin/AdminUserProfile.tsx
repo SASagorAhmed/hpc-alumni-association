@@ -5,10 +5,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { ArrowLeft, Ban, CheckCircle2, ShieldCheck, ShieldOff, Trash2, XCircle } from "lucide-react";
+import { getAuthToken } from "@/lib/authToken";
+import { useAuth } from "@/contexts/AuthContext";
+import { PRIMARY_ADMIN_EMAIL } from "@/constants/adminAccess";
+import { ArrowLeft, Ban, CheckCircle2, Crown, ShieldCheck, ShieldOff, Trash2, XCircle } from "lucide-react";
 
 type UserProfile = Record<string, unknown> & {
   id: string;
@@ -21,9 +25,12 @@ type UserProfile = Record<string, unknown> & {
   blocked?: boolean | null;
   profile_pending?: boolean | null;
   profile_review_note?: string | null;
+  is_admin?: boolean;
+  directory_visible?: boolean | number | null;
 };
 
 const AdminUserProfile = () => {
+  const { user: me } = useAuth();
   const { id } = useParams();
   const navigate = useNavigate();
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -32,7 +39,7 @@ const AdminUserProfile = () => {
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectMessage, setRejectMessage] = useState("");
 
-  const token = localStorage.getItem("hpc_auth_token");
+  const token = getAuthToken();
 
   const fetchProfile = async () => {
     if (!id) return;
@@ -125,6 +132,23 @@ const AdminUserProfile = () => {
     ["Social Links", typeof profile.social_links === "string" ? profile.social_links : JSON.stringify(profile.social_links || "")],
   ];
 
+  const isAdminAccount = Boolean(profile.is_admin);
+  const profileEmail = String(profile.email || "")
+    .trim()
+    .toLowerCase();
+  const isPrimaryTarget = profileEmail === PRIMARY_ADMIN_EMAIL;
+  const isSecondaryAdmin = isAdminAccount && !isPrimaryTarget;
+  const isPrimaryActor =
+    String(me?.email || "")
+      .trim()
+      .toLowerCase() === PRIMARY_ADMIN_EMAIL;
+  const isViewingSelf = Boolean(me?.id && profile.id === me.id);
+  const canModerateThisProfile = !isViewingSelf;
+  const canDeleteUser =
+    !isViewingSelf && (!isAdminAccount || (isSecondaryAdmin && isPrimaryActor));
+
+  const directoryVisible = Number(profile.directory_visible ?? 1) !== 0;
+
   return (
     <div className="mx-auto max-w-5xl space-y-4">
       <div className="flex items-center justify-between">
@@ -134,6 +158,12 @@ const AdminUserProfile = () => {
           </Link>
         </Button>
         <div className="flex flex-wrap gap-2">
+          {isAdminAccount ? (
+            <Badge variant="secondary" className="gap-1 border-amber-300/60 bg-amber-50 text-amber-900 dark:bg-amber-950/50 dark:text-amber-100">
+              <Crown className="h-3.5 w-3.5" aria-hidden />
+              Administrator
+            </Badge>
+          ) : null}
           {profile.profile_pending ? <Badge variant="outline">Pending Review</Badge> : null}
           {profile.email_verified ? (
             <Badge variant="outline" className="border-blue-300 bg-blue-50 text-blue-700">
@@ -188,8 +218,35 @@ const AdminUserProfile = () => {
             </div>
           ) : null}
 
+          <div className="flex flex-col gap-3 rounded-lg border bg-muted/25 p-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-1 pr-2">
+              <Label htmlFor="directory-visible" className="text-sm font-medium text-foreground">
+                Show in alumni directory
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                New accounts are included automatically. Turn off to hide this profile from the public directory; you can turn it back on anytime.
+              </p>
+            </div>
+            <Switch
+              id="directory-visible"
+              checked={directoryVisible}
+              disabled={saving}
+              onCheckedChange={(checked) =>
+                patchUser(
+                  { directory_visible: checked },
+                  checked ? "Profile will appear in the alumni directory." : "Profile hidden from the alumni directory."
+                )
+              }
+            />
+          </div>
+
           <div className="flex flex-wrap gap-2 border-t pt-3">
-            {profile.profile_pending ? (
+            {isViewingSelf ? (
+              <p className="w-full text-xs text-muted-foreground">
+                You cannot verify, block, or delete your own account here (use another administrator). You can still change directory visibility above.
+              </p>
+            ) : null}
+            {canModerateThisProfile && profile.profile_pending ? (
               <>
                 <Button disabled={saving} onClick={() => patchUser({ profile_pending: false, approved: true, profile_review_note: null }, "Profile approved.")}>
                   <CheckCircle2 className="mr-1 h-4 w-4" /> Approve
@@ -199,27 +256,41 @@ const AdminUserProfile = () => {
                 </Button>
               </>
             ) : null}
-            {profile.verified && profile.approved ? (
-              <Button variant="outline" disabled={saving} onClick={() => patchUser({ verified: false, approved: false }, "User unverified.")}>
-                <ShieldOff className="mr-1 h-4 w-4" /> Unverify
+            {canModerateThisProfile ? (
+              profile.verified && profile.approved ? (
+                <Button variant="outline" disabled={saving} onClick={() => patchUser({ verified: false, approved: false }, "User unverified.")}>
+                  <ShieldOff className="mr-1 h-4 w-4" /> Unverify
+                </Button>
+              ) : (
+                <Button variant="outline" className="text-emerald-700" disabled={saving} onClick={() => patchUser({ verified: true, approved: true }, "User verified.")}>
+                  <ShieldCheck className="mr-1 h-4 w-4" /> Verify
+                </Button>
+              )
+            ) : null}
+            {canModerateThisProfile ? (
+              !profile.blocked ? (
+                <Button variant="destructive" disabled={saving} onClick={() => patchUser({ blocked: true }, "User blocked.")}>
+                  <Ban className="mr-1 h-4 w-4" /> Block
+                </Button>
+              ) : (
+                <Button variant="outline" disabled={saving} onClick={() => patchUser({ blocked: false }, "User unblocked.")}>
+                  <Ban className="mr-1 h-4 w-4" /> Unblock
+                </Button>
+              )
+            ) : null}
+            {canDeleteUser ? (
+              <Button variant="destructive" disabled={saving} onClick={deleteUser}>
+                <Trash2 className="mr-1 h-4 w-4" /> Delete User
               </Button>
-            ) : (
-              <Button variant="outline" className="text-emerald-700" disabled={saving} onClick={() => patchUser({ verified: true, approved: true }, "User verified.")}>
-                <ShieldCheck className="mr-1 h-4 w-4" /> Verify
-              </Button>
-            )}
-            {!profile.blocked ? (
-              <Button variant="destructive" disabled={saving} onClick={() => patchUser({ blocked: true }, "User blocked.")}>
-                <Ban className="mr-1 h-4 w-4" /> Block
-              </Button>
-            ) : (
-              <Button variant="outline" disabled={saving} onClick={() => patchUser({ blocked: false }, "User unblocked.")}>
-                <Ban className="mr-1 h-4 w-4" /> Unblock
-              </Button>
-            )}
-            <Button variant="destructive" disabled={saving} onClick={deleteUser}>
-              <Trash2 className="mr-1 h-4 w-4" /> Delete User
-            </Button>
+            ) : isPrimaryTarget ? (
+              <p className="w-full text-xs text-muted-foreground sm:w-auto sm:py-2">
+                The primary administrator account cannot be deleted.
+              </p>
+            ) : isViewingSelf ? null : isAdminAccount ? (
+              <p className="w-full text-xs text-muted-foreground sm:w-auto sm:py-2">
+                Only the primary administrator can remove other administrator accounts.
+              </p>
+            ) : null}
           </div>
         </CardContent>
       </Card>

@@ -50,7 +50,7 @@ export function ProfilePhotoCropDialog({ open, imageSrc, onOpenChange, onCropped
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent hideClose className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Crop profile picture</DialogTitle>
         </DialogHeader>

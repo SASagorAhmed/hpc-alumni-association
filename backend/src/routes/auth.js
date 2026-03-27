@@ -4,7 +4,8 @@ const { v4: uuidv4 } = require("uuid");
 const { getOrCreatePool } = require("../db/pool");
 const { hashPassword, verifyPassword } = require("../auth/password");
 const { signJwt, requireAuth } = require("../auth/jwt");
-const { sendVerificationEmail } = require("../auth/email");
+const { sendVerificationEmail, sendPasswordResetEmail } = require("../auth/email");
+const { ensurePasswordResetTokensTable } = require("../utils/ensurePasswordResetTokensTable");
 const env = require("../config/env");
 const passport = require("passport");
 const multer = require("multer");
@@ -37,6 +38,14 @@ const resendVerifyLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { ok: false, error: "Too many requests. Please try again later." },
+});
+
+const forgotPasswordLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 8,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { ok: false, error: "Too many password reset requests. Please try again later." },
 });
 
 const profileUpload = multer({
@@ -104,10 +113,7 @@ function trimOrNull(v) {
 
 async function getUserProfile(pool, userId) {
   // Role
-  const [roleRows] = await pool.query(
-    `SELECT role FROM user_roles WHERE user_id = ? LIMIT 1`,
-    [userId]
-  );
+  const [roleRows] = await pool.query(`SELECT role FROM user_roles WHERE user_id = ?`, [userId]);
   const isAdmin = (roleRows || []).some((r) => r.role === "admin");
 
   const [profileRows] = await pool.query(`SELECT * FROM profiles WHERE id = ? LIMIT 1`, [userId]);
@@ -250,6 +256,10 @@ router.post("/register", registerLimiter, profileUpload.single("photo"), async (
     const universityNorm = trimOrNull(university);
     if (!universityNorm) {
       return res.status(400).json({ ok: false, error: "University is required" });
+    }
+
+    if (!String(profession ?? "").trim()) {
+      return res.status(400).json({ ok: false, error: "Profession is required" });
     }
 
     const fb = trimOrNull(facebook);
@@ -439,6 +449,96 @@ router.post("/resend-verification", resendVerifyLimiter, async (req, res) => {
   }
 });
 
+const FORGOT_PASSWORD_GENERIC = {
+  ok: true,
+  message: "If an account exists for that email, you will receive password reset instructions shortly.",
+};
+
+// POST /api/auth/forgot-password
+router.post("/forgot-password", forgotPasswordLimiter, async (req, res) => {
+  try {
+    const pool = getOrCreatePool();
+    if (!pool) return res.status(503).json({ ok: false, error: "MySQL not configured" });
+    await ensurePasswordResetTokensTable(pool);
+
+    const email = String(req.body?.email || "").toLowerCase().trim();
+    if (!email) return res.status(400).json({ ok: false, error: "Email is required" });
+
+    const [users] = await pool.query("SELECT id FROM users WHERE email = ? LIMIT 1", [email]);
+    const user = users?.[0];
+    if (!user) return res.status(200).json(FORGOT_PASSWORD_GENERIC);
+
+    const profile = await getUserProfile(pool, user.id);
+    if (profile?.blocked) return res.status(200).json(FORGOT_PASSWORD_GENERIC);
+
+    const rawToken = uuidv4();
+    const tokenId = uuidv4();
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+    await pool.query(`DELETE FROM password_reset_tokens WHERE user_id = ? AND used_at IS NULL`, [user.id]);
+    await pool.query(
+      `INSERT INTO password_reset_tokens (id, user_id, token, expires_at, used_at) VALUES (?, ?, ?, ?, NULL)`,
+      [tokenId, user.id, rawToken, expiresAt]
+    );
+
+    const resetLink = `${env.frontendOrigin.replace(/\/$/, "")}/reset-password?token=${encodeURIComponent(rawToken)}`;
+    try {
+      await sendPasswordResetEmail({ email, resetLink });
+    } catch (mailErr) {
+      console.error("[auth] forgot-password email:", mailErr?.message || mailErr);
+      return res.status(503).json({
+        ok: false,
+        error: "Unable to send email right now. Please try again later or contact support.",
+      });
+    }
+
+    return res.status(200).json(FORGOT_PASSWORD_GENERIC);
+  } catch (e) {
+    console.error("[auth] forgot-password:", e?.message || e);
+    return res.status(500).json({ ok: false, error: e.message || "Request failed" });
+  }
+});
+
+// POST /api/auth/reset-password (token from email link; no auth header)
+router.post("/reset-password", async (req, res) => {
+  try {
+    const pool = getOrCreatePool();
+    if (!pool) return res.status(503).json({ ok: false, error: "MySQL not configured" });
+    await ensurePasswordResetTokensTable(pool);
+
+    const rawToken = String(req.body?.token || "").trim();
+    const newPassword = String(req.body?.newPassword || "");
+    if (!rawToken || !newPassword) {
+      return res.status(400).json({ ok: false, error: "Token and new password are required" });
+    }
+    if (newPassword.length < 6) {
+      return res.status(400).json({ ok: false, error: "Password must be at least 6 characters" });
+    }
+
+    const [rows] = await pool.query(
+      `SELECT id, user_id, expires_at FROM password_reset_tokens WHERE token = ? AND used_at IS NULL LIMIT 1`,
+      [rawToken]
+    );
+    const row = rows?.[0];
+    if (!row) {
+      return res.status(400).json({ ok: false, error: "Invalid or already used reset link." });
+    }
+    const expiresAt = row.expires_at ? new Date(row.expires_at) : null;
+    if (!expiresAt || expiresAt.getTime() < Date.now()) {
+      return res.status(400).json({ ok: false, error: "This reset link has expired. Request a new one from the login page." });
+    }
+
+    const passwordHash = await hashPassword(newPassword);
+    await pool.query(`UPDATE users SET password_hash = ? WHERE id = ?`, [passwordHash, row.user_id]);
+    await pool.query(`UPDATE password_reset_tokens SET used_at = NOW() WHERE user_id = ? AND used_at IS NULL`, [
+      row.user_id,
+    ]);
+
+    return res.status(200).json({ ok: true, message: "Password updated. You can log in now." });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message || "Failed to reset password" });
+  }
+});
+
 // POST /api/auth/login
 router.post("/login", loginLimiter, async (req, res) => {
   try {
@@ -473,7 +573,8 @@ router.post("/login", loginLimiter, async (req, res) => {
       await pool.query(`UPDATE profiles SET verified = true WHERE id = ?`, [user.id]);
     }
 
-    const token = signJwt(user.id);
+    const rememberMe = req.body?.rememberMe !== false;
+    const token = signJwt(user.id, { rememberMe });
     // Align to AuthContext shape (email missing in getUserProfile)
     const userOut = { ...profile, email: user.email, verified: isVerified };
     return res.status(200).json({ ok: true, token, user: userOut });

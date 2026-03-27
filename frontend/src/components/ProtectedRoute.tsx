@@ -1,5 +1,6 @@
 import { Navigate, Outlet } from "react-router-dom";
 import { useAuth, UserRole } from "@/contexts/AuthContext";
+import { useAdminViewAsAlumni } from "@/contexts/AdminViewAsAlumniContext";
 
 interface ProtectedRouteProps {
   children?: React.ReactNode;
@@ -9,6 +10,7 @@ interface ProtectedRouteProps {
 
 const ProtectedRoute = ({ children, requiredRole, allowUnapproved = false }: ProtectedRouteProps) => {
   const { user, isLoading } = useAuth();
+  const { viewAsAlumni } = useAdminViewAsAlumni();
 
   if (isLoading) {
     return (
@@ -23,7 +25,10 @@ const ProtectedRoute = ({ children, requiredRole, allowUnapproved = false }: Pro
   }
 
   if (requiredRole && user.role !== requiredRole) {
-    return <Navigate to={user.role === "admin" ? "/admin/dashboard" : "/dashboard"} replace />;
+    const adminMayUseAlumniRoutes = user.role === "admin" && requiredRole === "alumni" && viewAsAlumni;
+    if (!adminMayUseAlumniRoutes) {
+      return <Navigate to={user.role === "admin" && !viewAsAlumni ? "/admin/dashboard" : "/dashboard"} replace />;
+    }
   }
 
   // Alumni dashboard: require both email/admin verification (`verified`)

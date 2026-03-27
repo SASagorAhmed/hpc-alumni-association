@@ -3,8 +3,9 @@ import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
-import { Users, Vote, Award, CalendarDays, FileText, Bell, Shield, Settings, ClipboardList, UserCheck, Trophy, FolderOpen, ScrollText } from "lucide-react";
+import { Users, Vote, Award, CalendarDays, FileText, Bell, Shield, Settings, ClipboardList, UserCheck, Trophy, FolderOpen, ScrollText, UserPlus } from "lucide-react";
 import { API_BASE_URL } from "@/api-production/api.js";
+import { getAuthToken } from "@/lib/authToken";
 
 
 const AdminDashboard = () => {
@@ -31,6 +32,7 @@ const AdminDashboard = () => {
   ];
 
   const quickActions = [
+    { label: "Add admin", href: "/admin/settings#administrators", icon: UserPlus },
     { label: "Add Notice", href: "/admin/notices", icon: FileText },
     { label: "Add Event", href: "/admin/events", icon: CalendarDays },
     { label: "Add Achievement", href: "/admin/achievements", icon: Award },
@@ -49,11 +51,11 @@ const AdminDashboard = () => {
     { icon: FileText, label: "Notices", href: "/admin/notices", desc: "Manage notices" },
     { icon: FolderOpen, label: "Documents", href: "/admin/documents", desc: "File management" },
     { icon: ScrollText, label: "Audit Logs", href: "/admin/audit-logs", desc: "Activity history" },
-    { icon: Settings, label: "Settings", href: "/admin/settings", desc: "System config" },
+    { icon: Settings, label: "Settings", href: "/admin/settings#administrators", desc: "Add admins & system config" },
   ];
 
   const runCloudinaryCleanup = async (apply: boolean) => {
-    const token = localStorage.getItem("hpc_auth_token");
+    const token = getAuthToken();
     setCleanupLoading(true);
     setCleanupError(null);
     try {

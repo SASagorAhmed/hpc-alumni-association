@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useSyncedQueryState } from "@/hooks/useSyncedQueryState";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -31,8 +32,8 @@ function downloadBase64File(dataUrl: string, fileName: string) {
 
 const Documents = () => {
   const { documents, loading } = useDocuments(false);
-  const [search, setSearch] = useState("");
-  const [catFilter, setCatFilter] = useState("all");
+  const [search, setSearch] = useSyncedQueryState("q", "");
+  const [catFilter, setCatFilter] = useSyncedQueryState("cat", "all");
   const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
   const [imageZoom, setImageZoom] = useState(1);

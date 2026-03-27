@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Bell, Pin, AlertTriangle, FileText, Megaphone, Info, ChevronRight } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAdminNotificationRoutes } from "@/contexts/AdminViewAsAlumniContext";
 import { API_BASE_URL } from "@/api-production/api.js";
 
 interface Notice {
@@ -44,7 +45,7 @@ const NotificationDropdown = ({ compact }: NotificationDropdownProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { user } = useAuth();
-  const isAdmin = user?.role === "admin";
+  const isAdmin = useAdminNotificationRoutes(user);
 
   const getLastSeen = () => {
     const stored = localStorage.getItem(LAST_SEEN_KEY);

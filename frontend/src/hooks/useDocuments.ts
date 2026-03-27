@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import { API_BASE_URL } from "@/api-production/api.js";
+import { getAuthToken } from "@/lib/authToken";
 
 export interface Document {
   id: string;
@@ -37,7 +38,7 @@ export function useDocuments(adminMode = false) {
   const fetchDocuments = useCallback(async () => {
     setLoading(true);
     if (adminMode) {
-      const token = localStorage.getItem("hpc_auth_token");
+      const token = getAuthToken();
       if (!token) {
         toast.error("Not authenticated");
         setDocuments([]);

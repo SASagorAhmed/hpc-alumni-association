@@ -114,6 +114,7 @@ const Register = () => {
     if (!form.gender) e.gender = "Please select gender";
     if (form.gender === "Male" && !photoFile) e.photo = "Profile picture is required for Male";
     if (!form.university.trim()) e.university = "University is required";
+    if (!form.profession.trim()) e.profession = "Profession is required";
     if (!form.bloodGroup) e.bloodGroup = "Blood group is required";
     const fb = form.facebook.trim();
     const ig = form.instagram.trim();
@@ -163,9 +164,14 @@ const Register = () => {
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center p-4 py-10"
+      className="relative min-h-screen flex items-center justify-center p-4 py-10"
       style={{ background: "linear-gradient(135deg, #065F46, #059669, #064E3B)" }}
     >
+      <div className="absolute top-4 left-4 z-10">
+        <Link to="/" className="inline-flex items-center gap-1 text-sm text-white/80 hover:text-amber-300 transition-colors">
+          ← Back to Home
+        </Link>
+      </div>
       <div className="w-full max-w-3xl">
         <div className="text-center mb-6">
           <Link to="/" className="inline-flex items-center gap-3">
@@ -352,8 +358,9 @@ const Register = () => {
                     <Input id="company" maxLength={100} value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="profession">Profession / Industry</Label>
+                    <Label htmlFor="profession">Profession / Industry *</Label>
                     <Input id="profession" placeholder="e.g. Teaching" maxLength={100} value={form.profession} onChange={(e) => setForm({ ...form, profession: e.target.value })} />
+                    {errors.profession && <p className="text-xs text-destructive">{errors.profession}</p>}
                   </div>
                 </div>
               </div>

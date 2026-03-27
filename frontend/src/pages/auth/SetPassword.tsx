@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { API_BASE_URL } from "@/api-production/api.js";
+import { getAuthToken } from "@/lib/authToken";
 
 const SetPassword = () => {
   const navigate = useNavigate();
@@ -22,12 +23,13 @@ const SetPassword = () => {
       toast.error("Passwords do not match.");
       return;
     }
-    const token = localStorage.getItem("hpc_auth_token");
+    const token = getAuthToken();
     if (!token) {
       toast.error("Please log in again.");
       navigate("/login");
       return;
-    }    setLoading(true);
+    }
+    setLoading(true);
     const res = await fetch(`${API_BASE_URL}/api/auth/set-password`, {
       method: "POST",
       headers: {

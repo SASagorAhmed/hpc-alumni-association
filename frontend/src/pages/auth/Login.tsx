@@ -9,6 +9,34 @@ import { toast } from "sonner";
 import { LogIn, Eye, EyeOff } from "lucide-react";
 import hpcLogo from "@/assets/hpc-logo.png";
 import { API_BASE_URL } from "@/api-production/api.js";
+import { Checkbox } from "@/components/ui/checkbox";
+import { clearAuthToken, setAuthToken } from "@/lib/authToken";
+
+/** Written before Google redirect; read when OAuth returns (same tab). */
+const OAUTH_REMEMBER_KEY = "hpc_oauth_remember_me";
+
+function GoogleMark({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" aria-hidden focusable="false">
+      <path
+        fill="#4285F4"
+        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+      />
+    </svg>
+  );
+}
 
 const Login = () => {
   const { login } = useAuth();
@@ -16,6 +44,7 @@ const Login = () => {
   const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [form, setForm] = useState({ email: "", password: "" });
 
   useEffect(() => {
@@ -51,7 +80,10 @@ const Login = () => {
         return;
       }
 
-      localStorage.setItem("hpc_auth_token", jwt);
+      const oauthRemember = sessionStorage.getItem(OAUTH_REMEMBER_KEY);
+      sessionStorage.removeItem(OAUTH_REMEMBER_KEY);
+      const remember = oauthRemember !== "0";
+      setAuthToken(jwt, remember);
 
       // Prefer deterministic routing from backend flags.
       const isBlocked = searchParams.get("blocked") === "1";
@@ -60,7 +92,7 @@ const Login = () => {
       const needsPasswordSetup = searchParams.get("needs_password_setup") === "1";
 
       if (isBlocked) {
-        localStorage.removeItem("hpc_auth_token");
+        clearAuthToken();
         toast.error("Your account is blocked. Please contact administration.");
         return;
       }
@@ -89,13 +121,13 @@ const Login = () => {
       const user = body?.user || {};
 
       if (!res.ok || !user?.id) {
-        localStorage.removeItem("hpc_auth_token");
+        clearAuthToken();
         toast.error("Google login failed. Please try again.");
         return;
       }
 
       if (user.blocked) {
-        localStorage.removeItem("hpc_auth_token");
+        clearAuthToken();
         toast.error("Your account is blocked. Please contact administration.");
         return;
       }
@@ -127,7 +159,7 @@ const Login = () => {
     }
 
     void completeGoogleLogin().catch(() => {
-      localStorage.removeItem("hpc_auth_token");
+      clearAuthToken();
       toast.error("Google login failed. Please try again.");
     });
   }, [searchParams]);
@@ -139,7 +171,7 @@ const Login = () => {
       return;
     }
     setLoading(true);
-    const result = await login(form.email, form.password);
+    const result = await login(form.email, form.password, rememberMe);
     setLoading(false);
     if (result.success) {
       toast.success(result.message);
@@ -194,6 +226,21 @@ const Login = () => {
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
+                <div className="flex items-center justify-between gap-3 pt-1">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="remember-me"
+                      checked={rememberMe}
+                      onCheckedChange={(v) => setRememberMe(v === true)}
+                    />
+                    <Label htmlFor="remember-me" className="text-sm font-normal cursor-pointer leading-none">
+                      Remember me
+                    </Label>
+                  </div>
+                  <Link to="/forgot-password" className="text-sm text-primary font-medium hover:underline shrink-0">
+                    Forgot password?
+                  </Link>
+                </div>
               </div>
               <Button type="submit" size="lg" className="w-full bg-gradient-hpc hover:opacity-90 text-primary-foreground font-semibold" disabled={loading}>
                 {loading ? "Please wait..." : "Login"}
@@ -205,9 +252,15 @@ const Login = () => {
                 variant="outline"
                 className="w-full"
                 onClick={() => {
+                  try {
+                    sessionStorage.setItem(OAUTH_REMEMBER_KEY, rememberMe ? "1" : "0");
+                  } catch {
+                    /* ignore */
+                  }
                   window.location.href = `${API_BASE_URL}/api/auth/google`;
                 }}
               >
+                <GoogleMark />
                 Continue with Google
               </Button>
 

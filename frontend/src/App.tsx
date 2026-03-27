@@ -4,9 +4,11 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { AdminViewAsAlumniProvider } from "@/contexts/AdminViewAsAlumniContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { ThemeToggleFixedFallback } from "@/components/ThemeToggleFixedFallback";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import { ScrollToTopOnRouteChange } from "@/components/ScrollToTopOnRouteChange";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import Index from "./pages/Index.tsx";
 import MemberDetail from "./pages/MemberDetail.tsx";
@@ -18,6 +20,8 @@ import Login from "./pages/auth/Login.tsx";
 import AdminLogin from "./pages/auth/AdminLogin.tsx";
 import VerifyOTP from "./pages/auth/VerifyOTP.tsx";
 import SetPassword from "./pages/auth/SetPassword.tsx";
+import ForgotPassword from "./pages/auth/ForgotPassword.tsx";
+import ResetPassword from "./pages/auth/ResetPassword.tsx";
 import PendingVerification from "./pages/auth/PendingVerification.tsx";
 import AlumniDashboard from "./pages/dashboard/AlumniDashboard.tsx";
 import AdminDashboard from "./pages/dashboard/AdminDashboard.tsx";
@@ -60,8 +64,10 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <BrowserRouter>
+        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <ScrollToTopOnRouteChange />
           <AuthProvider>
+            <AdminViewAsAlumniProvider>
             <ThemeToggleFixedFallback />
             <Routes>
               {/* Public */}
@@ -71,6 +77,8 @@ const App = () => (
               <Route path="/committee/member/:id" element={<CommitteeMemberProfile />} />
               <Route path="/register" element={<Register />} />
               <Route path="/login" element={<Login />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/admin/login" element={<AdminLogin />} />
               <Route path="/verify-otp" element={<VerifyOTP />} />
               <Route element={<ProtectedRoute />}>
@@ -131,6 +139,7 @@ const App = () => (
               {/* Catch-all */}
               <Route path="*" element={<NotFound />} />
             </Routes>
+            </AdminViewAsAlumniProvider>
           </AuthProvider>
         </BrowserRouter>
       </TooltipProvider>

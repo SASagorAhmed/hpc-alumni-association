@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { API_BASE_URL } from "@/api-production/api.js";
+import { getAuthToken } from "@/lib/authToken";
 
 export interface Notice {
   id: string;
@@ -61,7 +62,7 @@ export function useNotices(publishedOnly = false) {
 
   const fetchNotices = useCallback(async () => {
     setLoading(true);
-    const token = localStorage.getItem("hpc_auth_token");
+    const token = getAuthToken();
     const res = await fetch(
       publishedOnly ? `${API_BASE_URL}/api/public/notices?limit=200` : `${API_BASE_URL}/api/admin/notices`,
       {
@@ -89,7 +90,7 @@ export function useNotices(publishedOnly = false) {
   }, [fetchNotices]);
 
   const createNotice = async (form: NoticeFormData) => {
-    const token = localStorage.getItem("hpc_auth_token");
+    const token = getAuthToken();
     let attachment_url: string | null = null;
     let attachment_type: string | null = null;
     let image_url: string | null = null;
@@ -143,7 +144,7 @@ export function useNotices(publishedOnly = false) {
   };
 
   const updateNotice = async (id: string, form: NoticeFormData) => {
-    const token = localStorage.getItem("hpc_auth_token");
+    const token = getAuthToken();
     const updates: Record<string, unknown> = {
       title: form.title,
       content: form.content || null,
@@ -193,7 +194,7 @@ export function useNotices(publishedOnly = false) {
   };
 
   const deleteNotice = async (id: string) => {
-    const token = localStorage.getItem("hpc_auth_token");
+    const token = getAuthToken();
     const res = await fetch(`${API_BASE_URL}/api/admin/notices/${id}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` },
@@ -208,7 +209,7 @@ export function useNotices(publishedOnly = false) {
   };
 
   const togglePublish = async (id: string, published: boolean) => {
-    const token = localStorage.getItem("hpc_auth_token");
+    const token = getAuthToken();
     const res = await fetch(`${API_BASE_URL}/api/admin/notices/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -222,7 +223,7 @@ export function useNotices(publishedOnly = false) {
   };
 
   const togglePin = async (id: string, pinned: boolean) => {
-    const token = localStorage.getItem("hpc_auth_token");
+    const token = getAuthToken();
     const res = await fetch(`${API_BASE_URL}/api/admin/notices/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },

@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { API_BASE_URL } from "@/api-production/api.js";
+import { getAuthToken, setAuthToken, clearAuthToken } from "@/lib/authToken";
 
 export type UserRole = "alumni" | "admin";
 
@@ -39,8 +40,12 @@ export interface User {
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; message: string; needsOtp?: boolean }>;
-  adminLogin: (email: string, password: string) => Promise<{ success: boolean; message: string }>;
+  login: (
+    email: string,
+    password: string,
+    rememberMe?: boolean
+  ) => Promise<{ success: boolean; message: string; needsOtp?: boolean }>;
+  adminLogin: (email: string, password: string, rememberMe?: boolean) => Promise<{ success: boolean; message: string }>;
   register: (data: RegisterData) => Promise<{ success: boolean; message: string }>;
   verifyOtp: (otp: string) => Promise<{ success: boolean; message: string }>;
   logout: () => void;
@@ -70,8 +75,6 @@ interface RegisterData {
   linkedin: string;
 }
 
-const TOKEN_STORAGE_KEY = "hpc_auth_token";
-
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
@@ -82,7 +85,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const bootstrap = async () => {
       setIsLoading(true);
       try {
-        const token = localStorage.getItem(TOKEN_STORAGE_KEY);
+        const token = getAuthToken();
         if (!token) {
           setUser(null);
           return;
@@ -96,7 +99,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         });
 
         if (!res.ok) {
-          localStorage.removeItem(TOKEN_STORAGE_KEY);
+          clearAuthToken();
           setUser(null);
           return;
         }
@@ -105,7 +108,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const u = data?.user as User | undefined;
         setUser(u || null);
       } catch (_e) {
-        localStorage.removeItem(TOKEN_STORAGE_KEY);
+        clearAuthToken();
         setUser(null);
       } finally {
         setIsLoading(false);
@@ -152,11 +155,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return { success: false, message: "Please check your email and click the verification link." };
   };
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string, rememberMe = true) => {
     const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, rememberMe }),
     });
 
     const body = await res.json().catch(() => ({}));
@@ -166,16 +169,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const u = body?.user as User | undefined;
     if (!token || !u) return { success: false, message: "Login failed." };
 
-    localStorage.setItem(TOKEN_STORAGE_KEY, token);
+    setAuthToken(token, rememberMe);
     setUser(u);
     return { success: true, message: "Login successful!" };
   };
 
-  const adminLogin = async (email: string, password: string) => {
+  const adminLogin = async (email: string, password: string, rememberMe = true) => {
     const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, rememberMe }),
     });
 
     const body = await res.json().catch(() => ({}));
@@ -186,24 +189,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (!token || !u) return { success: false, message: "Login failed." };
 
     if (u.role !== "admin") {
-      localStorage.removeItem(TOKEN_STORAGE_KEY);
+      clearAuthToken();
       setUser(null);
       return { success: false, message: "You do not have admin access." };
     }
 
-    localStorage.setItem(TOKEN_STORAGE_KEY, token);
+    setAuthToken(token, rememberMe);
     setUser(u);
     return { success: true, message: "Admin login successful!" };
   };
 
   const logout = async () => {
     setUser(null);
-    localStorage.removeItem(TOKEN_STORAGE_KEY);
+    clearAuthToken();
   };
 
   const updateProfile = async (data: Partial<User>) => {
     if (!user) return { success: false, message: "Please log in." };
-    const token = localStorage.getItem(TOKEN_STORAGE_KEY);
+    const token = getAuthToken();
     if (!token) return { success: false, message: "Please log in." };
 
     const res = await fetch(`${API_BASE_URL}/api/auth/profile`, {

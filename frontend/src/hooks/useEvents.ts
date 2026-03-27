@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { API_BASE_URL } from "@/api-production/api.js";
+import { getAuthToken } from "@/lib/authToken";
 
 export interface EventRow {
   id: string;
@@ -36,7 +37,7 @@ export function useAllEvents() {
   return useQuery({
     queryKey: ["events", "all"],
     queryFn: async () => {
-      const token = localStorage.getItem("hpc_auth_token");
+      const token = getAuthToken();
       const res = await fetch(`${API_BASE_URL}/api/admin/events`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -76,7 +77,7 @@ export function useCreateEvent() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: EventInput) => {
-      const token = localStorage.getItem("hpc_auth_token");
+      const token = getAuthToken();
       const res = await fetch(`${API_BASE_URL}/api/admin/events`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -99,7 +100,7 @@ export function useUpdateEvent() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, ...input }: EventInput & { id: string }) => {
-      const token = localStorage.getItem("hpc_auth_token");
+      const token = getAuthToken();
       const res = await fetch(`${API_BASE_URL}/api/admin/events/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -123,7 +124,7 @@ export function useDeleteEvent() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const token = localStorage.getItem("hpc_auth_token");
+      const token = getAuthToken();
       const res = await fetch(`${API_BASE_URL}/api/admin/events/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
@@ -142,7 +143,7 @@ export function useAutoCreateNotice() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (event: { title: string; description?: string; event_date?: string }) => {
-      const token = localStorage.getItem("hpc_auth_token");
+      const token = getAuthToken();
       const content = [
         event.description || "",
         event.event_date ? `📅 Date: ${new Date(event.event_date).toLocaleDateString()}` : "",

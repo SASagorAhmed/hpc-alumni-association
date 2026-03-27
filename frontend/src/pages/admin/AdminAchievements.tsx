@@ -18,6 +18,7 @@ import { AchievementPhotoCropDialog } from "@/components/admin/AchievementPhotoC
 import { BANNER_DEFAULT_PHOTO_TAGLINE } from "@/constants/bannerCopy";
 import { BANNER_MAX_WORDS, clampToWordLimit, countWords } from "@/lib/bannerWordLimit";
 import { API_BASE_URL } from "@/api-production/api.js";
+import { getAuthToken } from "@/lib/authToken";
 
 interface Achievement {
   id: string;
@@ -81,7 +82,7 @@ const AdminAchievements = () => {
   const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
   const cropObjectUrlRef = React.useRef<string | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
-  const token = localStorage.getItem("hpc_auth_token");
+  const token = getAuthToken();
 
   const revokeCropPreview = React.useCallback(() => {
     if (cropObjectUrlRef.current) {

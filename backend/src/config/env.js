@@ -20,7 +20,12 @@ const env = {
 
   jwt: {
     secret: process.env.JWT_SECRET || "change_me",
+    /** Default when signJwt is called without rememberMe (e.g. legacy callers). */
     expiresIn: process.env.JWT_EXPIRES_IN || "7d",
+    /** Short-lived JWT when the user does not check "Remember me". */
+    expiresInSession: process.env.JWT_EXPIRES_IN_SESSION || "1d",
+    /** Long-lived JWT when "Remember me" is checked (or OAuth). */
+    expiresInRemember: process.env.JWT_EXPIRES_IN_REMEMBER || "30d",
   },
 
   smtp: {

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { API_BASE_URL } from "@/api-production/api.js";
+import { getAuthToken } from "@/lib/authToken";
 
 export type LandingContent = Record<string, Record<string, any>>;
 
@@ -24,7 +25,7 @@ export const useSaveLandingContent = () => {
 
   return useMutation({
     mutationFn: async ({ sectionKey, content }: { sectionKey: string; content: Record<string, any> }) => {
-      const token = localStorage.getItem("hpc_auth_token");
+      const token = getAuthToken();
       const res = await fetch(`${API_BASE_URL}/api/admin/landing-content/${sectionKey}`, {
         method: "PUT",
         headers: {
@@ -51,7 +52,7 @@ export const useDeleteLandingContent = () => {
 
   return useMutation({
     mutationFn: async (sectionKey: string) => {
-      const token = localStorage.getItem("hpc_auth_token");
+      const token = getAuthToken();
       const res = await fetch(`${API_BASE_URL}/api/admin/landing-content/${sectionKey}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },

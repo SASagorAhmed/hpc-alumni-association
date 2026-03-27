@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSyncedQueryState } from "@/hooks/useSyncedQueryState";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,8 +23,8 @@ export default function AdminNotices() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editNotice, setEditNotice] = useState<Notice | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState("all");
+  const [search, setSearch] = useSyncedQueryState("q", "");
+  const [typeFilter, setTypeFilter] = useSyncedQueryState("type", "all");
 
   const filtered = notices.filter((n) => {
     const matchSearch = n.title.toLowerCase().includes(search.toLowerCase());

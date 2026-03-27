@@ -138,7 +138,7 @@ function configureGooglePassport() {
       async (req, accessToken, refreshToken, _params, profile, done) => {
         try {
           const result = await findOrCreateUserFromGoogle(profile);
-          const token = signJwt(result.userId);
+          const token = signJwt(result.userId, { rememberMe: true });
           return done(null, { ...result, token });
         } catch (e) {
           return done(e);
