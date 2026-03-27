@@ -7,6 +7,7 @@ const passport = require("passport");
 const env = require("./config/env");
 const { getOrCreatePool } = require("./db/pool");
 const { ensureCommitteePostsBoardSectionColumn } = require("./utils/ensureCommitteePostsBoardSection");
+const { renameCommitteeSecretaryPostTitles } = require("./utils/renameCommitteeSecretaryPostTitles");
 const { healthRoute } = require("./routes/health");
 const authRoutes = require("./routes/auth");
 const { configureGooglePassport } = require("./auth/google");
@@ -100,8 +101,12 @@ app.use((err, req, res, next) => {
 
 // Vercel / serverless: server.js may not run — add missing columns on app load (idempotent).
 setImmediate(() => {
-  ensureCommitteePostsBoardSectionColumn(getOrCreatePool()).catch((e) =>
+  const pool = getOrCreatePool();
+  ensureCommitteePostsBoardSectionColumn(pool).catch((e) =>
     console.warn("[app] committee_posts.board_section ensure:", e.message || e)
+  );
+  renameCommitteeSecretaryPostTitles(pool).catch((e) =>
+    console.warn("[app] committee_posts secretary title rename:", e.message || e)
   );
 });
 

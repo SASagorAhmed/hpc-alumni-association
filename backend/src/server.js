@@ -2,6 +2,7 @@ const app = require("./app");
 const env = require("./config/env");
 const { getOrCreatePool } = require("./db/pool");
 const { ensureCommitteePostsBoardSectionColumn } = require("./utils/ensureCommitteePostsBoardSection");
+const { renameCommitteeSecretaryPostTitles } = require("./utils/renameCommitteeSecretaryPostTitles");
 const cloudinary = require("./config/cloudinary");
 const nodemailer = require("nodemailer");
 
@@ -19,6 +20,9 @@ async function printStartupConnectionStatus() {
         console.log("[startup] MySQL(Aiven): CONNECTED");
         await ensureCommitteePostsBoardSectionColumn(pool).catch((err) =>
           console.warn("[startup] committee_posts.board_section ensure:", err.message || err)
+        );
+        await renameCommitteeSecretaryPostTitles(pool).catch((err) =>
+          console.warn("[startup] committee_posts secretary title rename:", err.message || err)
         );
       } else {
         console.warn("[startup] MySQL(Aiven): NOT CONNECTED");

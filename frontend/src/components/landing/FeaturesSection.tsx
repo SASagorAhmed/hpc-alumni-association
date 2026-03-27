@@ -41,7 +41,7 @@ const categories: Category[] = [
   {
     name: "Organization", icon: UsersRound, gradient: "from-green-600 to-emerald-700", iconBg: "bg-green-100 text-green-700",
     modules: [
-      { title: "Committee Management", description: "Create terms, assign posts (President, Secretary, etc.), manage members with photos and serial.", icon: UsersRound },
+      { title: "Committee Management", description: "Create terms, assign posts (President, মহাসচিব, etc.), manage members with photos and serial.", icon: UsersRound },
       { title: "User Management", description: "Approve, reject, block, unblock users. Promote to admin. View pending/verified/blocked lists.", icon: UserCog },
       { title: "Permissions & Approvals", description: "Content publishing control, profile edit approvals, visibility rules for all modules.", icon: ShieldAlert },
     ],

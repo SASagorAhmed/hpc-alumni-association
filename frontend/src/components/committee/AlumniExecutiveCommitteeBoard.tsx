@@ -685,7 +685,7 @@ export function MobilePresidentCard({ member, roleLabel }: { member: DBMember; r
           </h3>
 
           <span
-            className="inline-flex max-w-full min-w-0 items-center break-words rounded-full border px-3 py-1 text-sm font-semibold [overflow-wrap:anywhere]"
+            className="inline-flex w-fit max-w-full min-w-0 shrink-0 self-start items-center break-words rounded-full border px-3 py-1 text-base font-semibold [overflow-wrap:anywhere]"
             style={{
               backgroundColor: "rgba(251, 146, 60, 0.25)",
               borderColor: "rgba(253, 224, 71, 0.65)",
@@ -831,7 +831,7 @@ export function MobileMemberCard({
             {member.name}
           </h3>
           <span
-            className="inline-flex max-w-full min-w-0 items-center break-words rounded-full border px-2.5 py-0.5 text-xs font-semibold [overflow-wrap:anywhere]"
+            className="inline-flex w-fit max-w-full min-w-0 shrink-0 self-start items-center break-words rounded-full border px-2.5 py-0.5 text-xs font-semibold [overflow-wrap:anywhere]"
             style={{
               backgroundColor: "rgba(251, 146, 60, 0.25)",
               borderColor: "rgba(253, 224, 71, 0.65)",

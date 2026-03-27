@@ -22,7 +22,7 @@ export const officers: Member[] = [
   { id: 3, designation: "Vice President", name: "Zakir Ahmed Khan", batch: "5th", institution: "IBA, DU", jobStatus: "Entrepreneur", about: "Building bridges between alumni and industry with strategic partnerships.", location: "Dhaka", expertise: "Business & Entrepreneurship" },
   { id: 4, designation: "Vice President", name: "Nahid Hasan Litu", batch: "6th", institution: "NSU", jobStatus: "Marketing Manager", about: "Passionate about community building and alumni engagement programs.", location: "Dhaka", expertise: "Marketing & Branding" },
   { id: 5, designation: "Vice President", name: "Nahid Hasan Litu", batch: "6th", institution: "BRAC University", jobStatus: "Data Analyst", about: "Data-driven approach to alumni engagement and program evaluation.", location: "Dhaka", expertise: "Data Analytics" },
-  { id: 6, designation: "Secretary", name: "Taufiqul Islam", batch: "9th", institution: "Dhaka College", jobStatus: "Admin Officer", about: "Organizing and coordinating all alumni events and official communications.", location: "Dhaka", expertise: "Administration" },
+  { id: 6, designation: "মহাসচিব", name: "Taufiqul Islam", batch: "9th", institution: "Dhaka College", jobStatus: "Admin Officer", about: "Organizing and coordinating all alumni events and official communications.", location: "Dhaka", expertise: "Administration" },
   { id: 7, designation: "Treasurer", name: "Rashidul Bari", batch: "9th", institution: "Jagannath University", jobStatus: "Chartered Accountant", about: "Managing alumni finances with full transparency and accountability.", location: "Dhaka", expertise: "Finance & Accounting" },
 ];
 

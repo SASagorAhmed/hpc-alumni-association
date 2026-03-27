@@ -22,7 +22,7 @@ export const BOARD_SECTION_LABELS: Record<BoardSectionKey, { title: string; subt
 
 /** Admin / forms */
 export const BOARD_SECTION_OPTIONS: { value: BoardSectionKey; label: string }[] = [
-  { value: "governing_body", label: "Governing Body (সভাপতি, সেক্রেটারি, …)" },
+  { value: "governing_body", label: "Governing Body (সভাপতি, মহাসচিব, …)" },
   { value: "executive_committee", label: "Executive Committee" },
   { value: "committee_heads", label: "Committee Heads" },
   { value: "committee_members", label: "Committee Members (নির্বাহী সদস্য)" },
@@ -41,7 +41,9 @@ export function inferBoardSectionFromTitle(postTitle: string | null | undefined)
 
   const governing = new Set([
     "সভাপতি",
+    "মহাসচিব",
     "সেক্রেটারি",
+    "সাধারণ সম্পাদক / মহাসচিব",
     "সাধারণ সম্পাদক / সেক্রেটারি",
     "সাধারণ সম্পাদক",
     "কোষাধ্যক্ষ",

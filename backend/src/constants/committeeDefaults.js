@@ -16,7 +16,7 @@ const BOARD_SECTION = {
 const DEFAULT_COMMITTEE_POSTS = [
   // Governing Body
   { title: "সভাপতি", allows_multiple: false, is_highlight: true, board_section: BOARD_SECTION.GOVERNING_BODY },
-  { title: "সেক্রেটারি", allows_multiple: false, is_highlight: false, board_section: BOARD_SECTION.GOVERNING_BODY },
+  { title: "মহাসচিব", allows_multiple: false, is_highlight: false, board_section: BOARD_SECTION.GOVERNING_BODY },
   { title: "কোষাধ্যক্ষ", allows_multiple: false, is_highlight: false, board_section: BOARD_SECTION.GOVERNING_BODY },
   // Executive Committee
   { title: "সহ-সভাপতি", allows_multiple: true, is_highlight: false, board_section: BOARD_SECTION.EXECUTIVE_COMMITTEE },
