@@ -22,6 +22,11 @@ const adminCommitteeModuleRoutes = require("./routes/adminCommitteeModule");
 
 const app = express();
 
+// So req.protocol / req.ip match the client when behind nginx, Railway, Vercel, Cloudflare, etc.
+if (env.nodeEnv === "production" || String(process.env.TRUST_PROXY || "").toLowerCase() === "1") {
+  app.set("trust proxy", 1);
+}
+
 if (env.nodeEnv === "production") {
   const secret = String(env.jwt.secret || "");
   if (!secret || secret === "change_me" || secret.length < 32) {
@@ -32,10 +37,7 @@ if (env.nodeEnv === "production") {
   }
 }
 
-const allowedOrigins = String(env.frontendOrigin || "")
-  .split(",")
-  .map((v) => v.trim().replace(/\/$/, ""))
-  .filter(Boolean);
+const allowedOrigins = env.frontendOrigins?.length ? env.frontendOrigins : [env.frontendRedirectOrigin].filter(Boolean);
 
 const vercelAppOriginPattern = /^https:\/\/[a-z0-9-]+\.vercel\.app$/i;
 

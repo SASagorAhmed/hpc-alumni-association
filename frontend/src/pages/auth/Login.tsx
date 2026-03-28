@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { LogIn, Eye, EyeOff } from "lucide-react";
+import { LogIn, Eye, EyeOff, CheckCircle2, Info } from "lucide-react";
 import hpcLogo from "@/assets/hpc-logo.png";
 import { API_BASE_URL } from "@/api-production/api.js";
 import { Checkbox } from "@/components/ui/checkbox";
 import { clearAuthToken, setAuthToken } from "@/lib/authToken";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 /** Written before Google redirect; read when OAuth returns (same tab). */
 const OAUTH_REMEMBER_KEY = "hpc_oauth_remember_me";
@@ -46,6 +47,22 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [form, setForm] = useState({ email: "", password: "" });
+  const [emailVerifyBanner, setEmailVerifyBanner] = useState<"verified" | "already_verified" | null>(null);
+
+  useEffect(() => {
+    const verified = searchParams.get("verified") === "1";
+    const alreadyVerified = searchParams.get("already_verified") === "1";
+    if (!verified && !alreadyVerified) return;
+
+    if (verified) setEmailVerifyBanner("verified");
+    if (alreadyVerified) setEmailVerifyBanner("already_verified");
+
+    const p = new URLSearchParams(searchParams);
+    p.delete("verified");
+    p.delete("already_verified");
+    const q = p.toString();
+    navigate(q ? `/login?${q}` : "/login", { replace: true });
+  }, [searchParams, navigate]);
 
   useEffect(() => {
     const googleTokenMissing = searchParams.get("google_token_missing") === "1";
@@ -213,15 +230,47 @@ const Login = () => {
             <CardDescription>Sign in to your alumni account</CardDescription>
           </CardHeader>
           <CardContent>
+            {emailVerifyBanner === "verified" ? (
+              <Alert className="mb-4 border-emerald-200 bg-emerald-50 text-emerald-950 dark:border-emerald-800 dark:bg-emerald-950/35 dark:text-emerald-50">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" aria-hidden />
+                <AlertTitle>Email verified</AlertTitle>
+                <AlertDescription className="text-emerald-900/90 dark:text-emerald-100/90">
+                  Your email address has been confirmed. Please sign in with the email and password you registered with to continue.
+                </AlertDescription>
+              </Alert>
+            ) : null}
+            {emailVerifyBanner === "already_verified" ? (
+              <Alert className="mb-4 border-sky-200 bg-sky-50 text-sky-950 dark:border-sky-800 dark:bg-sky-950/35 dark:text-sky-50">
+                <Info className="h-4 w-4 text-sky-600 dark:text-sky-400" aria-hidden />
+                <AlertTitle>Already verified</AlertTitle>
+                <AlertDescription className="text-sky-900/90 dark:text-sky-100/90">
+                  This link was already used and your email is verified. Sign in below—no need to verify again.
+                </AlertDescription>
+              </Alert>
+            ) : null}
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-1.5">
                 <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" placeholder="example@mail.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+                <Input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  placeholder="example@mail.com"
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="password">Password</Label>
                 <div className="relative">
-                  <Input id="password" type={showPassword ? "text" : "password"} placeholder="Your password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    autoComplete="current-password"
+                    placeholder="Your password"
+                    value={form.password}
+                    onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  />
                   <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={() => setShowPassword(!showPassword)}>
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>

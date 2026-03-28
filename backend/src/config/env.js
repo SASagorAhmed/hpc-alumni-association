@@ -1,9 +1,26 @@
 require("dotenv").config();
 
+const rawFrontend = String(process.env.FRONTEND_ORIGIN || "http://localhost:8080").trim();
+const frontendOrigins = rawFrontend
+  .split(",")
+  .map((v) => v.trim().replace(/\/$/, ""))
+  .filter(Boolean);
+/** First origin only — used for email-verification redirects (comma-separated FRONTEND_ORIGIN breaks URLs if used whole). */
+const frontendRedirectOrigin = frontendOrigins[0] || "http://localhost:8080";
+
 const env = {
   nodeEnv: process.env.NODE_ENV || "development",
   port: Number(process.env.PORT || 8081),
-  frontendOrigin: String(process.env.FRONTEND_ORIGIN || "http://localhost:8080").trim().replace(/\/$/, ""),
+  /** @deprecated Prefer frontendRedirectOrigin / frontendOrigins; kept as primary origin for redirects */
+  frontendOrigin: frontendRedirectOrigin,
+  frontendOrigins,
+  frontendRedirectOrigin,
+  /**
+   * Public base URL of this API (no trailing slash), e.g. https://api.yourdomain.com
+   * Used in verification emails so links work behind proxies and custom domains.
+   * Falls back to request Host at send time if unset.
+   */
+  publicApiUrl: String(process.env.PUBLIC_API_URL || process.env.API_PUBLIC_URL || "").trim().replace(/\/$/, ""),
 
   db: {
     host: process.env.DB_HOST,

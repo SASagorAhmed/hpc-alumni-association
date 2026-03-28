@@ -13,6 +13,24 @@ const cloudinary = require("../config/cloudinary");
 const { getCloudinaryFolder } = require("../utils/uploadFolders");
 
 const router = express.Router();
+
+/** Base URL of this API for links inside emails (custom domain / reverse proxy safe). */
+function publicApiBaseUrlFromRequest(req) {
+  if (env.publicApiUrl) return env.publicApiUrl;
+  const rawProto = req.get("x-forwarded-proto") || req.protocol || "https";
+  const proto = String(rawProto).split(",")[0].trim().toLowerCase() || "https";
+  const rawHost = req.get("x-forwarded-host") || req.get("host") || "";
+  const host = String(rawHost).split(",")[0].trim();
+  if (!host) return "";
+  return `${proto}://${host}`;
+}
+
+function buildEmailVerificationLink(req, token) {
+  const base = publicApiBaseUrlFromRequest(req);
+  const path = `/api/auth/verify-email?token=${encodeURIComponent(token)}`;
+  return base ? `${base}${path}` : path;
+}
+
 const GOOGLE_OAUTH_COOKIE = "hpc_google_oauth_token";
 const GOOGLE_OAUTH_COOKIE_MAX_MS = 10 * 60 * 1000;
 
@@ -346,7 +364,7 @@ router.post("/register", registerLimiter, profileUpload.single("photo"), async (
       [verificationTokenId, userId, token, expiresAt]
     );
 
-    const verificationLink = `${req.protocol}://${req.get("host")}/api/auth/verify-email?token=${encodeURIComponent(token)}`;
+    const verificationLink = buildEmailVerificationLink(req, token);
     try {
       await sendVerificationEmail({ email: emailStr, verificationLink });
       return res.status(201).json({ ok: true, message: "Registration successful. Check your email for verification." });
@@ -373,42 +391,41 @@ router.post("/register", registerLimiter, profileUpload.single("photo"), async (
 
 // GET /api/auth/verify-email?token=...
 router.get("/verify-email", async (req, res) => {
+  const fe = env.frontendRedirectOrigin || env.frontendOrigin;
   try {
     const pool = getOrCreatePool();
-    if (!pool) return res.status(503).json({ ok: false, error: "MySQL not configured" });
+    if (!pool) {
+      return res.redirect(302, `${fe}/verify-otp?status=server_error`);
+    }
 
     const token = req.query.token ? String(req.query.token) : null;
     if (!token) {
-      return res.redirect(302, `${env.frontendOrigin}/verify-otp?status=missing_token`);
+      return res.redirect(302, `${fe}/verify-otp?status=missing_token`);
     }
 
-    const [tokenRows] = await pool.query(
-      `SELECT * FROM email_verification_tokens WHERE token = ? AND used_at IS NULL LIMIT 1`,
-      [token]
-    );
+    const [tokenRows] = await pool.query(`SELECT * FROM email_verification_tokens WHERE token = ? LIMIT 1`, [token]);
     const row = tokenRows?.[0];
+
+    if (row && row.used_at != null) {
+      return res.redirect(302, `${fe}/login?already_verified=1`);
+    }
     if (!row) {
-      return res.redirect(302, `${env.frontendOrigin}/verify-otp?status=invalid_or_used`);
+      return res.redirect(302, `${fe}/verify-otp?status=invalid_or_used`);
     }
 
     const expiresAt = row.expires_at ? new Date(row.expires_at) : null;
     if (!expiresAt || expiresAt.getTime() < Date.now()) {
-      return res.redirect(302, `${env.frontendOrigin}/verify-otp?status=expired`);
+      return res.redirect(302, `${fe}/verify-otp?status=expired`);
     }
 
-    // Mark verified
     await pool.query(`UPDATE users SET email_verified = true WHERE id = ?`, [row.user_id]);
     await pool.query(`UPDATE profiles SET verified = true WHERE id = ?`, [row.user_id]);
-    await pool.query(
-      `UPDATE email_verification_tokens SET used_at = NOW() WHERE id = ?`,
-      [row.id]
-    );
+    await pool.query(`UPDATE email_verification_tokens SET used_at = NOW() WHERE id = ?`, [row.id]);
 
-    // Redirect back to frontend login
-    const redirectUrl = `${env.frontendOrigin}/login`;
-    return res.redirect(302, redirectUrl);
+    return res.redirect(302, `${fe}/login?verified=1`);
   } catch (e) {
-    return res.status(500).json({ ok: false, error: e.message || "Verification failed" });
+    console.error("[auth] verify-email:", e?.message || e);
+    return res.redirect(302, `${fe}/verify-otp?status=server_error`);
   }
 });
 
@@ -440,7 +457,7 @@ router.post("/resend-verification", resendVerifyLimiter, async (req, res) => {
       [tokenId, user.id, token, expiresAt]
     );
 
-    const verificationLink = `${req.protocol}://${req.get("host")}/api/auth/verify-email?token=${encodeURIComponent(token)}`;
+    const verificationLink = buildEmailVerificationLink(req, token);
     await sendVerificationEmail({ email, verificationLink });
 
     return res.status(200).json({ ok: true, message: "Verification email sent. Please check your inbox." });

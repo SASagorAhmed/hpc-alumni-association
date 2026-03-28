@@ -67,6 +67,8 @@ const VerifyOTP = () => {
                   ? "This verification link is invalid or already used. Request a new one below."
                   : status === "expired"
                     ? "This verification link expired. Request a new one below."
+                    : status === "server_error"
+                      ? "We could not complete verification (server or database issue). Try again in a moment or use Resend below. If it keeps failing, confirm the site address with your administrator."
                     : "Verification link is missing or invalid. Request a new one below."}
               </div>
             ) : null}
