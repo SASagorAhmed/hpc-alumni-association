@@ -509,7 +509,14 @@ const AdminAchievements = () => {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            {a.photo_url && <img src={a.photo_url} alt="" className="w-8 h-8 rounded-full object-cover" />}
+                            {a.photo_url ? (
+                              <div
+                                className="relative h-9 w-auto shrink-0 overflow-hidden rounded-md border border-border sm:h-10"
+                                style={{ aspectRatio: ACHIEVEMENT_BANNER_ASPECT_STYLE }}
+                              >
+                                <img src={a.photo_url} alt="" className="h-full w-full object-cover object-center" />
+                              </div>
+                            ) : null}
                             <div>
                               <span className="font-medium text-sm">{a.name}</span>
                               {a.batch && <span className="text-xs text-muted-foreground ml-1">({a.batch})</span>}
@@ -714,13 +721,17 @@ const AdminAchievements = () => {
                 <Label>Photo</Label>
                 <div className="flex items-center gap-3">
                   {form.photo_url ? (
-                    <div className="relative">
-                      <img
-                        src={form.photo_url}
-                        alt="Preview"
-                        className="h-14 w-[89px] rounded-md border border-border object-cover sm:h-16 sm:w-[102px]"
+                    <div className="relative shrink-0">
+                      <div
+                        className="relative w-36 max-w-[42vw] overflow-hidden rounded-md border border-border sm:w-44"
                         style={{ aspectRatio: ACHIEVEMENT_BANNER_ASPECT_STYLE }}
-                      />
+                      >
+                        <img
+                          src={form.photo_url}
+                          alt="Preview"
+                          className="h-full w-full object-cover object-center"
+                        />
+                      </div>
                       <button
                         type="button"
                         onClick={() => {
@@ -733,7 +744,10 @@ const AdminAchievements = () => {
                       </button>
                     </div>
                   ) : (
-                    <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center border border-dashed border-border">
+                    <div
+                      className="flex w-32 max-w-[38vw] items-center justify-center rounded-md border border-dashed border-border bg-muted sm:w-40"
+                      style={{ aspectRatio: ACHIEVEMENT_BANNER_ASPECT_STYLE }}
+                    >
                       <Upload className="w-5 h-5 text-muted-foreground" />
                     </div>
                   )}
