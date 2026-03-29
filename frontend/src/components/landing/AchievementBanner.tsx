@@ -571,7 +571,10 @@ const AchievementBanner = () => {
   const [current, setCurrent] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const [progressKey, setProgressKey] = useState(0);
+  /** Only remounts the bottom time bar — never tied to congratulations remounts. */
+  const [progressTick, setProgressTick] = useState(0);
+  /** Remounts burst/confetti/trophy when a single slide loops or when multi-slide content changes needs extra kick. */
+  const [animCycle, setAnimCycle] = useState(0);
   const bannerCardRef = useRef<HTMLDivElement>(null);
   const bannerShellRef = useRef<HTMLDivElement>(null);
   const [bannerScale, setBannerScale] = useState(1);
@@ -676,7 +679,8 @@ const AchievementBanner = () => {
     setIsTransitioning(true);
     setTimeout(() => {
       setCurrent(index);
-      setProgressKey((k) => k + 1);
+      setProgressTick((t) => t + 1);
+      setAnimCycle((a) => a + 1);
       setTimeout(() => setIsTransitioning(false), 50);
     }, 300);
   }, []);
@@ -695,7 +699,8 @@ const AchievementBanner = () => {
     const delay = (settings.slide_duration || 4) * 1000;
     const tick = () => {
       if (achievements.length === 1) {
-        setProgressKey((k) => k + 1);
+        setProgressTick((t) => t + 1);
+        setAnimCycle((a) => a + 1);
       } else {
         next();
       }
@@ -752,11 +757,11 @@ const AchievementBanner = () => {
       <div className="layout-container min-w-0 pb-2 pt-2 sm:pb-2.5 sm:pt-2.5 md:pb-3 md:pt-3">
         <div className="relative mx-auto flex w-full min-w-0 max-w-full items-center justify-center gap-2 overflow-x-hidden px-0.5 sm:gap-3 md:gap-3.5">
         <div
-          ref={bannerCardRef}
-          className="@container/achievement-banner relative min-w-0 w-full flex-1 max-w-full overflow-hidden rounded-xl border border-border/90 bg-background shadow-md ring-1 ring-border/40"
+          className="@container/achievement-banner relative flex min-w-0 w-full flex-1 max-w-full flex-col overflow-hidden rounded-xl border border-border/90 bg-background shadow-md ring-1 ring-border/40"
           onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
         >
+          <div ref={bannerCardRef} className="relative min-w-0 w-full flex-1 overflow-hidden">
       {isNarrowViewport ? (
         /* ── NARROW (≤1023px): stacked layout, no desktop scale transform ── */
         <div className={cn("flex flex-col", isTransitioning ? "opacity-0" : "opacity-100")} style={{ transition: "opacity 0.3s" }}>
@@ -799,7 +804,7 @@ const AchievementBanner = () => {
               const drift = -18 + (i % 6) * 7;
               return (
                 <span
-                  key={`mob-c-${item.id}-${progressKey}-${i}`}
+                  key={`mob-c-${item.id}-${animCycle}-${i}`}
                   className={cn("hpc-win-anim absolute -top-3 rounded-[1px] shadow-sm will-change-transform", isPaused && "achievement-winner-paused")}
                   style={{
                     left: c.left,
@@ -820,7 +825,7 @@ const AchievementBanner = () => {
 
             {/* Trophy — true top-right corner of photo; key restarts drop animation on each slide */}
             <div
-              key={`mob-trophy-${item.id}-${progressKey}`}
+              key={`mob-trophy-${item.id}-${animCycle}`}
               className="absolute right-2 top-2 z-[6]"
               style={{
                 animation: "hpc-winner-trophy 1s cubic-bezier(0.34,1.56,0.64,1) 0.08s both",
@@ -886,7 +891,7 @@ const AchievementBanner = () => {
               {/* Achievement title — staggered enter */}
               {item.achievement_title?.trim() ? (
                 <div
-                  key={`mob-ach-${item.id}-${progressKey}`}
+                  key={`mob-ach-${item.id}-${animCycle}`}
                   className="hpc-banner-right-enter rounded-lg border bg-white/[0.06] px-3 py-2 backdrop-blur-[2px]"
                   style={{
                     borderColor: isTheme2 ? "var(--achievement-banner-ach-border)" : "var(--achievement-banner-tag-border)",
@@ -915,14 +920,14 @@ const AchievementBanner = () => {
               {/* Message — with full CongratulationsBurstReveal animation */}
               {item.message?.trim() ? (
                 <div
-                  key={`mob-msg-${item.id}-${progressKey}`}
+                  key={`mob-msg-${item.id}-${animCycle}`}
                   className="hpc-banner-right-enter"
                   style={{ animationDelay: "0.18s" }}
                 >
                   <CongratulationsBurstReveal
                     message={item.message.trim()}
                     heading={item.banner_congratulations_text}
-                    slideKey={`mob-${item.id}-${progressKey}`}
+                    slideKey={`mob-${item.id}-${animCycle}`}
                     isPaused={isPaused}
                     theme2Style={isTheme2}
                   />
@@ -979,7 +984,7 @@ const AchievementBanner = () => {
               ) : null}
             </div>
 
-            <AchievementWinnerOverlay key={`${item.id}-${progressKey}`} slideKey={`${item.id}-${progressKey}`} isPaused={isPaused} />
+            <AchievementWinnerOverlay key={`${item.id}-${animCycle}`} slideKey={`${item.id}-${animCycle}`} isPaused={isPaused} />
 
             {/* Right column — stretches to photo height via flex align-items:stretch */}
             <div
@@ -1040,7 +1045,7 @@ const AchievementBanner = () => {
 
                   {item.achievement_title?.trim() ? (
                     <div
-                      key={`${item.id}-ach-${progressKey}`}
+                      key={`${item.id}-ach-${animCycle}`}
                       className="hpc-banner-right-enter w-full min-w-0 shrink-0"
                       style={{ animationDelay: "0.12s" }}
                     >
@@ -1072,14 +1077,14 @@ const AchievementBanner = () => {
 
                   {item.message?.trim() ? (
                     <div
-                      key={`${item.id}-msg-${progressKey}`}
+                      key={`${item.id}-msg-${animCycle}`}
                       className="hpc-banner-right-enter min-w-0 w-full shrink-0"
                       style={{ animationDelay: "0.2s" }}
                     >
                       <CongratulationsBurstReveal
                         message={item.message.trim()}
                         heading={item.banner_congratulations_text}
-                        slideKey={`${item.id}-${progressKey}`}
+                        slideKey={`${item.id}-${animCycle}`}
                         isPaused={isPaused}
                         theme2Style={isTheme2}
                       />
@@ -1093,6 +1098,7 @@ const AchievementBanner = () => {
         </div>
         </>
       )}
+          </div>
 
       {achievements.length > 1 ? (
         <div className="absolute bottom-5 left-1/2 z-20 -translate-x-1/2 sm:bottom-6 max-sm:hidden">
@@ -1106,13 +1112,16 @@ const AchievementBanner = () => {
           </span>
         </div>
       ) : null}
-      {/* Progress tick restarts with progressKey each slide (or each single-slide cycle). */}
-      <div className="absolute bottom-0 left-0 right-0 z-20 h-1 bg-border/60">
+      {/* Time load: fills over slide_duration; progressTick remount restarts the bar without tearing down congratulations. */}
+      <div
+        className="relative z-20 h-1.5 w-full shrink-0 bg-border/60"
+        aria-hidden
+      >
         <div
-          key={progressKey}
+          key={progressTick}
+          className="h-full origin-left rounded-r-sm"
           style={{
             backgroundColor: "var(--achievement-banner-progress)",
-            height: "100%",
             animation: isPaused ? "none" : `progress-fill ${duration}ms linear forwards`,
             animationPlayState: isPaused ? "paused" : "running",
           }}
