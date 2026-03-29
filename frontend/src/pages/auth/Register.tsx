@@ -110,7 +110,10 @@ const Register = () => {
 
   useEffect(() => {
     let cancelled = false;
-    const stripDraft = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("google_draft") === "1";
+    const params =
+      typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+    const stripDraft = params?.get("google_draft") === "1";
+    const fromLogin = params?.get("from_login") === "1";
 
     (async () => {
       try {
@@ -123,7 +126,13 @@ const Register = () => {
         setForm((f) => ({ ...f, email: body.email, name: String(body.name || f.name || "").trim() }));
         setGoogleRegisterMode(true);
         if (stripDraft) {
-          toast.success("Google account connected. Your email is set from Google; you can edit your name below.");
+          if (fromLogin) {
+            toast.success(
+              "Your Google email is new to this site. Complete this whole form (same requirements as manual registration), then submit once—we only create your account after that."
+            );
+          } else {
+            toast.success("Google account connected. Your email is set from Google; you can edit your name below.");
+          }
           navigate("/register", { replace: true });
         }
       } catch {
@@ -267,8 +276,10 @@ const Register = () => {
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="rounded-md border border-border bg-muted/40 p-4 space-y-3">
                 <p className="text-sm text-muted-foreground">
-                  Prefer Google? We&apos;ll fill your email from your account (you can still choose a password for this site). If you leave without
-                  finishing, this step expires in about 30 minutes and nothing is saved until you submit.
+                  Prefer Google? We only copy your <strong>email</strong> and <strong>name</strong> from Google—you must still complete this entire form
+                  (same rules as manual registration) and click Register before an account exists. Choosing a password here is required. If you started
+                  from Sign in with Google and were sent here, that is expected: new Google emails always finish on this page. The Google step expires in
+                  about 30 minutes if you abandon it.
                 </p>
                 <Button
                   type="button"
@@ -284,8 +295,8 @@ const Register = () => {
               </div>
               {googleRegisterMode ? (
                 <div className="rounded-md border border-emerald-200 bg-emerald-50/80 dark:bg-emerald-950/25 dark:border-emerald-800 px-3 py-2 text-sm text-emerald-950 dark:text-emerald-50/95">
-                  <span className="font-medium">Google sign-up:</span> Email is taken from your Google account and cannot be changed here. You may
-                  edit your name before submitting.
+                  <span className="font-medium">Google prefill:</span> Email is from your Google account and cannot be changed here; you may edit your
+                  name. Fill every required field below—your account is created only when you submit this form successfully.
                 </div>
               ) : null}
               <div>

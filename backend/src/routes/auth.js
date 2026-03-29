@@ -748,7 +748,10 @@ router.get("/google/callback", (req, res, next) => {
           maxAge: GOOGLE_REGISTER_DRAFT_MAX_MS,
           ...crossSiteOAuthCookieAttrs(),
         });
-        return res.redirect(302, `${fe}/register?google_draft=1`);
+        const regQs = new URLSearchParams();
+        regQs.set("google_draft", "1");
+        if (user?.fromLogin) regQs.set("from_login", "1");
+        return res.redirect(302, `${fe}/register?${regQs.toString()}`);
       }
 
       const token = user?.token || info?.token;
