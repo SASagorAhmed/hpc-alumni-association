@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Award, Calendar, GraduationCap, PartyPopper, Camera, Building2 } from "lucide-react";
 import { API_BASE_URL } from "@/api-production/api.js";
 import { isIosSafariViewport } from "@/lib/iosSafari";
+import { ACHIEVEMENT_BANNER_CROP_ASPECT } from "@/lib/achievementCrop";
 
 interface Achievement {
   id: string;
@@ -34,9 +35,9 @@ function AchievementGridCard({ a, i }: { a: Achievement; i: number }) {
     >
       <div className="h-1" style={{ background: "var(--achievement-card-accent-bar)" }} />
 
-      <div className="aspect-[4/3] w-full overflow-hidden">
+      <div className="w-full overflow-hidden" style={{ aspectRatio: ACHIEVEMENT_BANNER_CROP_ASPECT }}>
         {a.photo_url ? (
-          <img src={a.photo_url} alt={a.name} className="h-full w-full object-cover" />
+          <img src={a.photo_url} alt={a.name} className="h-full w-full object-cover object-center" />
         ) : (
           <div className="flex h-full w-full items-center justify-center" style={{ background: "var(--achievement-card-photo-bg)" }}>
             <Camera className="h-10 w-10 text-primary/40" />
