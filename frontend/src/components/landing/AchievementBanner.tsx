@@ -565,6 +565,8 @@ function normalizeAchievementSettings(raw: unknown): Settings | null {
 
 /** Desktop reference width: the shell is rendered at this width then scaled to fit. */
 const DESIGN_W = 960;
+/** Narrow (stacked) reference width — same idea as desktop: whole banner scales as one unit. */
+const NARROW_DESIGN_W = 480;
 
 const AchievementBanner = () => {
   const [achievements, setAchievements] = useState<Achievement[]>([]);
@@ -578,6 +580,7 @@ const AchievementBanner = () => {
   const [animCycle, setAnimCycle] = useState(0);
   const bannerCardRef = useRef<HTMLDivElement>(null);
   const bannerShellRef = useRef<HTMLDivElement>(null);
+  const bannerNarrowShellRef = useRef<HTMLDivElement>(null);
   const [bannerScale, setBannerScale] = useState(1);
   const [bannerWrapperH, setBannerWrapperH] = useState<number | undefined>(undefined);
   const [bannerCardW, setBannerCardW] = useState(960);
@@ -600,8 +603,11 @@ const AchievementBanner = () => {
       setBannerCardW(cardW);
 
       if (isNarrowViewport) {
-        setBannerScale(1);
-        setBannerWrapperH(undefined);
+        const shell = bannerNarrowShellRef.current;
+        if (!shell) return;
+        const s = Math.min(1, cardW / NARROW_DESIGN_W);
+        setBannerScale(s);
+        setBannerWrapperH(s < 1 ? Math.round(shell.offsetHeight * s) : undefined);
         return;
       }
 
@@ -619,14 +625,19 @@ const AchievementBanner = () => {
     });
     const ro = new ResizeObserver(update);
     ro.observe(card);
-    const shell = bannerShellRef.current;
-    if (shell) ro.observe(shell);
+    if (isNarrowViewport) {
+      const n = bannerNarrowShellRef.current;
+      if (n) ro.observe(n);
+    } else {
+      const s = bannerShellRef.current;
+      if (s) ro.observe(s);
+    }
     return () => {
       cancelAnimationFrame(raf1);
       cancelAnimationFrame(raf2);
       ro.disconnect();
     };
-  }, [bannerReady, isNarrowViewport]);
+  }, [bannerReady, isNarrowViewport, current]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -754,7 +765,7 @@ const AchievementBanner = () => {
     "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-primary/45 bg-primary/[0.08] text-primary shadow-md backdrop-blur-sm transition-all hover:border-primary hover:bg-primary/15 hover:text-primary hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-95 sm:h-10 sm:w-10 dark:border-primary/50 dark:bg-primary/[0.12] dark:hover:bg-primary/20";
 
   return (
-    <div className="w-full min-w-0 overflow-x-hidden bg-background pt-10 lg:pt-11" style={bannerThemeVars}>
+    <div className="w-full min-w-0 shrink-0 overflow-x-hidden bg-background pt-10 lg:pt-11" style={bannerThemeVars}>
       <div className="layout-container min-w-0 pb-2 pt-2 sm:pb-2.5 sm:pt-2.5 md:pb-3 md:pt-3">
         <div className="relative mx-auto flex w-full min-w-0 max-w-full items-center justify-center gap-2 overflow-x-hidden px-0.5 sm:gap-3 md:gap-3.5">
         <div
@@ -764,11 +775,25 @@ const AchievementBanner = () => {
         >
           <div ref={bannerCardRef} className="relative min-h-0 min-w-0 w-full shrink-0 overflow-hidden">
       {isNarrowViewport ? (
-        /* ── NARROW (≤1023px): stacked layout, no desktop scale transform ── */
+        /* ── NARROW (≤1023px): stacked layout; scale whole block like desktop when card < NARROW_DESIGN_W ── */
+        <>
+        <div
+          className="relative overflow-hidden rounded-b-[inherit]"
+          style={bannerScale < 1 && bannerWrapperH ? { height: bannerWrapperH } : undefined}
+        >
+          <div
+            ref={bannerNarrowShellRef}
+            className={bannerScale < 1 ? "origin-top-left" : undefined}
+            style={
+              bannerScale < 1
+                ? { width: `${NARROW_DESIGN_W}px`, transform: `scale(${bannerScale})` }
+                : { width: "100%" }
+            }
+          >
         <div className={cn("flex flex-col", isTransitioning ? "opacity-0" : "opacity-100")} style={{ transition: "opacity 0.3s" }}>
           {/* Photo — full width, 8∶5 (same as admin crop + desktop column) */}
           <div
-            className="relative w-full max-w-full overflow-hidden bg-neutral-950"
+            className="relative w-full max-w-full shrink-0 overflow-hidden bg-neutral-950"
             style={{ aspectRatio: ACHIEVEMENT_BANNER_CROP_ASPECT }}
           >
             {item.photo_url ? (
@@ -841,7 +866,7 @@ const AchievementBanner = () => {
           </div>
 
           {/* Alumni Spotlight pill row — with prev/next buttons on mobile */}
-          <div className="flex items-center justify-between gap-2 px-3 py-2" style={{ background: "var(--achievement-banner-side-bg)" }}>
+          <div className="flex shrink-0 items-center justify-between gap-2 px-3 py-2" style={{ background: "var(--achievement-banner-side-bg)" }}>
             {/* Prev button */}
             {achievements.length > 1 ? (
               <button type="button" onClick={prev} aria-label="Previous slide"
@@ -955,6 +980,9 @@ const AchievementBanner = () => {
             </div>
           </div>
         </div>
+          </div>
+        </div>
+        </>
       ) : (
         /* ── DESKTOP / TABLET layout: transform-scale canvas (≥ 540px) ── */
         <>

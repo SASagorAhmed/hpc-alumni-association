@@ -969,7 +969,7 @@ const AdminCommittee = () => {
             <DialogDescription>e.g. 2025–2027</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div>
+              <div>
               <Label>Name *</Label>
               <Input value={newTerm.name} onChange={(e) => setNewTerm({ ...newTerm, name: e.target.value })} placeholder="2025–2027" />
             </div>
