@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { BANNER_DEFAULT_PHOTO_TAGLINE } from "@/constants/bannerCopy";
 import { API_BASE_URL } from "@/api-production/api.js";
 import { ACHIEVEMENT_BANNER_CROP_ASPECT } from "@/lib/achievementCrop";
+import { BREAKPOINT_MOBILE_MAX, mqDesktopMin, mqTabletRange } from "@/lib/breakpoints";
 import hpcLogo from "@/assets/hpc-logo.png";
 
 /** Five-point star (sketchy celebration style), viewBox 0 0 24 24 */
@@ -565,8 +566,8 @@ function normalizeAchievementSettings(raw: unknown): Settings | null {
 
 /** Desktop reference width: the shell is rendered at this width then scaled to fit. */
 const DESIGN_W = 960;
-/** Narrow (stacked) reference width — same idea as desktop: whole banner scales as one unit. */
-const NARROW_DESIGN_W = 480;
+/** In stacked mode only: scale whole block when card width is below this (narrow 1–330 reference). */
+const NARROW_ZOOM_DESIGN_W = 330;
 
 const AchievementBanner = () => {
   const [achievements, setAchievements] = useState<Achievement[]>([]);
@@ -584,10 +585,13 @@ const AchievementBanner = () => {
   const [bannerScale, setBannerScale] = useState(1);
   const [bannerWrapperH, setBannerWrapperH] = useState<number | undefined>(undefined);
   const [bannerCardW, setBannerCardW] = useState(960);
-  /** Stacked photo + text layout (no transform scale). Matches Tailwind `lg` — tablets/phones only. */
-  const [isNarrowViewport, setIsNarrowViewport] = useState(() =>
-    typeof window !== "undefined" ? window.matchMedia("(max-width: 1023px)").matches : false
-  );
+  /** True → stacked mobile (≤630px); false → two-column (tablet 631–1024 or desktop 1025+). */
+  const [isNarrowViewport, setIsNarrowViewport] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const tablet = window.matchMedia(mqTabletRange).matches;
+    const desktop = window.matchMedia(mqDesktopMin).matches;
+    return !tablet && !desktop;
+  });
 
   // Re-run when banner DOM first appears (achievements go from 0 → loaded).
   // Without this, refs are null on the initial null-render and the ResizeObserver
@@ -603,16 +607,17 @@ const AchievementBanner = () => {
       setBannerCardW(cardW);
 
       if (isNarrowViewport) {
-        const shell = bannerNarrowShellRef.current;
-        if (!shell) return;
-        const s = Math.min(1, cardW / NARROW_DESIGN_W);
+        const nShell = bannerNarrowShellRef.current;
+        if (!nShell) return;
+        const s = Math.min(1, cardW / NARROW_ZOOM_DESIGN_W);
         setBannerScale(s);
-        setBannerWrapperH(s < 1 ? Math.round(shell.offsetHeight * s) : undefined);
+        setBannerWrapperH(s < 1 ? Math.round(nShell.offsetHeight * s) : undefined);
         return;
       }
 
       const shell = bannerShellRef.current;
       if (!shell) return;
+      /* Shrink-only: below design width scale the 960 shell down. At ≥ design width use 100% width (full card, same 46:54 + photo ratio). */
       const s = Math.min(1, cardW / DESIGN_W);
       setBannerScale(s);
       setBannerWrapperH(s < 1 ? Math.round(shell.offsetHeight * s) : undefined);
@@ -629,8 +634,8 @@ const AchievementBanner = () => {
       const n = bannerNarrowShellRef.current;
       if (n) ro.observe(n);
     } else {
-      const s = bannerShellRef.current;
-      if (s) ro.observe(s);
+      const shell = bannerShellRef.current;
+      if (shell) ro.observe(shell);
     }
     return () => {
       cancelAnimationFrame(raf1);
@@ -673,17 +678,28 @@ const AchievementBanner = () => {
     fetchData();
   }, []);
 
-  // Stacked vs scaled banner: use viewport (lg breakpoint), not only measured card width.
+  // Stacked vs two-column: separate tablet band and desktop-min MQs (same layout for both; listeners not shared).
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const mq = window.matchMedia("(max-width: 1023px)");
-    const onChange = () => setIsNarrowViewport(mq.matches);
-    onChange();
-    if (typeof mq.addEventListener === "function") mq.addEventListener("change", onChange);
-    else mq.addListener(onChange);
+    const mqTablet = window.matchMedia(mqTabletRange);
+    const mqDesktop = window.matchMedia(mqDesktopMin);
+    const sync = () => setIsNarrowViewport(!mqTablet.matches && !mqDesktop.matches);
+    sync();
+    if (typeof mqTablet.addEventListener === "function") {
+      mqTablet.addEventListener("change", sync);
+      mqDesktop.addEventListener("change", sync);
+    } else {
+      mqTablet.addListener(sync);
+      mqDesktop.addListener(sync);
+    }
     return () => {
-      if (typeof mq.removeEventListener === "function") mq.removeEventListener("change", onChange);
-      else mq.removeListener(onChange);
+      if (typeof mqTablet.removeEventListener === "function") {
+        mqTablet.removeEventListener("change", sync);
+        mqDesktop.removeEventListener("change", sync);
+      } else {
+        mqTablet.removeListener(sync);
+        mqDesktop.removeListener(sync);
+      }
     };
   }, []);
 
@@ -765,7 +781,7 @@ const AchievementBanner = () => {
     "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-primary/45 bg-primary/[0.08] text-primary shadow-md backdrop-blur-sm transition-all hover:border-primary hover:bg-primary/15 hover:text-primary hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-95 sm:h-10 sm:w-10 dark:border-primary/50 dark:bg-primary/[0.12] dark:hover:bg-primary/20";
 
   return (
-    <div className="w-full min-w-0 shrink-0 overflow-x-hidden bg-background pt-10 lg:pt-11" style={bannerThemeVars}>
+    <div className="w-full min-w-0 overflow-x-hidden bg-background pt-10 lg:pt-11" style={bannerThemeVars}>
       <div className="layout-container min-w-0 pb-2 pt-2 sm:pb-2.5 sm:pt-2.5 md:pb-3 md:pt-3">
         <div className="relative mx-auto flex w-full min-w-0 max-w-full items-center justify-center gap-2 overflow-x-hidden px-0.5 sm:gap-3 md:gap-3.5">
         <div
@@ -775,7 +791,7 @@ const AchievementBanner = () => {
         >
           <div ref={bannerCardRef} className="relative min-h-0 min-w-0 w-full shrink-0 overflow-hidden">
       {isNarrowViewport ? (
-        /* ── NARROW (≤1023px): stacked layout; scale whole block like desktop when card < NARROW_DESIGN_W ── */
+        /* ── Mobile stacked (viewport ≤630px). Whole block scales only if card width < 330px. ── */
         <>
         <div
           className="relative overflow-hidden rounded-b-[inherit]"
@@ -786,7 +802,7 @@ const AchievementBanner = () => {
             className={bannerScale < 1 ? "origin-top-left" : undefined}
             style={
               bannerScale < 1
-                ? { width: `${NARROW_DESIGN_W}px`, transform: `scale(${bannerScale})` }
+                ? { width: `${NARROW_ZOOM_DESIGN_W}px`, transform: `scale(${bannerScale})` }
                 : { width: "100%" }
             }
           >
@@ -875,23 +891,26 @@ const AchievementBanner = () => {
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
-            ) : <span className="w-7" />}
+            ) : <span className="w-7 shrink-0" aria-hidden />}
 
-            {/* Pill */}
-            <div
-              className={cn(
-                "inline-flex items-center justify-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[0.65rem] uppercase tracking-[0.13em]",
-                "font-semibold"
-              )}
-              style={{
-                borderColor: "var(--achievement-banner-tag-border)",
-                backgroundColor: "var(--achievement-banner-tag-bg)",
-                color: "var(--achievement-banner-eyebrow)",
-              }}
-            >
-              <Award className="h-3 w-3 shrink-0" />
-              Alumni Spotlight
-              <span className="h-1.5 w-1.5 shrink-0 rounded-full animate-pulse" style={{ backgroundColor: "var(--achievement-banner-line)" }} />
+            {/* Pill — same chip as tablet/desktop (compact border + type); centered between arrows */}
+            <div className="flex min-w-0 flex-1 justify-center px-1">
+              <div
+                key={`${item.id}-pill-mob`}
+                className={cn(
+                  "inline-flex w-fit max-w-full shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[0.65rem] uppercase tracking-[0.13em]",
+                  "font-semibold"
+                )}
+                style={{
+                  borderColor: "var(--achievement-banner-tag-border)",
+                  backgroundColor: "var(--achievement-banner-tag-bg)",
+                  color: "var(--achievement-banner-eyebrow)",
+                }}
+              >
+                <Award className="h-3 w-3 shrink-0" />
+                Alumni Spotlight
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full animate-pulse" style={{ backgroundColor: "var(--achievement-banner-line)" }} />
+              </div>
             </div>
 
             {/* Next button */}
@@ -905,9 +924,9 @@ const AchievementBanner = () => {
             ) : <span className="w-7" />}
           </div>
 
-          {/* Text content — full width, readable native size */}
+          {/* Text content — grows vertically; min-h-0 avoids flex squashing the photo */}
           <div
-            className={cn("relative flex flex-col gap-2.5 px-4 py-3", isPaused && "achievement-winner-paused")}
+            className={cn("relative flex min-h-0 flex-col gap-2.5 px-4 py-3", isPaused && "achievement-winner-paused")}
             style={{ background: "var(--achievement-banner-side-bg)" }}
           >
             {/* Spotlight radial glow — same feel as achievement banner ambient */}
@@ -984,18 +1003,25 @@ const AchievementBanner = () => {
         </div>
         </>
       ) : (
-        /* ── DESKTOP / TABLET layout: transform-scale canvas (≥ 540px) ── */
+        /* ── TABLET / DESKTOP: two-column banner (631px+) — same layout, scaled to card ── */
         <>
         {/* Wrapper: clips and reserves the scaled height */}
         <div
           className="relative overflow-hidden rounded-b-[inherit]"
           style={bannerScale < 1 && bannerWrapperH ? { height: bannerWrapperH } : undefined}
         >
-          {/* Shell: fixed at DESIGN_W, scaled down to fit card width */}
+          {/* Shell: full width on tablet/PC; fixed DESIGN_W + scale only when card is narrower than design. */}
           <div
             ref={bannerShellRef}
-            className="hpc-achievement-banner-shell flex flex-row overflow-hidden rounded-b-[inherit] origin-top-left"
-            style={bannerScale < 1 ? { width: `${DESIGN_W}px`, transform: `scale(${bannerScale})` } : { width: "100%" }}
+            className={cn(
+              "hpc-achievement-banner-shell flex w-full min-w-0 flex-row overflow-hidden rounded-b-[inherit]",
+              bannerScale < 1 && "origin-top-left"
+            )}
+            style={
+              bannerScale < 1
+                ? { width: `${DESIGN_W}px`, transform: `scale(${bannerScale})` }
+                : { width: "100%" }
+            }
           >
             {/* Photo column — fixed ratio on tablet/PC; right text area widened */}
             <div
@@ -1206,8 +1232,8 @@ const AchievementBanner = () => {
           animation-play-state: paused !important;
         }
 
-        /* Mobile / tablet: narrow scrollbar so achievement + congratulations can use column width */
-        @media (max-width: 1023px) {
+        /* Mobile (stacked layout): narrow scrollbar so achievement + congratulations can use column width */
+        @media (max-width: ${BREAKPOINT_MOBILE_MAX}px) {
           .hpc-achievement-mobile-text-scroll::-webkit-scrollbar {
             width: 5px;
           }
@@ -1463,7 +1489,7 @@ const AchievementBanner = () => {
           }
         }
 
-        @media (max-width: 639px) {
+        @media (max-width: ${BREAKPOINT_MOBILE_MAX}px) {
           .hpc-celebrate-blast-ring {
             animation-duration: 0.78s;
           }

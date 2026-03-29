@@ -74,7 +74,7 @@ const Navbar = () => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const closeIfDesktop = () => {
-      if (window.matchMedia("(min-width: 1024px)").matches) setMobileOpen(false);
+      if (window.matchMedia("(min-width: 1025px)").matches) setMobileOpen(false);
     };
     window.addEventListener("resize", closeIfDesktop);
     return () => {

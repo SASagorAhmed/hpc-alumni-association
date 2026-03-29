@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { API_BASE_URL } from "@/api-production/api.js";
 import { isIosSafariViewport } from "@/lib/iosSafari";
+import { BREAKPOINT_MOBILE_MAX, layoutCanvasScale, mqStackedMobile } from "@/lib/breakpoints";
 
 const CATEGORIES = [
   "All",
@@ -99,7 +100,7 @@ const MemoriesSection = () => {
   const [gridScale, setGridScale] = useState(1);
   const [gridWrapH, setGridWrapH] = useState<number | undefined>(undefined);
   const [isNarrowViewport, setIsNarrowViewport] = useState(() =>
-    typeof window !== "undefined" ? window.matchMedia("(max-width: 1023px)").matches : false
+    typeof window !== "undefined" ? window.matchMedia(mqStackedMobile).matches : false
   );
   const narrowGridOuterRef = useRef<HTMLDivElement>(null);
   const [narrowGridW, setNarrowGridW] = useState(() =>
@@ -117,7 +118,7 @@ const MemoriesSection = () => {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const mq = window.matchMedia("(max-width: 1023px)");
+    const mq = window.matchMedia(mqStackedMobile);
     const onChange = () => setIsNarrowViewport(mq.matches);
     onChange();
     if (typeof mq.addEventListener === "function") mq.addEventListener("change", onChange);
@@ -159,9 +160,9 @@ const MemoriesSection = () => {
     const update = () => {
       const w = outer.getBoundingClientRect().width;
       if (!w) return;
-      const s = Math.min(1, w / MEMORIES_DESIGN_W);
+      const s = layoutCanvasScale(w, MEMORIES_DESIGN_W);
       setGridScale(s);
-      setGridWrapH(s < 1 ? Math.round(inner.offsetHeight * s) : undefined);
+      setGridWrapH(Math.round(inner.offsetHeight * s));
     };
     let r1 = 0,
       r2 = 0;
@@ -180,7 +181,6 @@ const MemoriesSection = () => {
 
   if (memories.length === 0) return null;
 
-  const scaled = !isNarrowViewport && gridScale < 1;
   const isMobileGrid = isNarrowViewport && narrowGridW < 540;
   const mobileZoom = isMobileGrid && narrowGridW < MOBILE_REF_W ? narrowGridW / MOBILE_REF_W : 1;
   const mobileGridZoomStyle =
@@ -268,24 +268,17 @@ const MemoriesSection = () => {
           </div>
         ) : (
           <div ref={gridOuterRef} className="w-full min-w-0">
-            <div
-              className="relative overflow-hidden"
-              style={scaled && gridWrapH ? { height: gridWrapH } : undefined}
-            >
+            <div className="relative overflow-hidden" style={gridWrapH ? { height: gridWrapH } : undefined}>
               <div
                 ref={gridInnerRef}
                 className="origin-top-left"
-                style={
-                  scaled
-                    ? {
-                        width: `${MEMORIES_DESIGN_W}px`,
-                        transform: `scale(${gridScale})`,
-                        display: "grid",
-                        gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-                        gap: "20px",
-                      }
-                    : { width: "100%", display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "20px" }
-                }
+                style={{
+                  width: `${MEMORIES_DESIGN_W}px`,
+                  transform: `scale(${gridScale})`,
+                  display: "grid",
+                  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                  gap: "20px",
+                }}
               >
                 {filtered.slice(0, visibleCount).map((memory, i) => (
                   <MemoryGridCard key={memory.id} memory={memory} i={i} />

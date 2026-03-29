@@ -13,10 +13,10 @@ import {
 } from "@/components/committee/AlumniExecutiveCommitteeBoard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { isIosSafariViewport } from "@/lib/iosSafari";
-
+import { BREAKPOINT_MOBILE_MAX, layoutCanvasScale } from "@/lib/breakpoints";
 
 const COMMITTEE_DESIGN_W = 1024;
-const MOBILE_REF_W = 480;
+const MOBILE_REF_W = BREAKPOINT_MOBILE_MAX;
 
 const CommitteeSection = ({ showAll = false }: { showAll?: boolean }) => {
   const [visibleCount, setVisibleCount] = useState(6);
@@ -118,7 +118,6 @@ const CommitteeSection = ({ showAll = false }: { showAll?: boolean }) => {
   if (!presidentMember && otherMembers.length === 0) return null;
   const displayCount = showAll ? otherMembers.length : visibleCount;
   const isLegacyMobile = legacyW < 540;
-  const legacyScaled = legacyScale < 1;
   const legacyMobileZoom = isLegacyMobile && legacyW < MOBILE_REF_W ? legacyW / MOBILE_REF_W : 1;
   const legacyMobileZoomStyle =
     isLegacyMobile && legacyMobileZoom < 1 && !isIosSafariViewport()
@@ -189,24 +188,22 @@ const CommitteeSection = ({ showAll = false }: { showAll?: boolean }) => {
             </div>
           ) : (
             /* ── DESKTOP / TABLET layout: transform-scale canvas (≥ 540 px) ── */
-            <div
-              className="relative overflow-hidden"
-              style={legacyScaled && legacyWrapH ? { height: legacyWrapH } : undefined}
-            >
+            <div className="relative overflow-hidden" style={legacyWrapH ? { height: legacyWrapH } : undefined}>
               <div
                 ref={legacyInnerRef}
                 className="flex flex-col origin-top-left"
-                style={legacyScaled
-                  ? { width: `${COMMITTEE_DESIGN_W}px`, transform: `scale(${legacyScale})`, gap: "40px" }
-                  : { width: "100%", gap: "40px" }
-                }
+                style={{
+                  width: `${COMMITTEE_DESIGN_W}px`,
+                  transform: `scale(${legacyScale})`,
+                  gap: "40px",
+                }}
               >
                 <div className="mx-auto flex w-full min-w-0 justify-center px-0">
                   <PresidentHeroCard member={presidentMember} />
                 </div>
                 <div
-                  className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 lg:gap-5"
-                  style={legacyScaled ? { gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "20px" } : undefined}
+                  className="grid w-full min-w-0 gap-5"
+                  style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "20px" }}
                 >
                   {otherMembers.slice(0, displayCount).map((member, i) => (
                     <div key={member.id} className="min-w-0">

@@ -9,10 +9,17 @@ export default {
       center: true,
       padding: "2rem",
       screens: {
-        "2xl": "1400px",
+        /** Large desktop 1441+ (matches theme.extend.screens.2xl). */
+        "2xl": "1441px",
       },
     },
     extend: {
+      screens: {
+        /** Align `lg:` with desktop start (1025px). Mobile ≤630, tablet 631–1024, desktop 1025–1440, 2xl 1441+. */
+        lg: "1025px",
+        /** Large desktop 1441+ (default 2xl is 1536). */
+        "2xl": "1441px",
+      },
       fontFamily: {
         sans: ["'Public Sans'", "system-ui", "-apple-system", "sans-serif"],
         mono: ["'Geist Mono'", "'SF Mono'", "'Fira Code'", "monospace"],

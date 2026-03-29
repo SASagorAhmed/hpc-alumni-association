@@ -8,11 +8,12 @@
     font-size: 16px;
   }
 
-  @media (max-width: 1279px) {
+  /* Desktop 1025–1440 and tablet: slightly smaller root; large desktop 1441+ stays 16px */
+  @media (max-width: 1440px) {
     html { font-size: 15px; }
   }
 
-  @media (max-width: 1023px) {
+  @media (max-width: 1024px) {
     html { font-size: 14.5px; }
   }
 
@@ -711,7 +712,7 @@
 @layer utilities {
   .layout-container {
     width: 100%;
-    max-width: 1280px;
+    max-width: 1440px;
     margin-left: auto;
     margin-right: auto;
     padding-left: clamp(0.875rem, 2.4vw, 1.5rem);
@@ -968,7 +969,7 @@
    * Phone & tablet (below lg): easier reading — slightly larger body, looser lines,
    * display headline tuned for narrow columns. Desktop/laptop uses rules above as-is.
    */
-  @media (max-width: 1023px) {
+  @media (max-width: 1024px) {
     .landing-copy-scale {
       --fs-landing-mult: 0.85;
     }
@@ -1013,7 +1014,7 @@
     }
   }
 
-  @media (max-width: 639px) {
+  @media (max-width: 630px) {
     .landing-copy-scale .fs-display {
       font-size: clamp(
         calc(1.42rem * var(--fs-landing-mult)),

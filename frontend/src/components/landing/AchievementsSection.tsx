@@ -4,6 +4,7 @@ import { Award, Calendar, GraduationCap, PartyPopper, Camera, Building2 } from "
 import { API_BASE_URL } from "@/api-production/api.js";
 import { isIosSafariViewport } from "@/lib/iosSafari";
 import { ACHIEVEMENT_BANNER_CROP_ASPECT } from "@/lib/achievementCrop";
+import { BREAKPOINT_MOBILE_MAX, layoutCanvasScale, mqStackedMobile } from "@/lib/breakpoints";
 
 interface Achievement {
   id: string;
@@ -20,8 +21,8 @@ interface Achievement {
 
 /** Desktop reference width for the scaled 3-col grid (lg+ only). */
 const ACHIEVEMENTS_DESIGN_W = 1024;
-/** Same as committee mobile: proportional zoom below this width (AlumniExecutiveCommitteeBoard). */
-const MOBILE_REF_W = 480;
+/** Proportional zoom below mobile band max (committee / banner pattern). */
+const MOBILE_REF_W = BREAKPOINT_MOBILE_MAX;
 
 function AchievementGridCard({ a, i }: { a: Achievement; i: number }) {
   return (
@@ -109,9 +110,9 @@ const AchievementsSection = () => {
   const gridInnerRef = useRef<HTMLDivElement>(null);
   const [gridScale, setGridScale] = useState(1);
   const [gridWrapH, setGridWrapH] = useState<number | undefined>(undefined);
-  /** Phones/tablets: 2 columns, no transform shrink. Desktop lg+: scaled 3-col canvas. */
+  /** Phones (≤630px): 2 columns, no transform shrink. Tablet+ matches desktop scaled 3-col canvas. */
   const [isNarrowViewport, setIsNarrowViewport] = useState(() =>
-    typeof window !== "undefined" ? window.matchMedia("(max-width: 1023px)").matches : false
+    typeof window !== "undefined" ? window.matchMedia(mqStackedMobile).matches : false
   );
   const narrowGridOuterRef = useRef<HTMLDivElement>(null);
   const [narrowGridW, setNarrowGridW] = useState(() =>
@@ -120,7 +121,7 @@ const AchievementsSection = () => {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const mq = window.matchMedia("(max-width: 1023px)");
+    const mq = window.matchMedia(mqStackedMobile);
     const onChange = () => setIsNarrowViewport(mq.matches);
     onChange();
     if (typeof mq.addEventListener === "function") mq.addEventListener("change", onChange);
@@ -161,9 +162,9 @@ const AchievementsSection = () => {
     const update = () => {
       const w = outer.getBoundingClientRect().width;
       if (!w) return;
-      const s = Math.min(1, w / ACHIEVEMENTS_DESIGN_W);
+      const s = layoutCanvasScale(w, ACHIEVEMENTS_DESIGN_W);
       setGridScale(s);
-      setGridWrapH(s < 1 ? Math.round(inner.offsetHeight * s) : undefined);
+      setGridWrapH(Math.round(inner.offsetHeight * s));
     };
     let r1 = 0,
       r2 = 0;
@@ -199,7 +200,6 @@ const AchievementsSection = () => {
 
   if (achievements.length === 0) return null;
 
-  const scaled = !isNarrowViewport && gridScale < 1;
   const isMobileGrid = isNarrowViewport && narrowGridW < 540;
   const mobileZoom = isMobileGrid && narrowGridW < MOBILE_REF_W ? narrowGridW / MOBILE_REF_W : 1;
   const mobileGridZoomStyle =
@@ -244,24 +244,17 @@ const AchievementsSection = () => {
           </div>
         ) : (
           <div ref={gridOuterRef} className="w-full min-w-0">
-            <div
-              className="relative overflow-hidden"
-              style={scaled && gridWrapH ? { height: gridWrapH } : undefined}
-            >
+            <div className="relative overflow-hidden" style={gridWrapH ? { height: gridWrapH } : undefined}>
               <div
                 ref={gridInnerRef}
                 className="origin-top-left"
-                style={
-                  scaled
-                    ? {
-                        width: `${ACHIEVEMENTS_DESIGN_W}px`,
-                        transform: `scale(${gridScale})`,
-                        display: "grid",
-                        gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-                        gap: "16px",
-                      }
-                    : { width: "100%", display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "16px" }
-                }
+                style={{
+                  width: `${ACHIEVEMENTS_DESIGN_W}px`,
+                  transform: `scale(${gridScale})`,
+                  display: "grid",
+                  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                  gap: "16px",
+                }}
               >
                 {achievements.slice(0, visibleCount).map((a, i) => (
                   <AchievementGridCard key={a.id} a={a} i={i} />

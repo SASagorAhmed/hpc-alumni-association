@@ -20,6 +20,7 @@ import {
 } from "@/components/committee/boardSections";
 import { cn } from "@/lib/utils";
 import { isIosSafariViewport } from "@/lib/iosSafari";
+import { BREAKPOINT_MOBILE_MAX, BREAKPOINT_TABLET_MIN, layoutCanvasScale } from "@/lib/breakpoints";
 import {
   Briefcase,
   Camera,
@@ -604,7 +605,7 @@ export function ExecutiveMemberCard({
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   MOBILE CARDS — phone-friendly (<540 px), full native readable font sizes
+   MOBILE CARDS — phone-friendly (<631 px), full native readable font sizes
    ───────────────────────────────────────────────────────────────────────────── */
 
 export function MobilePresidentCard({ member, roleLabel }: { member: DBMember; roleLabel?: string }) {
@@ -983,7 +984,7 @@ export function AlumniExecutiveCommitteeIntro({
  * a zoomed-out version of the desktop layout (same approach as AchievementBanner).
  */
 const COMMITTEE_DESIGN_W = 1024; // reference = laptop viewport
-const MOBILE_REF_W = 480; // reference mobile width — cards zoom below this
+const MOBILE_REF_W = BREAKPOINT_MOBILE_MAX; // mobile band top — cards zoom below this
 
 type CollapsibleSection = Exclude<BoardSectionKey, "governing_body">;
 
@@ -1047,9 +1048,9 @@ export function AlumniExecutiveCommitteeBoard({
       const w = outer.getBoundingClientRect().width;
       if (!w) return;
       setBoardW(w);
-      const s = Math.min(1, w / COMMITTEE_DESIGN_W);
+      const s = layoutCanvasScale(w, COMMITTEE_DESIGN_W);
       setBoardScale(s);
-      setBoardWrapH(s < 1 ? Math.round(inner.offsetHeight * s) : undefined);
+      setBoardWrapH(Math.round(inner.offsetHeight * s));
     };
     let r1 = 0,
       r2 = 0;
@@ -1125,8 +1126,7 @@ export function AlumniExecutiveCommitteeBoard({
     else setOpenMembers((v) => !v);
   };
 
-  const scaled = boardScale < 1;
-  const isMobile = boardW < 540;
+  const isMobile = boardW < BREAKPOINT_TABLET_MIN;
   const twoColMobile = isMobile;
   const mobileZoom = isMobile && boardW < MOBILE_REF_W ? boardW / MOBILE_REF_W : 1;
   const mobileGridZoomStyle =
@@ -1259,8 +1259,8 @@ export function AlumniExecutiveCommitteeBoard({
         ) : null}
         {items.length > 0 ? (
           <div
-            className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-2 lg:gap-5"
-            style={scaled ? { gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "20px" } : undefined}
+            className="grid w-full min-w-0 gap-5"
+            style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "20px" }}
           >
             {items.map((item) => (
               <div key={item.row.id} className="min-w-0 h-full">
@@ -1306,8 +1306,8 @@ export function AlumniExecutiveCommitteeBoard({
         </div>
         {items.length > 0 ? (
           <div
-            className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 lg:gap-5"
-            style={scaled ? { gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "20px" } : undefined}
+            className="grid w-full min-w-0 gap-5"
+            style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "20px" }}
           >
             {items.map((item) => (
               <div key={item.row.id} className="min-w-0 h-full">
@@ -1346,7 +1346,7 @@ export function AlumniExecutiveCommitteeBoard({
 
       <div ref={outerRef} className="w-full min-w-0">
         {isMobile ? (
-          /* ── MOBILE layout (<540 px): 4 sections + 2-col cards ── */
+          /* ── MOBILE layout (<631 px): 4 sections + 2-col cards ── */
           <div
             ref={innerRef}
             className={cn(
@@ -1366,18 +1366,16 @@ export function AlumniExecutiveCommitteeBoard({
             {renderMobileCollapsible("committee_members")}
           </div>
         ) : (
-          /* ── DESKTOP / TABLET layout: transform-scale canvas (≥ 540 px) ── */
-          <div
-            className="relative overflow-hidden"
-            style={scaled && boardWrapH ? { height: boardWrapH } : undefined}
-          >
+          /* ── TABLET / DESKTOP layout: transform-scale canvas (≥ 631 px), scales up on 1440+ like PC ratios ── */
+          <div className="relative overflow-hidden" style={boardWrapH ? { height: boardWrapH } : undefined}>
             <div
               ref={innerRef}
               className="flex flex-col origin-top-left"
-              style={scaled
-                ? { width: `${COMMITTEE_DESIGN_W}px`, transform: `scale(${boardScale})`, gap: "40px" }
-                : { width: "100%", gap: "40px" }
-              }
+              style={{
+                width: `${COMMITTEE_DESIGN_W}px`,
+                transform: `scale(${boardScale})`,
+                gap: "40px",
+              }}
             >
               {presidentPick && !presidentInGoverning ? (
                 <div className="mx-auto flex w-full min-w-0 justify-center px-0">

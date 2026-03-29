@@ -1,5 +1,6 @@
 import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { motion } from "framer-motion";
+import { layoutCanvasScale, mqStackedMobile } from "@/lib/breakpoints";
 import { Microscope, BookOpenCheck, Monitor, Dumbbell, Music } from "lucide-react";
 
 const defaultFacilities = [
@@ -38,12 +39,12 @@ const CampusSection = ({ content }: CampusProps) => {
   const [campusScale, setCampusScale] = useState(1);
   const [campusWrapH, setCampusWrapH] = useState<number | undefined>(undefined);
   const [isNarrowViewport, setIsNarrowViewport] = useState(() =>
-    typeof window !== "undefined" ? window.matchMedia("(max-width: 1023px)").matches : false
+    typeof window !== "undefined" ? window.matchMedia(mqStackedMobile).matches : false
   );
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const mq = window.matchMedia("(max-width: 1023px)");
+    const mq = window.matchMedia(mqStackedMobile);
     const onChange = () => setIsNarrowViewport(mq.matches);
     onChange();
     if (typeof mq.addEventListener === "function") mq.addEventListener("change", onChange);
@@ -66,9 +67,9 @@ const CampusSection = ({ content }: CampusProps) => {
     const update = () => {
       const w = outer.getBoundingClientRect().width;
       if (!w) return;
-      const s = Math.min(1, w / CAMPUS_DESIGN_W);
+      const s = layoutCanvasScale(w, CAMPUS_DESIGN_W);
       setCampusScale(s);
-      setCampusWrapH(s < 1 ? Math.round(inner.offsetHeight * s) : undefined);
+      setCampusWrapH(Math.round(inner.offsetHeight * s));
     };
     let r1 = 0, r2 = 0;
     r1 = requestAnimationFrame(() => { r2 = requestAnimationFrame(update); });
@@ -77,8 +78,6 @@ const CampusSection = ({ content }: CampusProps) => {
     ro.observe(inner);
     return () => { cancelAnimationFrame(r1); cancelAnimationFrame(r2); ro.disconnect(); };
   }, [isNarrowViewport]);
-
-  const scaled = !isNarrowViewport && campusScale < 1;
 
   return (
     <section id="campus" className="border-t border-border/60 bg-background py-14 md:py-16">
@@ -138,17 +137,11 @@ const CampusSection = ({ content }: CampusProps) => {
           </div>
         ) : (
           <div ref={outerRef} className="w-full min-w-0">
-            <div
-              className="relative overflow-hidden"
-              style={scaled && campusWrapH ? { height: campusWrapH } : undefined}
-            >
+            <div className="relative overflow-hidden" style={campusWrapH ? { height: campusWrapH } : undefined}>
               <div
                 ref={innerRef}
                 className="origin-top-left"
-                style={scaled
-                  ? { width: `${CAMPUS_DESIGN_W}px`, transform: `scale(${campusScale})` }
-                  : { width: "100%" }
-                }
+                style={{ width: `${CAMPUS_DESIGN_W}px`, transform: `scale(${campusScale})` }}
               >
                 {/* Desktop layout (lg+): same as before */}
                 <div className="grid gap-12" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
