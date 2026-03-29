@@ -72,7 +72,7 @@ const Login = () => {
     const jwtFromQuery = searchParams.get("jwt");
 
     const completeGoogleLogin = async () => {
-      let jwt = jwtFromQuery;
+      let jwt: string | null = null;
 
       if (oauthHandoff) {
         try {
@@ -83,18 +83,39 @@ const Login = () => {
           const handoffBody = await handoffRes.json().catch(() => ({}));
           if (handoffBody?.token) jwt = handoffBody.token;
         } catch {
-          /* use jwt from query if present */
+          /* fall back to jwt in URL when cross-site cookie is blocked */
         }
       }
+      if (!jwt && jwtFromQuery) jwt = jwtFromQuery;
 
       if (!jwt) {
-        if (googleTokenMissing) toast.error("Google login failed (token missing). Please try again.");
-        if (googleError) toast.error("Google login failed. Please try again.");
-        if (googleCallbackFailed) toast.error("Google callback failed. Please try again.");
+        if (googleTokenMissing) toast.error("Google sign-in did not return a session. Please try again.");
+        if (googleError) toast.error("Google sign-in was interrupted. Please try again.");
+        if (googleCallbackFailed) toast.error("Something went wrong after Google sign-in. Please try again.");
         if (oauthHandoff && !googleTokenMissing && !googleError && !googleCallbackFailed) {
-          toast.error("Could not complete Google sign-in (no session cookie). Allow cookies for localhost or try again.");
+          const newGoogleUser = searchParams.get("new_google_user") === "1";
+          if (newGoogleUser) {
+            toast.error(
+              "We could not finish your Google sign-up in this browser. Turn off strict blocking of third-party cookies for this site, use a normal (not private) window, or register with email and password below."
+            );
+          } else {
+            toast.error(
+              "We could not complete Google sign-in from this browser. Allow cookies for this site (third-party cookies if your browser asks), try again, or sign in with your email and password if you already have an account."
+            );
+          }
         }
         return;
+      }
+
+      if (typeof window !== "undefined" && window.history.replaceState) {
+        try {
+          const u = new URL(window.location.href);
+          u.searchParams.delete("jwt");
+          u.searchParams.delete("oauth_handoff");
+          window.history.replaceState({}, "", u.pathname + u.search + u.hash);
+        } catch {
+          /* ignore */
+        }
       }
 
       const oauthRemember = sessionStorage.getItem(OAUTH_REMEMBER_KEY);

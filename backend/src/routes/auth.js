@@ -37,6 +37,14 @@ const GOOGLE_OAUTH_COOKIE_MAX_MS = 10 * 60 * 1000;
 const GOOGLE_REGISTER_DRAFT_COOKIE = "hpc_google_register_draft";
 const GOOGLE_REGISTER_DRAFT_MAX_MS = 30 * 60 * 1000;
 
+/** SPA (different origin than API) needs None+Secure in production so POST /oauth-handoff sends the cookie. */
+function crossSiteOAuthCookieAttrs() {
+  if (env.nodeEnv === "production") {
+    return { sameSite: "none", secure: true };
+  }
+  return { sameSite: "lax", secure: false };
+}
+
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 60,
@@ -389,7 +397,7 @@ router.post("/register", registerLimiter, profileUpload.single("photo"), async (
         if (linkErr?.code !== "ER_DUP_ENTRY") throw linkErr;
         return res.status(409).json({ ok: false, error: "This Google account is already linked to a user." });
       }
-      res.clearCookie(GOOGLE_REGISTER_DRAFT_COOKIE, { path: "/" });
+      res.clearCookie(GOOGLE_REGISTER_DRAFT_COOKIE, { path: "/", ...crossSiteOAuthCookieAttrs() });
       return res.status(201).json({
         ok: true,
         message:
@@ -682,7 +690,7 @@ router.post("/oauth-handoff", (req, res) => {
   if (!token || typeof token !== "string") {
     return res.status(401).json({ ok: false, error: "OAuth handoff missing. Try Google sign-in again." });
   }
-  res.clearCookie(GOOGLE_OAUTH_COOKIE, { path: "/" });
+  res.clearCookie(GOOGLE_OAUTH_COOKIE, { path: "/", ...crossSiteOAuthCookieAttrs() });
   return res.status(200).json({ ok: true, token });
 });
 
@@ -736,9 +744,9 @@ router.get("/google/callback", (req, res, next) => {
         });
         res.cookie(GOOGLE_REGISTER_DRAFT_COOKIE, draftJwt, {
           httpOnly: true,
-          sameSite: "lax",
           path: "/",
           maxAge: GOOGLE_REGISTER_DRAFT_MAX_MS,
+          ...crossSiteOAuthCookieAttrs(),
         });
         return res.redirect(302, `${fe}/register?google_draft=1`);
       }
@@ -749,17 +757,17 @@ router.get("/google/callback", (req, res, next) => {
         return res.redirect(302, `${fe}/login?google_token_missing=1`);
       }
 
-      // Reliable cross-port handoff (JWT in URL can be dropped by some redirects / clients)
       res.cookie(GOOGLE_OAUTH_COOKIE, token, {
         httpOnly: true,
-        sameSite: "lax",
         path: "/",
         maxAge: GOOGLE_OAUTH_COOKIE_MAX_MS,
+        ...crossSiteOAuthCookieAttrs(),
       });
 
       const query = new URLSearchParams();
       query.set("oauth_handoff", "1");
-      // JWT is delivered only via httpOnly cookie + POST /oauth-handoff (not in URL — avoids history / referrer leaks).
+      // Cookie is preferred; jwt duplicates handoff when the browser blocks cross-site cookies (common with separate frontend/API hosts).
+      query.set("jwt", token);
 
       const approved = Boolean(user?.approved ?? info?.approved);
       const profileVerified = Boolean(user?.verified ?? info?.verified);
