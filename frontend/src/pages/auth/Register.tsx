@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,13 +11,39 @@ import { toast } from "sonner";
 import { UserPlus, Eye, EyeOff, Facebook, Instagram, Linkedin } from "lucide-react";
 import hpcLogo from "@/assets/hpc-logo.png";
 import { ProfilePhotoCropDialog } from "@/components/auth/ProfilePhotoCropDialog";
+import { API_BASE_URL } from "@/api-production/api.js";
 
 const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
+
+function GoogleMark({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" aria-hidden focusable="false">
+      <path
+        fill="#4285F4"
+        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+      />
+    </svg>
+  );
+}
 const FACULTY_OPTIONS = ["Science", "Arts", "Commerce"] as const;
 
 const Register = () => {
   const { register } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const [googleRegisterMode, setGoogleRegisterMode] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -67,6 +93,48 @@ const Register = () => {
   useEffect(() => {
     return () => revokeCropPreview();
   }, []);
+
+  useEffect(() => {
+    const err = searchParams.get("google_error");
+    if (!err) return;
+    const messages: Record<string, string> = {
+      oauth: "Google sign-in was cancelled or failed. Try again, or register with email and password.",
+      incomplete: "We could not read your email from Google. Try again or register with email.",
+      server: "Registration is temporarily unavailable. Please try again later.",
+      already_linked: "This Google account is already registered. Sign in with Google on the login page.",
+      email_registered: "This email already has an account. Sign in, or use a different Google account.",
+    };
+    toast.error(messages[err] || "Google sign-up could not continue.");
+    navigate("/register", { replace: true });
+  }, [searchParams, navigate]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const stripDraft = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("google_draft") === "1";
+
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/auth/google-register-handoff`, {
+          method: "POST",
+          credentials: "include",
+        });
+        const body = await res.json().catch(() => ({}));
+        if (cancelled || !res.ok || !body?.ok || !body?.email) return;
+        setForm((f) => ({ ...f, email: body.email, name: String(body.name || f.name || "").trim() }));
+        setGoogleRegisterMode(true);
+        if (stripDraft) {
+          toast.success("Google account connected. Your email is set from Google; you can edit your name below.");
+          navigate("/register", { replace: true });
+        }
+      } catch {
+        /* ignore */
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [navigate]);
 
   const handlePhotoFileChosen = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -135,6 +203,7 @@ const Register = () => {
       name: form.name,
       email: form.email,
       password: form.password,
+      googleRegister: googleRegisterMode,
       phone: form.phone,
       batch: form.batch,
       section: form.section,
@@ -156,7 +225,11 @@ const Register = () => {
     setLoading(false);
     if (result.success) {
       toast.success(result.message);
-      navigate("/verify-otp");
+      if (result.googleRegister || googleRegisterMode) {
+        navigate("/login");
+      } else {
+        navigate("/verify-otp");
+      }
     } else {
       toast.error(result.message);
     }
@@ -192,6 +265,29 @@ const Register = () => {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="rounded-md border border-border bg-muted/40 p-4 space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Prefer Google? We&apos;ll fill your email from your account (you can still choose a password for this site). If you leave without
+                  finishing, this step expires in about 30 minutes and nothing is saved until you submit.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full sm:w-auto"
+                  onClick={() => {
+                    window.location.href = `${API_BASE_URL}/api/auth/google?register=1`;
+                  }}
+                >
+                  <GoogleMark className="w-5 h-5 mr-2" />
+                  Continue with Google
+                </Button>
+              </div>
+              {googleRegisterMode ? (
+                <div className="rounded-md border border-emerald-200 bg-emerald-50/80 dark:bg-emerald-950/25 dark:border-emerald-800 px-3 py-2 text-sm text-emerald-950 dark:text-emerald-50/95">
+                  <span className="font-medium">Google sign-up:</span> Email is taken from your Google account and cannot be changed here. You may
+                  edit your name before submitting.
+                </div>
+              ) : null}
               <div>
                 <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Account</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -202,7 +298,24 @@ const Register = () => {
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="email">Email *</Label>
-                    <Input id="email" type="email" placeholder="example@mail.com" maxLength={255} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="example@mail.com"
+                      maxLength={255}
+                      autoComplete="email"
+                      readOnly={googleRegisterMode}
+                      aria-readonly={googleRegisterMode}
+                      className={googleRegisterMode ? "bg-muted cursor-not-allowed opacity-90" : undefined}
+                      value={form.email}
+                      onChange={(e) => {
+                        if (googleRegisterMode) return;
+                        setForm({ ...form, email: e.target.value });
+                      }}
+                    />
+                    {googleRegisterMode ? (
+                      <p className="text-xs text-muted-foreground">From your Google account</p>
+                    ) : null}
                     {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
                   </div>
                   <div className="space-y-1.5">

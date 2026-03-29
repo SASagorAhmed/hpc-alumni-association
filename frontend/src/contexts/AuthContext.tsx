@@ -46,7 +46,7 @@ interface AuthContextType {
     rememberMe?: boolean
   ) => Promise<{ success: boolean; message: string; needsOtp?: boolean }>;
   adminLogin: (email: string, password: string, rememberMe?: boolean) => Promise<{ success: boolean; message: string }>;
-  register: (data: RegisterData) => Promise<{ success: boolean; message: string }>;
+  register: (data: RegisterData) => Promise<{ success: boolean; message: string; googleRegister?: boolean }>;
   verifyOtp: (otp: string) => Promise<{ success: boolean; message: string }>;
   logout: () => void;
   updateProfile: (data: Partial<User>) => Promise<{ success: boolean; message: string }>;
@@ -73,6 +73,8 @@ interface RegisterData {
   facebook: string;
   instagram: string;
   linkedin: string;
+  /** When true, sends draft cookie + marks Google-assisted registration (email verified server-side). */
+  googleRegister?: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -140,15 +142,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     fd.set("instagram", data.instagram);
     fd.set("linkedin", data.linkedin);
     if (data.photoFile) fd.append("photo", data.photoFile);
+    if (data.googleRegister) fd.set("googleRegister", "1");
 
     const res = await fetch(`${API_BASE_URL}/api/auth/register`, {
       method: "POST",
+      credentials: "include",
       body: fd,
     });
 
     const body = await res.json().catch(() => ({}));
     if (!res.ok) return { success: false, message: body?.error || "Registration failed" };
-    return { success: true, message: body?.message || "Registration successful! Please check your email to verify your account." };
+    return {
+      success: true,
+      message:
+        body?.message ||
+        (body?.google_register
+          ? "Registration successful. You can sign in with Google or your password."
+          : "Registration successful! Please check your email to verify your account."),
+      googleRegister: Boolean(body?.google_register),
+    };
   };
 
   const verifyOtp = async (_otp: string) => {

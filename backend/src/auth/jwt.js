@@ -22,6 +22,30 @@ function verifyJwt(token) {
   return jwt.verify(token, env.jwt.secret);
 }
 
+const GOOGLE_REGISTER_DRAFT_PURPOSE = "google_register_draft";
+
+/** Short-lived token stored in httpOnly cookie between Google OAuth and completing /register. */
+function signGoogleRegisterDraftToken({ googleSub, email, name }) {
+  return jwt.sign(
+    { purpose: GOOGLE_REGISTER_DRAFT_PURPOSE, googleSub, email, name: name || "" },
+    env.jwt.secret,
+    { expiresIn: "30m" }
+  );
+}
+
+function verifyGoogleRegisterDraftToken(token) {
+  const decoded = jwt.verify(token, env.jwt.secret);
+  if (!decoded || decoded.purpose !== GOOGLE_REGISTER_DRAFT_PURPOSE) {
+    throw new Error("Invalid Google register draft");
+  }
+  if (!decoded.googleSub || !decoded.email) throw new Error("Invalid Google register draft payload");
+  return {
+    googleSub: String(decoded.googleSub),
+    email: String(decoded.email).toLowerCase().trim(),
+    name: String(decoded.name || "").trim(),
+  };
+}
+
 function extractBearerToken(req) {
   const header = req.headers.authorization;
   if (!header) return null;
@@ -47,5 +71,7 @@ module.exports = {
   signJwt,
   verifyJwt,
   requireAuth,
+  signGoogleRegisterDraftToken,
+  verifyGoogleRegisterDraftToken,
 };
 

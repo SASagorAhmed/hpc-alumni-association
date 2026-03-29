@@ -12,6 +12,25 @@ function normalizeName(displayName) {
   return { firstName: parts[0] || "", lastName: parts.slice(1).join(" ") };
 }
 
+/** Pull email + display name from Google profile (register flow; no DB writes). */
+function extractGoogleRegisterDraft(profile) {
+  const googleSub = profile?.id ? String(profile.id) : null;
+  const email = profile?.emails?.[0]?.value ? String(profile.emails[0].value).toLowerCase().trim() : null;
+  const displayName = profile?.displayName ? String(profile.displayName) : "";
+  const { firstName, lastName } = normalizeName(displayName);
+  const name = String(`${firstName} ${lastName}`.trim() || displayName || "").trim();
+  if (!googleSub || !email) return null;
+  return { googleSub, email, name };
+}
+
+async function assertGoogleRegisterAllowed(pool, draft) {
+  const [idRows] = await pool.query(`SELECT user_id FROM google_identities WHERE google_sub = ? LIMIT 1`, [draft.googleSub]);
+  if (idRows?.[0]) return { ok: false, code: "already_linked" };
+  const [userRows] = await pool.query(`SELECT id FROM users WHERE email = ? LIMIT 1`, [draft.email]);
+  if (userRows?.[0]) return { ok: false, code: "email_registered" };
+  return { ok: true };
+}
+
 async function findOrCreateUserFromGoogle(profile) {
   const pool = getOrCreatePool();
   if (!pool) throw new Error("MySQL not configured");
@@ -137,6 +156,10 @@ function configureGooglePassport() {
       // Use 6-arg form so `profile` is always the real Google profile (not token params).
       async (req, accessToken, refreshToken, _params, profile, done) => {
         try {
+          const state = String(req.query.state || "login");
+          if (state === "register") {
+            return done(null, { registerDraft: true, profile });
+          }
           const result = await findOrCreateUserFromGoogle(profile);
           const token = signJwt(result.userId, { rememberMe: true });
           return done(null, { ...result, token });
@@ -151,5 +174,7 @@ function configureGooglePassport() {
 module.exports = {
   configureGooglePassport,
   findOrCreateUserFromGoogle,
+  extractGoogleRegisterDraft,
+  assertGoogleRegisterAllowed,
 };
 

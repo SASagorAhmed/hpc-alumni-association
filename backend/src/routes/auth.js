@@ -3,7 +3,8 @@ const rateLimit = require("express-rate-limit");
 const { v4: uuidv4 } = require("uuid");
 const { getOrCreatePool } = require("../db/pool");
 const { hashPassword, verifyPassword } = require("../auth/password");
-const { signJwt, requireAuth } = require("../auth/jwt");
+const { signJwt, requireAuth, signGoogleRegisterDraftToken, verifyGoogleRegisterDraftToken } = require("../auth/jwt");
+const { extractGoogleRegisterDraft, assertGoogleRegisterAllowed } = require("../auth/google");
 const { sendVerificationEmail, sendPasswordResetEmail } = require("../auth/email");
 const { ensurePasswordResetTokensTable } = require("../utils/ensurePasswordResetTokensTable");
 const env = require("../config/env");
@@ -33,6 +34,8 @@ function buildEmailVerificationLink(req, token) {
 
 const GOOGLE_OAUTH_COOKIE = "hpc_google_oauth_token";
 const GOOGLE_OAUTH_COOKIE_MAX_MS = 10 * 60 * 1000;
+const GOOGLE_REGISTER_DRAFT_COOKIE = "hpc_google_register_draft";
+const GOOGLE_REGISTER_DRAFT_MAX_MS = 30 * 60 * 1000;
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -205,7 +208,25 @@ router.post("/register", registerLimiter, profileUpload.single("photo"), async (
       facebook,
       instagram,
       linkedin,
+      googleRegister,
     } = req.body || {};
+    const wantsGoogleRegister = String(googleRegister || "") === "1";
+
+    let googleDraft = null;
+    const draftCookieRaw = req.cookies?.[GOOGLE_REGISTER_DRAFT_COOKIE];
+    if (draftCookieRaw && typeof draftCookieRaw === "string") {
+      try {
+        googleDraft = verifyGoogleRegisterDraftToken(draftCookieRaw);
+      } catch (_e) {
+        googleDraft = null;
+      }
+    }
+    if (wantsGoogleRegister && !googleDraft) {
+      return res.status(400).json({
+        ok: false,
+        error: "Your Google sign-up session expired or is missing. Please use Continue with Google again.",
+      });
+    }
     const sectionRaw = section != null && String(section).trim() !== "" ? section : department;
     const facultyRaw = String(faculty ?? "").trim();
     const facultyKey = facultyRaw.toLowerCase();
@@ -218,6 +239,9 @@ router.post("/register", registerLimiter, profileUpload.single("photo"), async (
     }
 
     const emailStr = String(email).toLowerCase().trim();
+    if (wantsGoogleRegister && googleDraft && emailStr !== googleDraft.email) {
+      return res.status(400).json({ ok: false, error: "Email must match your Google account." });
+    }
     const existing = await pool.query(`SELECT id FROM users WHERE email = ? LIMIT 1`, [emailStr]);
     if ((existing[0] || []).length > 0) {
       return res.status(409).json({ ok: false, error: "Email already registered" });
@@ -313,9 +337,10 @@ router.post("/register", registerLimiter, profileUpload.single("photo"), async (
     // Alumni ID = SectionLetter + 2-digit Batch + RollDigits
     const alumniId = `${dep}${batchNorm}${rollDigits}`;
 
+    const emailVerifiedNow = Boolean(wantsGoogleRegister && googleDraft);
     await pool.query(
-      `INSERT INTO users (id, email, password_hash, email_verified) VALUES (?, ?, ?, false)`,
-      [userId, emailStr, passwordHash]
+      `INSERT INTO users (id, email, password_hash, email_verified) VALUES (?, ?, ?, ?)`,
+      [userId, emailStr, passwordHash, emailVerifiedNow]
     );
 
     await pool.query(
@@ -353,7 +378,27 @@ router.post("/register", registerLimiter, profileUpload.single("photo"), async (
       [uuidv4(), userId, userRole]
     );
 
-    // Create verification token
+    if (wantsGoogleRegister && googleDraft) {
+      try {
+        await pool.query(`INSERT INTO google_identities (id, user_id, google_sub) VALUES (?, ?, ?)`, [
+          uuidv4(),
+          userId,
+          googleDraft.googleSub,
+        ]);
+      } catch (linkErr) {
+        if (linkErr?.code !== "ER_DUP_ENTRY") throw linkErr;
+        return res.status(409).json({ ok: false, error: "This Google account is already linked to a user." });
+      }
+      res.clearCookie(GOOGLE_REGISTER_DRAFT_COOKIE, { path: "/" });
+      return res.status(201).json({
+        ok: true,
+        message:
+          "Registration successful. Your Google email is verified. You can sign in with Google or with the password you chose.",
+        google_register: true,
+      });
+    }
+
+    // Create verification token (email/password registration only)
     const token = uuidv4();
     const verificationTokenId = uuidv4();
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
@@ -621,14 +666,15 @@ router.get("/me", requireAuth, async (req, res) => {
   }
 });
 
-// GET /api/auth/google
-router.get(
-  "/google",
+// GET /api/auth/google?register=1 — OAuth for completing the register form (draft only; no user until POST /register)
+router.get("/google", (req, res, next) => {
+  const register = req.query.register === "1" || req.query.register === "true";
   passport.authenticate("google", {
     scope: ["profile", "email"],
     session: false,
-  })
-);
+    state: register ? "register" : "login",
+  })(req, res, next);
+});
 
 // POST /api/auth/oauth-handoff — read one-time JWT from httpOnly cookie (set on Google callback)
 router.post("/oauth-handoff", (req, res) => {
@@ -640,21 +686,67 @@ router.post("/oauth-handoff", (req, res) => {
   return res.status(200).json({ ok: true, token });
 });
 
+// POST /api/auth/google-register-handoff — expose Google email/name for /register (cookie kept until registration succeeds or expires)
+router.post("/google-register-handoff", (req, res) => {
+  const raw = req.cookies?.[GOOGLE_REGISTER_DRAFT_COOKIE];
+  if (!raw || typeof raw !== "string") {
+    return res.status(401).json({ ok: false, error: "Google sign-up session expired. Use Continue with Google again." });
+  }
+  try {
+    const draft = verifyGoogleRegisterDraftToken(raw);
+    return res.status(200).json({ ok: true, email: draft.email, name: draft.name });
+  } catch (_e) {
+    return res.status(401).json({ ok: false, error: "Google sign-up session expired. Use Continue with Google again." });
+  }
+});
+
 // GET /api/auth/google/callback
 router.get("/google/callback", (req, res, next) => {
-  passport.authenticate("google", { session: false }, (err, user, info) => {
+  passport.authenticate("google", { session: false }, async (err, user, info) => {
+    const fe = env.frontendRedirectOrigin || env.frontendOrigin;
+    const fromRegister = String(req.query.state || "") === "register";
     try {
       console.log("[google callback] err:", err ? (err.message || err) : null);
       console.log("[google callback] user keys:", user ? Object.keys(user) : null);
       console.log("[google callback] info keys:", info ? Object.keys(info) : null);
 
       if (err) {
-        return res.redirect(302, `${env.frontendOrigin}/login?google_error=1`);
+        if (fromRegister) return res.redirect(302, `${fe}/register?google_error=oauth`);
+        return res.redirect(302, `${fe}/login?google_error=1`);
+      }
+
+      if (user?.registerDraft) {
+        const draft = extractGoogleRegisterDraft(user.profile);
+        if (!draft) {
+          return res.redirect(302, `${fe}/register?google_error=incomplete`);
+        }
+        const pool = getOrCreatePool();
+        if (!pool) {
+          return res.redirect(302, `${fe}/register?google_error=server`);
+        }
+        const check = await assertGoogleRegisterAllowed(pool, draft);
+        if (!check.ok) {
+          const q = check.code === "already_linked" ? "already_linked" : "email_registered";
+          return res.redirect(302, `${fe}/register?google_error=${q}`);
+        }
+        const draftJwt = signGoogleRegisterDraftToken({
+          googleSub: draft.googleSub,
+          email: draft.email,
+          name: draft.name,
+        });
+        res.cookie(GOOGLE_REGISTER_DRAFT_COOKIE, draftJwt, {
+          httpOnly: true,
+          sameSite: "lax",
+          path: "/",
+          maxAge: GOOGLE_REGISTER_DRAFT_MAX_MS,
+        });
+        return res.redirect(302, `${fe}/register?google_draft=1`);
       }
 
       const token = user?.token || info?.token;
       if (!token) {
-        return res.redirect(302, `${env.frontendOrigin}/login?google_token_missing=1`);
+        if (fromRegister) return res.redirect(302, `${fe}/register?google_error=oauth`);
+        return res.redirect(302, `${fe}/login?google_token_missing=1`);
       }
 
       // Reliable cross-port handoff (JWT in URL can be dropped by some redirects / clients)
@@ -681,12 +773,13 @@ router.get("/google/callback", (req, res, next) => {
       if (!approved && !profileVerified) query.set("pending_approval", "1");
       if (isNewUser) query.set("needs_password_setup", "1");
 
-      const redirectUrl = `${env.frontendOrigin}/login?${query.toString()}`;
+      const redirectUrl = `${fe}/login?${query.toString()}`;
       console.log("[google callback] redirect (truncated):", redirectUrl.slice(0, 120) + (redirectUrl.length > 120 ? "…" : ""));
       return res.redirect(302, redirectUrl);
     } catch (e) {
       console.error("[google callback] handler failed:", e.message || e);
-      return res.redirect(302, `${env.frontendOrigin}/login?google_callback_failed=1`);
+      if (fromRegister) return res.redirect(302, `${fe}/register?google_error=oauth`);
+      return res.redirect(302, `${fe}/login?google_callback_failed=1`);
     }
   })(req, res, next);
 });
