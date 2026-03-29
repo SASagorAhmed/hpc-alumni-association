@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { Link } from "react-router-dom";
+import { useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -10,10 +10,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { API_BASE_URL } from "@/api-production/api.js";
 import { useSyncedQueryState } from "@/hooks/useSyncedQueryState";
+import { AlumniPhotoLightbox } from "@/components/alumni/AlumniPhotoLightbox";
 
 const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 const GENDERS = ["Male", "Female", "Other"];
-const JOB_STATUSES = ["Student", "Job Holder", "Business", "Freelancer", "Unemployed"];
 const FACULTY_OPTIONS = ["Science", "Arts", "Commerce"] as const;
 const SORT_OPTIONS = [
   { value: "name_asc", label: "Name A–Z" },
@@ -60,8 +60,12 @@ const fetchAlumni = async (): Promise<AlumniProfile[]> => {
   return Array.isArray(data) ? data : [];
 };
 
+const DIRECTORY_FILTER_KEYS = ["q", "batch", "blood", "gender", "job", "uni", "faculty", "sort"] as const;
+
 const Directory = () => {
   const { user } = useAuth();
+  const [, setSearchParams] = useSearchParams();
+  const [photoLightbox, setPhotoLightbox] = useState<{ src: string; name: string } | null>(null);
   const [search, setSearch] = useSyncedQueryState("q", "");
   const [filterBatch, setFilterBatch] = useSyncedQueryState("batch", "");
   const [filterBlood, setFilterBlood] = useSyncedQueryState("blood", "");
@@ -81,6 +85,14 @@ const Directory = () => {
   // Derive unique filter options
   const batches = useMemo(() => [...new Set(alumni.map((a) => a.batch).filter(Boolean))].sort(), [alumni]);
   const universities = useMemo(() => [...new Set(alumni.map((a) => a.university).filter(Boolean))].sort(), [alumni]);
+  const jobStatuses = useMemo(() => {
+    const set = new Set<string>();
+    for (const a of alumni) {
+      const j = String(a.job_status ?? "").trim();
+      if (j) set.add(j);
+    }
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [alumni]);
 
   const dropdownFilterCount = [
     filterBatch,
@@ -94,14 +106,14 @@ const Directory = () => {
     dropdownFilterCount + (search.trim() ? 1 : 0) + (sort !== "name_asc" ? 1 : 0);
 
   const clearFilters = () => {
-    setSearch("");
-    setFilterBatch("");
-    setFilterBlood("");
-    setFilterGender("");
-    setFilterJobStatus("");
-    setFilterUniversity("");
-    setFilterFaculty("");
-    setSortParam("name_asc");
+    setSearchParams(
+      (prev) => {
+        const n = new URLSearchParams(prev);
+        for (const k of DIRECTORY_FILTER_KEYS) n.delete(k);
+        return n;
+      },
+      { replace: true }
+    );
   };
 
   // Filter + search
@@ -111,7 +123,10 @@ const Directory = () => {
     if (filterBatch) list = list.filter((a) => a.batch === filterBatch);
     if (filterBlood) list = list.filter((a) => a.blood_group === filterBlood);
     if (filterGender) list = list.filter((a) => a.gender === filterGender);
-    if (filterJobStatus) list = list.filter((a) => a.job_status === filterJobStatus);
+    if (filterJobStatus) {
+      const j = filterJobStatus.trim();
+      list = list.filter((a) => String(a.job_status ?? "").trim() === j);
+    }
     if (filterUniversity) list = list.filter((a) => a.university === filterUniversity);
     if (filterFaculty) {
       const f = filterFaculty.toLowerCase();
@@ -197,7 +212,7 @@ const Directory = () => {
             )}
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            <Select value={filterFaculty} onValueChange={setFilterFaculty}>
+            <Select value={filterFaculty || undefined} onValueChange={setFilterFaculty}>
               <SelectTrigger className="text-xs">
                 <SelectValue placeholder="Department" />
               </SelectTrigger>
@@ -209,23 +224,29 @@ const Directory = () => {
                 ))}
               </SelectContent>
             </Select>
-            <Select value={filterBatch} onValueChange={setFilterBatch}>
+            <Select value={filterBatch || undefined} onValueChange={setFilterBatch}>
               <SelectTrigger className="text-xs"><SelectValue placeholder="Batch" /></SelectTrigger>
               <SelectContent>{batches.map((b) => <SelectItem key={b} value={b!}>{b}</SelectItem>)}</SelectContent>
             </Select>
-            <Select value={filterBlood} onValueChange={setFilterBlood}>
+            <Select value={filterBlood || undefined} onValueChange={setFilterBlood}>
               <SelectTrigger className="text-xs"><SelectValue placeholder="Blood Group" /></SelectTrigger>
               <SelectContent>{BLOOD_GROUPS.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
             </Select>
-            <Select value={filterGender} onValueChange={setFilterGender}>
+            <Select value={filterGender || undefined} onValueChange={setFilterGender}>
               <SelectTrigger className="text-xs"><SelectValue placeholder="Gender" /></SelectTrigger>
               <SelectContent>{GENDERS.map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent>
             </Select>
-            <Select value={filterJobStatus} onValueChange={setFilterJobStatus}>
+            <Select value={filterJobStatus || undefined} onValueChange={setFilterJobStatus}>
               <SelectTrigger className="text-xs"><SelectValue placeholder="Job Status" /></SelectTrigger>
-              <SelectContent>{JOB_STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+              <SelectContent>
+                {jobStatuses.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {s}
+                  </SelectItem>
+                ))}
+              </SelectContent>
             </Select>
-            <Select value={filterUniversity} onValueChange={setFilterUniversity}>
+            <Select value={filterUniversity || undefined} onValueChange={setFilterUniversity}>
               <SelectTrigger className="text-xs"><SelectValue placeholder="University" /></SelectTrigger>
               <SelectContent>{universities.map((u) => <SelectItem key={u} value={u!}>{u}</SelectItem>)}</SelectContent>
             </Select>
@@ -263,13 +284,35 @@ const Directory = () => {
           {filtered.map((a) => (
             <Link key={a.id} to={`/directory/${a.id}`} className="h-full min-w-0">
               <Card className="h-full min-w-0 hover:shadow-md transition-shadow cursor-pointer group">
-              <CardContent className="flex h-full min-h-[190px] min-w-0 flex-col p-4">
-                <div className="flex min-w-0 items-start gap-3">
-                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0 overflow-hidden">
-                    {a.photo ? <img src={a.photo} alt={a.name} className="w-full h-full object-cover" /> : <User className="w-5 h-5 text-primary" />}
-                  </div>
+              <CardContent className="flex h-full min-h-[236px] min-w-0 flex-col p-4">
+                <div className="flex min-w-0 items-start gap-4">
+                  <button
+                    type="button"
+                    className="group/photo relative h-24 w-24 shrink-0 cursor-zoom-in overflow-hidden rounded-full bg-primary/10 ring-2 ring-primary/20 transition-[box-shadow,transform] hover:ring-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-default sm:h-28 sm:w-28"
+                    disabled={!a.photo}
+                    aria-label={a.photo ? `View full photo of ${a.name}` : `No photo for ${a.name}`}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (a.photo) setPhotoLightbox({ src: a.photo, name: a.name });
+                    }}
+                  >
+                    {a.photo ? (
+                      <img
+                        src={a.photo}
+                        alt=""
+                        className="h-full w-full object-cover transition-transform duration-200 group-hover/photo:scale-105"
+                      />
+                    ) : (
+                      <span className="flex h-full w-full items-center justify-center">
+                        <User className="h-10 w-10 text-primary sm:h-12 sm:w-12" aria-hidden />
+                      </span>
+                    )}
+                  </button>
                   <div className="min-w-0 flex-1">
-                    <h3 className="font-semibold text-sm text-foreground truncate group-hover:text-primary transition-colors">{a.name}</h3>
+                    <h3 className="font-semibold text-base text-foreground leading-snug line-clamp-2 group-hover:text-primary transition-colors [overflow-wrap:anywhere]">
+                      {a.name}
+                    </h3>
                     <p className="min-w-0 break-words text-xs text-muted-foreground [overflow-wrap:anywhere]">Batch: {a.batch || "—"} {a.roll ? `| Roll: ${a.roll}` : ""}</p>
                   </div>
                 </div>
@@ -282,7 +325,15 @@ const Directory = () => {
                   ) : null}
                   {a.faculty && <Badge variant="outline" className="text-[10px] px-1.5 py-0">{a.faculty}</Badge>}
                   {a.blood_group && <Badge variant="outline" className="text-[10px] px-1.5 py-0"><Droplets className="w-2.5 h-2.5 mr-0.5" />{a.blood_group}</Badge>}
-                  {a.university && <Badge variant="secondary" className="max-w-[120px] min-w-0 truncate px-1.5 py-0 text-[10px]"><GraduationCap className="w-2.5 h-2.5 mr-0.5 shrink-0" />{a.university}</Badge>}
+                  {a.university && (
+                    <Badge
+                      variant="secondary"
+                      className="max-w-full min-w-0 h-auto items-start gap-1 rounded-md px-1.5 py-1 text-[10px] font-normal whitespace-normal text-left"
+                    >
+                      <GraduationCap className="w-2.5 h-2.5 shrink-0 mt-0.5" aria-hidden />
+                      <span className="min-w-0 break-words leading-snug [overflow-wrap:anywhere]">{a.university}</span>
+                    </Badge>
+                  )}
                   {a.job_status && <Badge variant="outline" className="text-[10px] px-1.5 py-0"><Briefcase className="w-2.5 h-2.5 mr-0.5" />{a.job_status}</Badge>}
                 </div>
                 {(a.phone || a.company) && (
@@ -300,6 +351,15 @@ const Directory = () => {
           ))}
         </div>
       )}
+
+      <AlumniPhotoLightbox
+        open={!!photoLightbox}
+        onOpenChange={(o) => {
+          if (!o) setPhotoLightbox(null);
+        }}
+        src={photoLightbox?.src}
+        name={photoLightbox?.name ?? ""}
+      />
     </div>
   );
 };

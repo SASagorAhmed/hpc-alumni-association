@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Award, Briefcase, Droplets, Facebook, GraduationCap, Instagram, Linkedin, MapPin, Phone, User } from "lucide-react";
 import { API_BASE_URL } from "@/api-production/api.js";
+import { AlumniPhotoLightbox } from "@/components/alumni/AlumniPhotoLightbox";
+import { cn } from "@/lib/utils";
 
 interface AlumniProfile {
   id: string;
@@ -43,6 +45,7 @@ const fetchAlumni = async (): Promise<AlumniProfile[]> => {
 
 const DirectoryProfile = () => {
   const { id } = useParams();
+  const [photoOpen, setPhotoOpen] = useState(false);
   const { data: alumni = [], isLoading } = useQuery({
     queryKey: ["alumni-directory"],
     queryFn: fetchAlumni,
@@ -54,43 +57,78 @@ const DirectoryProfile = () => {
   if (!selected) return <div className="py-10 text-center text-muted-foreground">Profile not found.</div>;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
+    <div className="mx-auto max-w-4xl space-y-4 px-2 sm:px-0">
       <Button asChild variant="outline" size="sm">
         <Link to="/directory">
           <ArrowLeft className="mr-1 h-4 w-4" /> Back to Directory
         </Link>
       </Button>
 
-      <Card>
-        <CardContent className="space-y-4 p-5">
-          <div className="flex items-center gap-3">
-            <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full bg-primary/10">
+      <Card className="overflow-hidden">
+        <CardContent className="space-y-6 p-6 sm:p-8">
+          <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start">
+            <button
+              type="button"
+              className={cn(
+                "shrink-0 overflow-hidden rounded-2xl bg-primary/10 ring-2 ring-primary/25 transition-[box-shadow,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                "h-44 w-44 sm:h-52 sm:w-52",
+                selected.photo ? "cursor-zoom-in shadow-md hover:ring-primary/45 hover:shadow-lg" : "cursor-default"
+              )}
+              onClick={() => selected.photo && setPhotoOpen(true)}
+              aria-label={selected.photo ? `View full photo of ${selected.name}` : "No profile photo"}
+              disabled={!selected.photo}
+            >
               {selected.photo ? (
-                <img src={selected.photo} alt={selected.name} className="h-full w-full object-cover" />
+                <img
+                  src={selected.photo}
+                  alt=""
+                  className="h-full w-full object-cover"
+                />
               ) : (
                 <div className="flex h-full w-full items-center justify-center">
-                  <User className="h-7 w-7 text-primary" />
+                  <User className="h-20 w-20 text-primary sm:h-24 sm:w-24" aria-hidden />
                 </div>
               )}
-            </div>
-            <div>
-              <h1 className="text-lg font-semibold text-foreground">{selected.name}</h1>
-              <p className="text-sm text-muted-foreground">
-                Batch: {selected.batch || "-"} {selected.roll ? `| Roll: ${selected.roll}` : ""}
+            </button>
+            <div className="min-w-0 flex-1 text-center sm:pt-1 sm:text-left">
+              <h1 className="text-2xl font-bold leading-tight tracking-tight text-foreground sm:text-3xl [overflow-wrap:anywhere]">
+                {selected.name}
+              </h1>
+              <p className="mt-2 text-base text-muted-foreground [overflow-wrap:anywhere]">
+                Batch: {selected.batch || "—"}
+                {selected.roll ? ` · Roll: ${selected.roll}` : ""}
               </p>
+              {selected.photo ? (
+                <p className="mt-2 text-xs text-muted-foreground">Tap the photo to view it full size.</p>
+              ) : null}
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap justify-center gap-2 sm:justify-start">
             {selected.admin_committee_designation ? (
-              <Badge className="bg-amber-600/95 text-white border-0">
-                <Award className="mr-1 h-3 w-3" />
-                {selected.admin_committee_designation}
+              <Badge className="max-w-full min-w-0 whitespace-normal bg-amber-600/95 py-1 text-white border-0 text-left">
+                <Award className="mr-1 h-3 w-3 shrink-0" />
+                <span className="[overflow-wrap:anywhere]">{selected.admin_committee_designation}</span>
               </Badge>
             ) : null}
-            {selected.blood_group ? <Badge variant="outline"><Droplets className="mr-1 h-3 w-3" />{selected.blood_group}</Badge> : null}
-            {selected.university ? <Badge variant="secondary"><GraduationCap className="mr-1 h-3 w-3" />{selected.university}</Badge> : null}
-            {selected.job_status ? <Badge variant="outline"><Briefcase className="mr-1 h-3 w-3" />{selected.job_status}</Badge> : null}
+            {selected.blood_group ? (
+              <Badge variant="outline" className="text-sm">
+                <Droplets className="mr-1 h-3 w-3" />
+                {selected.blood_group}
+              </Badge>
+            ) : null}
+            {selected.university ? (
+              <Badge variant="secondary" className="max-w-full min-w-0 whitespace-normal py-1 text-sm font-normal text-left">
+                <GraduationCap className="mr-1 mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span className="[overflow-wrap:anywhere]">{selected.university}</span>
+              </Badge>
+            ) : null}
+            {selected.job_status ? (
+              <Badge variant="outline" className="text-sm">
+                <Briefcase className="mr-1 h-3 w-3" />
+                {selected.job_status}
+              </Badge>
+            ) : null}
           </div>
 
           <DetailSection title="Basic">
@@ -130,24 +168,31 @@ const DirectoryProfile = () => {
           )}
         </CardContent>
       </Card>
+
+      <AlumniPhotoLightbox
+        open={photoOpen}
+        onOpenChange={setPhotoOpen}
+        src={selected.photo}
+        name={selected.name}
+      />
     </div>
   );
 };
 
 const DetailSection = ({ title, children }: { title: string; children: React.ReactNode }) => (
   <div>
-    <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{title}</h4>
-    <div className="space-y-1.5">{children}</div>
+    <h4 className="mb-2.5 text-sm font-semibold uppercase tracking-wider text-muted-foreground">{title}</h4>
+    <div className="space-y-2">{children}</div>
   </div>
 );
 
 const DetailRow = ({ label, value, icon }: { label: string; value?: string | null; icon?: React.ReactNode }) => {
   if (!value) return null;
   return (
-    <div className="flex items-start gap-2 text-sm">
-      {icon ? <span className="mt-0.5 text-muted-foreground">{icon}</span> : null}
-      <span className="min-w-[100px] shrink-0 text-muted-foreground">{label}:</span>
-      <span className="text-foreground">{value}</span>
+    <div className="flex items-start gap-2 text-base leading-snug">
+      {icon ? <span className="mt-0.5 shrink-0 text-muted-foreground">{icon}</span> : null}
+      <span className="min-w-[7.5rem] shrink-0 text-muted-foreground">{label}:</span>
+      <span className="min-w-0 text-foreground [overflow-wrap:anywhere]">{value}</span>
     </div>
   );
 };
