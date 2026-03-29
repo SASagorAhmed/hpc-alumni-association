@@ -184,6 +184,8 @@ function nullableTrim(v) {
 }
 
 const BANNER_TEXT_MAX_WORDS = 30;
+/** Longer limit for the main congratulations body (`message`) shown in the banner animation. */
+const BANNER_MESSAGE_MAX_WORDS = 100;
 
 function wordCount(s) {
   if (s == null || s === "") return 0;
@@ -194,17 +196,19 @@ function wordCount(s) {
 
 /** Returns error message or null */
 function validateAchievementBannerWordLimits(fields) {
-  const map = [
+  const shortKeys = [
     ["achievement_title", fields.achievement_title],
-    ["message", fields.message],
     ["banner_photo_batch_text", fields.banner_photo_batch_text],
     ["banner_photo_tagline", fields.banner_photo_tagline],
     ["banner_congratulations_text", fields.banner_congratulations_text],
   ];
-  for (const [key, val] of map) {
+  for (const [key, val] of shortKeys) {
     if (val != null && wordCount(val) > BANNER_TEXT_MAX_WORDS) {
       return `${key.replace(/_/g, " ")} must be at most ${BANNER_TEXT_MAX_WORDS} words`;
     }
+  }
+  if (fields.message != null && wordCount(fields.message) > BANNER_MESSAGE_MAX_WORDS) {
+    return `message must be at most ${BANNER_MESSAGE_MAX_WORDS} words`;
   }
   return null;
 }
@@ -608,6 +612,49 @@ router.get("/achievements", requireAuth, async (req, res) => {
     res.status(200).json(rows || []);
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message || "Failed to load achievements" });
+  }
+});
+
+/**
+ * Lookup a registered alumni by Alumni ID (profiles.registration_number) to prefill achievement banner fields.
+ */
+router.get("/achievements/alumni-profile", requireAuth, async (req, res) => {
+  try {
+    const pool = await withAdmin(req, res);
+    if (!pool) return;
+    const key = String(req.query.alumni_id || "").trim();
+    if (!key) {
+      return res.status(400).json({ ok: false, error: "alumni_id is required" });
+    }
+    const [profRows] = await pool.query(
+      `SELECT p.name, p.batch, p.photo, p.university, p.address, p.registration_number, p.profession, p.college_name
+       FROM profiles p
+       WHERE TRIM(COALESCE(p.registration_number,'')) = ?
+          OR UPPER(TRIM(COALESCE(p.registration_number,''))) = UPPER(?)`,
+      [key, key]
+    );
+    const profile = profRows?.[0];
+    if (!profile) {
+      return res.status(404).json({ ok: false, error: "No alumni profile found for this Alumni ID." });
+    }
+    const regNum =
+      profile.registration_number != null ? String(profile.registration_number).trim() : key;
+    res.status(200).json({
+      ok: true,
+      profile: {
+        name: profile.name != null ? String(profile.name).trim() : "",
+        batch: profile.batch != null ? String(profile.batch).trim() : null,
+        photo_url: profile.photo != null ? String(profile.photo).trim() || null : null,
+        institution: profile.university != null ? String(profile.university).trim() || null : null,
+        location: profile.address != null ? String(profile.address).trim() || null : null,
+        registration_number: regNum,
+        profession: profile.profession != null ? String(profile.profession).trim() || null : null,
+        college_name: profile.college_name != null ? String(profile.college_name).trim() || null : null,
+      },
+    });
+  } catch (e) {
+    console.error("[admin] GET /achievements/alumni-profile", e);
+    res.status(500).json({ ok: false, error: e.message || "Failed to load profile" });
   }
 });
 

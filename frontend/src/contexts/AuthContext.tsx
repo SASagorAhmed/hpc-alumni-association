@@ -48,7 +48,13 @@ interface AuthContextType {
     rememberMe?: boolean
   ) => Promise<{ success: boolean; message: string; needsOtp?: boolean }>;
   adminLogin: (email: string, password: string, rememberMe?: boolean) => Promise<{ success: boolean; message: string }>;
-  register: (data: RegisterData) => Promise<{ success: boolean; message: string; googleRegister?: boolean }>;
+  register: (data: RegisterData) => Promise<{
+    success: boolean;
+    message: string;
+    googleRegister?: boolean;
+    /** Assigned registration number (Alumni ID); present when registration succeeds. */
+    alumniId?: string;
+  }>;
   verifyOtp: (otp: string) => Promise<{ success: boolean; message: string }>;
   logout: () => void;
   updateProfile: (data: Partial<User>) => Promise<{ success: boolean; message: string }>;
@@ -154,6 +160,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const body = await res.json().catch(() => ({}));
     if (!res.ok) return { success: false, message: body?.error || "Registration failed" };
+    const alumniIdRaw = body?.alumni_id;
+    const alumniId = typeof alumniIdRaw === "string" && alumniIdRaw.trim() ? alumniIdRaw.trim() : undefined;
     return {
       success: true,
       message:
@@ -162,6 +170,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           ? "Registration successful. You can sign in with Google or your password."
           : "Registration successful! Please check your email to verify your account."),
       googleRegister: Boolean(body?.google_register),
+      alumniId,
     };
   };
 

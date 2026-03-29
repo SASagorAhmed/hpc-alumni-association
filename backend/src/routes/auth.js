@@ -406,6 +406,7 @@ router.post("/register", registerLimiter, profileUpload.single("photo"), async (
         message:
           "Registration successful. Your Google email is verified. You can sign in with Google or with the password you chose.",
         google_register: true,
+        alumni_id: alumniId,
       });
     }
 
@@ -423,7 +424,11 @@ router.post("/register", registerLimiter, profileUpload.single("photo"), async (
     const verificationLink = buildEmailVerificationLink(req, token);
     try {
       await sendVerificationEmail({ email: emailStr, verificationLink });
-      return res.status(201).json({ ok: true, message: "Registration successful. Check your email for verification." });
+      return res.status(201).json({
+        ok: true,
+        message: "Registration successful. Check your email for verification.",
+        alumni_id: alumniId,
+      });
     } catch (mailErr) {
       // Keep registration usable during local/staging setup if SMTP is not configured yet.
       // Never expose verification tokens in production API responses.
@@ -434,6 +439,7 @@ router.post("/register", registerLimiter, profileUpload.single("photo"), async (
             ? "Registration successful, but verification email could not be sent. Contact support or try again later."
             : "Registration successful, but verification email could not be sent. Use verification_url for setup testing.",
         email_error: mailErr.message || "SMTP send failed",
+        alumni_id: alumniId,
       };
       if (env.nodeEnv !== "production") {
         body.verification_url = verificationLink;

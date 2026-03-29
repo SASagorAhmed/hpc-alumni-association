@@ -12,11 +12,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "@/hooks/use-toast";
-import { Award, Plus, Pencil, Trash2, Pin, ArrowUp, ArrowDown, Search, Settings, Upload, X } from "lucide-react";
+import { Award, Plus, Pencil, Trash2, Pin, ArrowUp, ArrowDown, Search, Settings, Upload, X, UserRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AchievementPhotoCropDialog } from "@/components/admin/AchievementPhotoCropDialog";
-import { BANNER_DEFAULT_PHOTO_TAGLINE } from "@/constants/bannerCopy";
-import { BANNER_MAX_WORDS, clampToWordLimit, countWords } from "@/lib/bannerWordLimit";
+import { BANNER_DEFAULT_PHOTO_TAGLINE, BANNER_DEFAULT_CONGRATULATIONS_MESSAGE } from "@/constants/bannerCopy";
+import { BANNER_MAX_WORDS, BANNER_MESSAGE_MAX_WORDS, clampToWordLimit, countWords } from "@/lib/bannerWordLimit";
 import { API_BASE_URL } from "@/api-production/api.js";
 import { getAuthToken } from "@/lib/authToken";
 
@@ -83,6 +83,8 @@ const AdminAchievements = () => {
   const cropObjectUrlRef = React.useRef<string | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const token = getAuthToken();
+  const [alumniIdInput, setAlumniIdInput] = useState("");
+  const [importingAlumniProfile, setImportingAlumniProfile] = useState(false);
 
   const revokeCropPreview = React.useCallback(() => {
     if (cropObjectUrlRef.current) {
@@ -202,12 +204,72 @@ const AdminAchievements = () => {
 
   const openAdd = () => {
     setEditId(null);
+    setAlumniIdInput("");
     setForm(emptyForm);
     setDialogOpen(true);
   };
 
+  /** Opens add dialog with a default congratulations body; use Import to load directory fields from Alumni ID. */
+  const openAddFromAlumniId = () => {
+    setEditId(null);
+    setAlumniIdInput("");
+    setForm({ ...emptyForm, message: BANNER_DEFAULT_CONGRATULATIONS_MESSAGE });
+    setDialogOpen(true);
+  };
+
+  const handleImportAlumniProfile = async () => {
+    const key = alumniIdInput.trim();
+    if (!key) {
+      toast({ title: "Enter an Alumni ID", variant: "destructive" });
+      return;
+    }
+    setImportingAlumniProfile(true);
+    try {
+      const r = await fetch(
+        `${API_BASE_URL}/api/admin/achievements/alumni-profile?alumni_id=${encodeURIComponent(key)}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const j = (await r.json().catch(() => ({}))) as { ok?: boolean; error?: string; profile?: Record<string, string | null> };
+      if (!r.ok) {
+        toast({
+          title: "Could not load profile",
+          description: j?.error || r.statusText,
+          variant: "destructive",
+        });
+        return;
+      }
+      const p = j.profile;
+      if (!p) {
+        toast({ title: "Invalid response", variant: "destructive" });
+        return;
+      }
+      const batchStr = p.batch != null ? String(p.batch).trim() : "";
+      const batchLine = batchStr ? clampToWordLimit(`Batch ${batchStr}`, BANNER_MAX_WORDS) : "";
+      setForm((prev) => ({
+        ...prev,
+        name: p.name != null ? String(p.name).trim() || prev.name : prev.name,
+        batch: batchStr,
+        photo_url: p.photo_url != null ? String(p.photo_url).trim() : prev.photo_url,
+        institution: p.institution != null ? String(p.institution).trim() : prev.institution,
+        location: p.location != null ? String(p.location).trim() : prev.location,
+        achievement_title: "",
+        message: BANNER_DEFAULT_CONGRATULATIONS_MESSAGE,
+        banner_photo_batch_text: batchLine,
+      }));
+      toast({
+        title: "Profile loaded",
+        description: "Enter the achievement title, tag, achievement date, and schedule start/end, then save.",
+      });
+    } catch (e) {
+      toast({ title: "Request failed", description: (e as Error).message, variant: "destructive" });
+    } finally {
+      setImportingAlumniProfile(false);
+    }
+  };
+
   const openEdit = (a: Achievement) => {
     setEditId(a.id);
+    setAlumniIdInput("");
     setForm({
       name: a.name,
       batch: a.batch || "",
@@ -236,18 +298,18 @@ const AdminAchievements = () => {
       toast({ title: "Name and Achievement Title are required", variant: "destructive" });
       return;
     }
-    const bannerFields: { label: string; value: string }[] = [
-      { label: "Achievement title", value: form.achievement_title },
-      { label: "Message", value: form.message },
-      { label: "Batch line on image", value: form.banner_photo_batch_text },
-      { label: "Alumni line on image", value: form.banner_photo_tagline },
-      { label: "Congratulations heading", value: form.banner_congratulations_text },
+    const bannerFields: { label: string; value: string; max: number }[] = [
+      { label: "Achievement title", value: form.achievement_title, max: BANNER_MAX_WORDS },
+      { label: "Message", value: form.message, max: BANNER_MESSAGE_MAX_WORDS },
+      { label: "Batch line on image", value: form.banner_photo_batch_text, max: BANNER_MAX_WORDS },
+      { label: "Alumni line on image", value: form.banner_photo_tagline, max: BANNER_MAX_WORDS },
+      { label: "Congratulations heading", value: form.banner_congratulations_text, max: BANNER_MAX_WORDS },
     ];
-    for (const { label, value } of bannerFields) {
-      if (countWords(value) > BANNER_MAX_WORDS) {
+    for (const { label, value, max } of bannerFields) {
+      if (countWords(value) > max) {
         toast({
           title: "Word limit exceeded",
-          description: `${label} must be at most ${BANNER_MAX_WORDS} words.`,
+          description: `${label} must be at most ${max} words.`,
           variant: "destructive",
         });
         return;
@@ -409,7 +471,14 @@ const AdminAchievements = () => {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input placeholder="Search achievements..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
               </div>
-              <Button size="sm" className="gap-1.5" onClick={openAdd}><Plus className="w-3.5 h-3.5" /> Add Achievement</Button>
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" className="gap-1.5" onClick={openAdd}>
+                  <Plus className="w-3.5 h-3.5" /> Add Achievement
+                </Button>
+                <Button size="sm" variant="secondary" className="gap-1.5" onClick={openAddFromAlumniId}>
+                  <UserRound className="w-3.5 h-3.5" /> Add from Alumni ID
+                </Button>
+              </div>
             </div>
 
             <Card>
@@ -561,6 +630,37 @@ const AdminAchievements = () => {
               <DialogTitle>{editId ? "Edit" : "Add"} Achievement</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
+              {!editId ? (
+                <div className="space-y-1.5 rounded-lg border border-primary/25 bg-primary/5 p-3">
+                  <Label className="text-foreground">Prefill from Alumni ID</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Fetches name, batch, photo, institution, and location from a registered profile. Then enter the{" "}
+                    <span className="font-medium text-foreground">achievement title</span>, choose a{" "}
+                    <span className="font-medium text-foreground">tag</span>, set{" "}
+                    <span className="font-medium text-foreground">achievement date</span> and{" "}
+                    <span className="font-medium text-foreground">schedule start / end</span>.
+                  </p>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <Input
+                      className="sm:max-w-xs"
+                      placeholder="Alumni ID (registration number)"
+                      value={alumniIdInput}
+                      onChange={(e) => setAlumniIdInput(e.target.value)}
+                      disabled={importingAlumniProfile}
+                    />
+                    <Button
+                      type="button"
+                      variant="default"
+                      size="sm"
+                      className="w-full shrink-0 sm:w-auto"
+                      disabled={importingAlumniProfile || !alumniIdInput.trim()}
+                      onClick={handleImportAlumniProfile}
+                    >
+                      {importingAlumniProfile ? "Loading…" : "Import profile data"}
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label>Name *</Label>
@@ -574,6 +674,7 @@ const AdminAchievements = () => {
               <div className="space-y-1.5">
                 <Label>Achievement Title *</Label>
                 <Input
+                  placeholder="Input title — required"
                   value={form.achievement_title}
                   onChange={(e) =>
                     setForm({ ...form, achievement_title: clampToWordLimit(e.target.value, BANNER_MAX_WORDS) })
@@ -709,11 +810,13 @@ const AdminAchievements = () => {
                 <Label>Message (congratulations)</Label>
                 <Textarea
                   value={form.message}
-                  onChange={(e) => setForm({ ...form, message: clampToWordLimit(e.target.value, BANNER_MAX_WORDS) })}
-                  rows={2}
+                  onChange={(e) =>
+                    setForm({ ...form, message: clampToWordLimit(e.target.value, BANNER_MESSAGE_MAX_WORDS) })
+                  }
+                  rows={4}
                 />
                 <p className="text-xs text-muted-foreground">
-                  {countWords(form.message)} / {BANNER_MAX_WORDS} words (banner)
+                  {countWords(form.message)} / {BANNER_MESSAGE_MAX_WORDS} words (banner body — longer limit)
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-3">

@@ -6,9 +6,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { UserPlus, Eye, EyeOff, Facebook, Instagram, Linkedin } from "lucide-react";
+import { UserPlus, Eye, EyeOff, Facebook, Instagram, Linkedin, CheckCircle2, Copy } from "lucide-react";
 import hpcLogo from "@/assets/hpc-logo.png";
 import { ProfilePhotoCropDialog } from "@/components/auth/ProfilePhotoCropDialog";
 import { API_BASE_URL } from "@/api-production/api.js";
@@ -48,6 +49,8 @@ const Register = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [confirmImmutable, setConfirmImmutable] = useState(false);
+  /** After successful submit, show Alumni ID before navigating away */
+  const [alumniIdStep, setAlumniIdStep] = useState<null | { id: string; next: "login" | "verify" }>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [cropDialogOpen, setCropDialogOpen] = useState(false);
   const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
@@ -233,15 +236,29 @@ const Register = () => {
     });
     setLoading(false);
     if (result.success) {
-      toast.success(result.message);
-      if (result.googleRegister || googleRegisterMode) {
-        navigate("/login");
+      const assignedId = result.alumniId?.trim();
+      if (assignedId) {
+        const next = result.googleRegister || googleRegisterMode ? "login" : "verify";
+        setAlumniIdStep({ id: assignedId, next });
+        toast.success("You are registered. Save your Alumni ID below.");
       } else {
-        navigate("/verify-otp");
+        toast.success(result.message);
+        if (result.googleRegister || googleRegisterMode) {
+          navigate("/login");
+        } else {
+          navigate("/verify-otp");
+        }
       }
     } else {
       toast.error(result.message);
     }
+  };
+
+  const continueAfterAlumniId = () => {
+    if (!alumniIdStep) return;
+    const { next } = alumniIdStep;
+    setAlumniIdStep(null);
+    navigate(next === "login" ? "/login" : "/verify-otp");
   };
 
   return (
@@ -580,6 +597,65 @@ const Register = () => {
         }}
         onCropped={handleCroppedPhoto}
       />
+
+      <Dialog
+        open={!!alumniIdStep}
+        onOpenChange={() => {
+          /* Require explicit Continue — do not close on overlay or escape */
+        }}
+      >
+        <DialogContent
+          hideClose
+          className="sm:max-w-md"
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
+          <DialogHeader className="text-center sm:text-center">
+            <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/15">
+              <CheckCircle2 className="h-7 w-7 text-emerald-600 dark:text-emerald-400" aria-hidden />
+            </div>
+            <DialogTitle className="text-xl">You are registered</DialogTitle>
+            <DialogDescription className="text-left">
+              Your permanent Alumni ID is assigned from your section, batch, and collage roll. It cannot be changed later—save
+              it somewhere safe. You will use it in the alumni directory and for official communications.
+            </DialogDescription>
+            <div className="space-y-3 pt-2">
+              <div className="rounded-lg border border-primary/30 bg-muted/50 px-4 py-3 text-center">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Your Alumni ID is</p>
+                <p
+                  className="mt-1 break-all font-mono text-xl font-bold tracking-tight text-primary"
+                  data-testid="registered-alumni-id"
+                >
+                  {alumniIdStep?.id}
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full gap-2"
+                onClick={async () => {
+                  if (!alumniIdStep?.id) return;
+                  try {
+                    await navigator.clipboard.writeText(alumniIdStep.id);
+                    toast.success("Alumni ID copied");
+                  } catch {
+                    toast.error("Could not copy—select the ID and copy manually");
+                  }
+                }}
+              >
+                <Copy className="h-4 w-4" />
+                Copy ID
+              </Button>
+            </div>
+          </DialogHeader>
+          <DialogFooter className="sm:justify-center gap-2 pt-2">
+            <Button type="button" className="w-full sm:w-auto min-w-[200px]" onClick={continueAfterAlumniId}>
+              {alumniIdStep?.next === "login" ? "Continue to sign in" : "Continue to email verification"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

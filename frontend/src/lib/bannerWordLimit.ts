@@ -1,5 +1,8 @@
-/** Max words for banner-related achievement fields (admin form + API). */
+/** Max words for short banner fields: title, lines on photo, congratulations heading (admin form + API). */
 export const BANNER_MAX_WORDS = 30;
+
+/** Max words for the main congratulations body text (`message`) in the banner. */
+export const BANNER_MESSAGE_MAX_WORDS = 100;
 
 export function countWords(text: string): number {
   const t = text.trim();
