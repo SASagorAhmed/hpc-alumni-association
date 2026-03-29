@@ -12,6 +12,7 @@ const passport = require("passport");
 const multer = require("multer");
 const cloudinary = require("../config/cloudinary");
 const { getCloudinaryFolder } = require("../utils/uploadFolders");
+const { ensureAdminCommitteeDesignationColumn } = require("../utils/ensureAdminCommitteeDesignation");
 
 const router = express.Router();
 
@@ -141,6 +142,7 @@ function trimOrNull(v) {
 }
 
 async function getUserProfile(pool, userId) {
+  await ensureAdminCommitteeDesignationColumn(pool);
   // Role
   const [roleRows] = await pool.query(`SELECT role FROM user_roles WHERE user_id = ?`, [userId]);
   const isAdmin = (roleRows || []).some((r) => r.role === "admin");
@@ -162,6 +164,7 @@ async function getUserProfile(pool, userId) {
     batch: p.batch || "",
     roll: p.roll || null,
     registrationNumber: p.registration_number || null,
+    adminCommitteeDesignation: p.admin_committee_designation || null,
     gender: p.gender || null,
     bloodGroup: p.blood_group || null,
     department: p.department || null,

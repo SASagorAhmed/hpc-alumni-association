@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { Save, User, AlertCircle, Facebook, Instagram, Linkedin } from "lucide-react";
+import { Save, User, AlertCircle, Facebook, Instagram, Linkedin, Award } from "lucide-react";
 
 const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 const GENDERS = ["Male", "Female", "Other"];
@@ -79,6 +79,19 @@ const Profile = () => {
           <p>Your profile update is awaiting admin approval.</p>
         </div>
       )}
+
+      {user?.adminCommitteeDesignation ? (
+        <div className="mb-6 flex items-start gap-3 rounded-md border border-amber-200 bg-amber-50/90 px-3 py-3 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-50/95">
+          <Award className="w-5 h-5 shrink-0 text-amber-700 dark:text-amber-300" />
+          <div>
+            <p className="font-semibold text-amber-900 dark:text-amber-100">Committee designation</p>
+            <p className="mt-1 text-amber-900/90 dark:text-amber-50/90">{user.adminCommitteeDesignation}</p>
+            <p className="mt-1.5 text-xs text-amber-800/80 dark:text-amber-200/80">
+              Assigned by the administration for the current committee term. This cannot be edited here.
+            </p>
+          </div>
+        </div>
+      ) : null}
 
       <Card className="shadow-card">
         <CardHeader>

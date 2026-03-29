@@ -31,6 +31,7 @@ import {
   Building2,
   Loader2,
   X,
+  UserPlus,
 } from "lucide-react";
 import { BOARD_SECTION_OPTIONS, type BoardSectionKey } from "@/components/committee/boardSections";
 import { CommitteePhotoCropDialog } from "@/components/admin/CommitteePhotoCropDialog";
@@ -67,11 +68,9 @@ function isPresidentLikeCommitteePost(p: CommitteePost | undefined): boolean {
   return /সভাপতি|president/i.test(String(p.title || ""));
 }
 
-/** Highlight / president title: 50 words. Other executive posts: 40 (matches public card). */
-function getWishingMaxWordsForPostId(postId: string, posts: CommitteePost[] | undefined): number {
-  if (!postId || !posts?.length) return 40;
-  const p = posts.find((x) => x.id === postId);
-  return isPresidentLikeCommitteePost(p) ? 50 : 40;
+/** Wishing message: 50 words max for every post (matches backend + public card). */
+function getWishingMaxWordsForPostId(_postId: string, _posts: CommitteePost[] | undefined): number {
+  return 50;
 }
 
 interface CommitteeMember {
@@ -160,6 +159,9 @@ const AdminCommittee = () => {
   const [cropOpen, setCropOpen] = useState(false);
   const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
   const [cropFileName, setCropFileName] = useState("committee-photo.jpg");
+  const [importOpen, setImportOpen] = useState(false);
+  const [importTargetPost, setImportTargetPost] = useState<CommitteePost | null>(null);
+  const [importAlumniId, setImportAlumniId] = useState("");
 
   // Profession options CRUD
   const [professionManageOpen, setProfessionManageOpen] = useState(false);
@@ -492,6 +494,36 @@ const AdminCommittee = () => {
     },
   });
 
+  const importFromAlumniMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedTermId || !importTargetPost) throw new Error("Select a term and post");
+      const aid = importAlumniId.trim();
+      if (!aid) throw new Error("Enter Alumni ID (registration number from the alumni profile)");
+      const res = await fetch(
+        `${API_BASE_URL}/api/admin/committee/posts/${importTargetPost.id}/import-from-alumni`,
+        {
+          method: "POST",
+          headers: { ...authHeaders(), "Content-Type": "application/json" },
+          body: JSON.stringify({ term_id: selectedTermId, alumni_id: aid }),
+        }
+      );
+      const b = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(b.error || "Could not import member");
+      return b;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Imported from alumni profile",
+        description: "Details were filled from the directory profile. They can still edit committee-only fields (e.g. wishing message).",
+      });
+      setImportOpen(false);
+      setImportTargetPost(null);
+      setImportAlumniId("");
+      invalidateAll();
+    },
+    onError: (e: Error) => toast({ title: "Import failed", description: e.message, variant: "destructive" }),
+  });
+
   const posts = fullData?.posts ? [...fullData.posts].sort((a, b) => a.display_order - b.display_order) : [];
   const term = fullData?.term;
   const selectedPost = posts.find((p) => p.id === memberForm.post_id);
@@ -801,7 +833,7 @@ const AdminCommittee = () => {
 
                 {posts.map((p) => (
                   <Card key={p.id}>
-                    <CardHeader className="flex flex-row items-center justify-between py-4">
+                    <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between py-4">
                       <div className="min-w-0 pr-2">
                         <CardTitle className="text-base leading-snug break-words">{p.title}</CardTitle>
                         <CardDescription>
@@ -809,9 +841,24 @@ const AdminCommittee = () => {
                           {p.allows_multiple ? "Multiple members allowed" : "Only one active member"}
                         </CardDescription>
                       </div>
-                      <Button size="sm" onClick={() => openAddMember(p.id)}>
-                        <Plus className="h-3.5 w-3.5 mr-1" /> Add member
-                      </Button>
+                      <div className="flex flex-wrap gap-2 shrink-0">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          type="button"
+                          onClick={() => {
+                            setImportTargetPost(p);
+                            setImportAlumniId("");
+                            setImportOpen(true);
+                          }}
+                        >
+                          <UserPlus className="h-3.5 w-3.5 mr-1" />
+                          From alumni ID
+                        </Button>
+                        <Button size="sm" type="button" onClick={() => openAddMember(p.id)}>
+                          <Plus className="h-3.5 w-3.5 mr-1" /> Add member
+                        </Button>
+                      </div>
                     </CardHeader>
                     <CardContent>
                       {(p.members || []).length === 0 ? (
@@ -860,6 +907,59 @@ const AdminCommittee = () => {
           </div>
         </div>
       </div>
+
+      {/* Import committee member from alumni ID */}
+      <Dialog
+        open={importOpen}
+        onOpenChange={(open) => {
+          setImportOpen(open);
+          if (!open) {
+            setImportTargetPost(null);
+            setImportAlumniId("");
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Fill post from alumni ID</DialogTitle>
+            <DialogDescription className="text-left">
+              Post: <span className="font-medium text-foreground">{importTargetPost?.title || "—"}</span>. Enter the{" "}
+              <strong>Alumni ID</strong> (registration number on the member&apos;s profile). Name, photo, contact, batch,
+              profession, and social links are copied into this committee seat. The standard &quot;Congratulations…&quot; wishing
+              block is filled automatically (except for posts in the <strong>Governing Body</strong> section—leave that blank or add
+              manually). The alumni&apos;s profile will show this post under &quot;Committee designation&quot; for the current published
+              term. Manual &quot;Add member&quot; is unchanged.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div>
+              <Label htmlFor="import-alumni-id">Alumni ID *</Label>
+              <Input
+                id="import-alumni-id"
+                placeholder="e.g. A01118849"
+                value={importAlumniId}
+                onChange={(e) => setImportAlumniId(e.target.value)}
+                autoComplete="off"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" type="button" onClick={() => setImportOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="button" disabled={importFromAlumniMutation.isPending} onClick={() => importFromAlumniMutation.mutate()}>
+              {importFromAlumniMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Importing…
+                </>
+              ) : (
+                "Import"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Term dialog */}
       <Dialog open={termDialogOpen} onOpenChange={setTermDialogOpen}>
@@ -1119,7 +1219,7 @@ const AdminCommittee = () => {
                   <div>
                     <Label>Wishing you</Label>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      President or highlighted post: 50 words. Other posts: 40 (public card shows up to 40, no expand).
+                      Maximum 50 words; public committee cards show the full message up to this limit.
                     </p>
                   </div>
                   <span

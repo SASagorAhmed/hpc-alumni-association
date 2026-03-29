@@ -144,8 +144,8 @@ export function restMembersExceptPresident(data: StructuredCommitteePayload, exc
   return out;
 }
 
-/** Executive member cards (non-president): only this many words are shown (no “See more”; rest is omitted). */
-export const EXECUTIVE_WISHING_DISPLAY_WORDS = 40;
+/** Executive member cards (non-president): show up to this many words (matches admin max). */
+export const EXECUTIVE_WISHING_DISPLAY_WORDS = 50;
 
 export function truncateToWordCount(text: string, maxWords: number): string {
   const words = String(text || "")
@@ -332,7 +332,7 @@ export function PresidentHeroCard({
               <p className="font-semibold" style={{ color: "#000000", fontSize: "calc(8.75px * 1.15)" }}>
                 Wishing you
               </p>
-              {/* ~40 words visible height; up to 50 words allowed — scroll inside if longer */}
+              {/* Scroll inside if the full 50-word message exceeds the box height */}
               <div
                 className="mt-0.5 max-h-[7.92rem] overflow-y-auto overscroll-contain pr-0.5 leading-[1.4] [scrollbar-gutter:stable]"
                 style={{ fontSize: "calc(9.25px * 1.15)", color: "#000000" }}

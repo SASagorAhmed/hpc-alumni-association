@@ -1,5 +1,6 @@
 const express = require("express");
 const { getOrCreatePool } = require("../db/pool");
+const { ensureAdminCommitteeDesignationColumn } = require("../utils/ensureAdminCommitteeDesignation");
 
 const router = express.Router();
 
@@ -34,6 +35,7 @@ router.get("/directory/alumni", async (req, res) => {
     const pool = getOrCreatePool();
     if (!pool) return res.status(503).json({ ok: false, error: "MySQL not configured" });
     await ensureProfileFacultyColumn(pool);
+    await ensureAdminCommitteeDesignationColumn(pool);
 
     const [rows] = await pool.query(
       `SELECT
@@ -59,6 +61,7 @@ router.get("/directory/alumni", async (req, res) => {
         passing_year,
         college_name,
         registration_number,
+        admin_committee_designation,
         created_at,
         social_links
       FROM profiles

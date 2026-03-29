@@ -5,9 +5,72 @@ const { requireAuth } = require("../auth/jwt");
 const { DEFAULT_COMMITTEE_POSTS } = require("../constants/committeeDefaults");
 const { inferBoardSectionFromTitle } = require("../utils/inferCommitteeBoardSection");
 const { ensureCommitteePostsBoardSectionColumn } = require("../utils/ensureCommitteePostsBoardSection");
+const { ensureAdminCommitteeDesignationColumn } = require("../utils/ensureAdminCommitteeDesignation");
 const cloudinary = require("../config/cloudinary");
 
 const router = express.Router();
+
+function normalizeAlumniIdKey(raw) {
+  const t = String(raw || "")
+    .trim()
+    .replace(/\s+/g, "");
+  if (!t) return "";
+  const c0 = t.charAt(0);
+  const rest = t.slice(1);
+  return (/^[a-zA-Z]$/.test(c0) ? c0.toUpperCase() : c0) + rest;
+}
+
+async function recomputeAdminCommitteeDesignationForAlumniId(pool, rawAlumniId) {
+  const key = normalizeAlumniIdKey(rawAlumniId);
+  if (!key) return;
+  await ensureAdminCommitteeDesignationColumn(pool);
+  const [profiles] = await pool.query(
+    `SELECT id, registration_number FROM profiles
+     WHERE TRIM(COALESCE(registration_number,'')) = ?
+        OR UPPER(TRIM(COALESCE(registration_number,''))) = UPPER(?)`,
+    [key, key]
+  );
+  const profileRow = profiles?.[0];
+  if (!profileRow) return;
+  const reg =
+    profileRow.registration_number != null ? String(profileRow.registration_number).trim() : key;
+
+  const [agg] = await pool.query(
+    `SELECT GROUP_CONCAT(DISTINCT cp.title ORDER BY cp.display_order ASC SEPARATOR ' · ') AS titles
+     FROM committee_members cm
+     INNER JOIN committee_posts cp ON cp.id = cm.post_id
+     INNER JOIN committee_terms ct ON ct.id = cm.term_id
+     WHERE ct.is_current = 1
+       AND ct.status = 'published'
+       AND COALESCE(cm.is_active, 1) = 1
+       AND (
+         TRIM(cm.alumni_id) = ?
+         OR UPPER(TRIM(cm.alumni_id)) = UPPER(?)
+       )`,
+    [reg, reg]
+  );
+  const label = agg?.[0]?.titles ? String(agg[0].titles).trim() : null;
+  await pool.query("UPDATE profiles SET admin_committee_designation = ? WHERE id = ?", [label, profileRow.id]);
+}
+
+async function refreshAllCommitteeDesignationsFromCurrentTerm(pool) {
+  await ensureAdminCommitteeDesignationColumn(pool);
+  await pool.query("UPDATE profiles SET admin_committee_designation = NULL");
+  const [rows] = await pool.query(
+    `SELECT DISTINCT TRIM(cm.alumni_id) AS aid
+     FROM committee_members cm
+     INNER JOIN committee_terms ct ON ct.id = cm.term_id
+     INNER JOIN committee_posts cp ON cp.id = cm.post_id
+     WHERE ct.is_current = 1
+       AND ct.status = 'published'
+       AND COALESCE(cm.is_active, 1) = 1
+       AND cm.alumni_id IS NOT NULL
+       AND TRIM(cm.alumni_id) <> ''`
+  );
+  for (const r of rows || []) {
+    await recomputeAdminCommitteeDesignationForAlumniId(pool, r.aid);
+  }
+}
 
 const ALLOWED_BOARD_SECTIONS = new Set([
   "governing_body",
@@ -134,6 +197,10 @@ router.put("/committee/terms/:id", requireAuth, async (req, res) => {
     vals.push(req.params.id);
     await pool.query(`UPDATE committee_terms SET ${updates.join(", ")} WHERE id = ?`, vals);
 
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, "is_current")) {
+      await refreshAllCommitteeDesignationsFromCurrentTerm(pool);
+    }
+
     res.status(200).json({ ok: true });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message || "Failed to update term" });
@@ -149,6 +216,7 @@ router.delete("/committee/terms/:id", requireAuth, async (req, res) => {
       await deleteCloudinaryImageByUrl(m?.photo_url || null);
     }
     await pool.query("DELETE FROM committee_terms WHERE id = ?", [req.params.id]);
+    await refreshAllCommitteeDesignationsFromCurrentTerm(pool);
     res.status(200).json({ ok: true });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message || "Failed to delete term" });
@@ -224,6 +292,7 @@ router.post("/committee/terms/:id/publish", requireAuth, async (req, res) => {
     if (setCurrent) {
       await pool.query("UPDATE committee_terms SET is_current = 0");
       await pool.query("UPDATE committee_terms SET is_current = 1 WHERE id = ?", [termId]);
+      await refreshAllCommitteeDesignationsFromCurrentTerm(pool);
     }
     res.status(200).json({ ok: true });
   } catch (e) {
@@ -280,6 +349,9 @@ router.put("/committee/posts/:id", requireAuth, async (req, res) => {
     if (!updates.length) return res.status(400).json({ ok: false, error: "Nothing to update" });
     vals.push(req.params.id);
     await pool.query(`UPDATE committee_posts SET ${updates.join(", ")} WHERE id = ?`, vals);
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, "title")) {
+      await refreshAllCommitteeDesignationsFromCurrentTerm(pool);
+    }
     res.status(200).json({ ok: true });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message || "Failed to update post" });
@@ -290,11 +362,21 @@ router.delete("/committee/posts/:id", requireAuth, async (req, res) => {
   try {
     const pool = await withAdmin(req, res);
     if (!pool) return;
-    const [memberRows] = await pool.query("SELECT photo_url FROM committee_members WHERE post_id = ?", [req.params.id]);
+    const postId = req.params.id;
+    const [memberRows] = await pool.query(
+      "SELECT photo_url, alumni_id FROM committee_members WHERE post_id = ?",
+      [postId]
+    );
+    const alumniIds = new Set();
     for (const m of memberRows || []) {
       await deleteCloudinaryImageByUrl(m?.photo_url || null);
+      if (m?.alumni_id) alumniIds.add(String(m.alumni_id).trim());
     }
-    await pool.query("DELETE FROM committee_posts WHERE id = ?", [req.params.id]);
+    await pool.query("DELETE FROM committee_members WHERE post_id = ?", [postId]);
+    await pool.query("DELETE FROM committee_posts WHERE id = ?", [postId]);
+    for (const aid of alumniIds) {
+      await recomputeAdminCommitteeDesignationForAlumniId(pool, aid);
+    }
     res.status(200).json({ ok: true });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message || "Failed to delete post" });
@@ -442,19 +524,9 @@ function wordCount(text) {
     .filter(Boolean).length;
 }
 
-/** President / highlight post: 50 words. Other posts: 40 words. About winner: 250 words. */
-async function getWishingMaxWordsForPost(pool, postId) {
-  if (!postId) return 40;
-  const [rows] = await pool.query(
-    "SELECT is_highlight, title FROM committee_posts WHERE id = ? LIMIT 1",
-    [postId]
-  );
-  const p = rows?.[0];
-  if (!p) return 40;
-  const title = String(p.title || "");
-  const highlight = p.is_highlight === 1 || p.is_highlight === true;
-  if (highlight || /সভাপতি|president/i.test(title)) return 50;
-  return 40;
+/** Wishing message: 50 words max (all posts). About winner: 250 words. */
+async function getWishingMaxWordsForPost() {
+  return 50;
 }
 
 function assertMemberTextLimits(payload, wishingMessageMaxWords = 50) {
@@ -599,6 +671,193 @@ router.delete("/committee/job-status-options/:id", requireAuth, async (req, res)
   }
 });
 
+/** Default import message is ~43 words plus name and post title; allow headroom for long Bangla names/titles. */
+const IMPORT_CONGRATULATIONS_WORD_CEILING = 75;
+
+function buildImportCongratulationsAlumniMessage(alumnusName, postTitleEnglish) {
+  const n = String(alumnusName || "").trim() || "Alumni";
+  const p = String(postTitleEnglish || "").trim() || "Member";
+  return `Congratulations to our proud alumnus ${n} on being selected as ${p} of the HPC Alumni Association by the governing body. Wishing you continued success and impactful leadership ahead. With your support and guidance, the association will grow and achieve even greater success. Congratulations!`;
+}
+
+/**
+ * For the import congratulations text only: use English for the post title (Bangla → EN via public API; English titles unchanged).
+ */
+async function translatePostTitleToEnglishForWishing(postTitle) {
+  const raw = String(postTitle || "").trim();
+  if (!raw) return "Member";
+
+  const hasBengali = /[\u0980-\u09FF]/.test(raw);
+  const hasLatinLetters = /[a-zA-Z]/.test(raw);
+  if (!hasBengali && hasLatinLetters) return raw;
+
+  const doFetch = async (langpair) => {
+    const q = encodeURIComponent(raw.slice(0, 500));
+    const url = `https://api.mymemory.translated.net/get?q=${q}&langpair=${langpair}`;
+    const signal =
+      typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function"
+        ? AbortSignal.timeout(12000)
+        : undefined;
+    const res = await fetch(url, { headers: { Accept: "application/json" }, signal });
+    if (!res.ok) return null;
+    const data = await res.json().catch(() => ({}));
+    const out = data?.responseData?.translatedText;
+    if (typeof out !== "string") return null;
+    const t = out.trim();
+    if (
+      !t ||
+      /^MYMEMORY WARNING/i.test(t) ||
+      /PLEASE SELECT TWO DISTINCT LANGUAGES/i.test(t) ||
+      /^QUERY LENGTH LIMIT EXCEEDED/i.test(t)
+    ) {
+      return null;
+    }
+    return t;
+  };
+
+  try {
+    const bnEn = await doFetch("bn|en");
+    if (bnEn) return bnEn;
+    const autoEn = await doFetch("auto|en");
+    if (autoEn) return autoEn;
+  } catch (_e) {
+    /* use original */
+  }
+  return raw;
+}
+
+function parseProfileSocialLinks(profile) {
+  let fb = null;
+  let ig = null;
+  let li = null;
+  const raw = profile?.social_links;
+  if (!raw) return { fb, ig, li };
+  let o = raw;
+  if (typeof raw === "string") {
+    try {
+      o = JSON.parse(raw);
+    } catch {
+      return { fb, ig, li };
+    }
+  }
+  if (o && typeof o === "object") {
+    fb = o.facebook || null;
+    ig = o.instagram || null;
+    li = o.linkedin || null;
+  }
+  return {
+    fb: fb ? String(fb).trim() : null,
+    ig: ig ? String(ig).trim() : null,
+    li: li ? String(li).trim() : null,
+  };
+}
+
+/**
+ * Create a committee seat from a verified alumni profile (Alumni ID = profiles.registration_number).
+ */
+router.post("/committee/posts/:postId/import-from-alumni", requireAuth, async (req, res) => {
+  try {
+    const pool = await withAdmin(req, res);
+    if (!pool) return;
+    await ensureCommitteeMemberColumns(pool);
+    await ensureAdminCommitteeDesignationColumn(pool);
+    const memberCols = await getCommitteeMemberColumnSet(pool);
+    const postId = req.params.postId;
+    const termId = String(req.body?.term_id || "").trim();
+    const rawAlumni = String(req.body?.alumni_id || "").trim();
+    const key = normalizeAlumniIdKey(rawAlumni);
+    if (!termId || !postId || !key) {
+      return res.status(400).json({ ok: false, error: "term_id, post in URL, and alumni_id are required" });
+    }
+
+    const [posts] = await pool.query(
+      `SELECT cp.* FROM committee_posts cp JOIN committee_terms ct ON ct.id = cp.term_id WHERE cp.id = ? AND cp.term_id = ?`,
+      [postId, termId]
+    );
+    if (!posts?.length) {
+      return res.status(400).json({ ok: false, error: "Post does not belong to this term" });
+    }
+    const post = posts[0];
+    await assertPostAllowsAnotherMember(pool, postId);
+
+    const [profRows] = await pool.query(
+      `SELECT p.*, u.email AS user_email FROM profiles p
+       INNER JOIN users u ON u.id = p.id
+       WHERE TRIM(COALESCE(p.registration_number,'')) = ?
+          OR UPPER(TRIM(COALESCE(p.registration_number,''))) = UPPER(?)`,
+      [key, key]
+    );
+    const profile = profRows?.[0];
+    if (!profile) {
+      return res.status(404).json({ ok: false, error: "No alumni profile found for this Alumni ID." });
+    }
+
+    const regNum = profile.registration_number != null ? String(profile.registration_number).trim() : key;
+    const social = parseProfileSocialLinks(profile);
+
+    const id = uuidv4();
+    const name = String(profile.name || "").trim() || "Alumni";
+    const designation = String(post.title || "").trim() || "Member";
+    const boardSection = normalizeBoardSection(post.board_section);
+    let wishingMessage = null;
+    if (boardSection !== "governing_body") {
+      const postTitleEn = await translatePostTitleToEnglishForWishing(designation);
+      wishingMessage = buildImportCongratulationsAlumniMessage(name, postTitleEn);
+    }
+
+    const row = {
+      id,
+      term_id: termId,
+      post_id: postId,
+      name,
+      designation,
+      category: "executive",
+      batch: profile.batch != null ? String(profile.batch) : null,
+      alumni_id: regNum,
+      phone: profile.phone != null ? String(profile.phone) : null,
+      email: profile.user_email != null ? String(profile.user_email) : null,
+      profession: profile.profession != null ? String(profile.profession) : null,
+      job_status: profile.job_status != null ? String(profile.job_status) : null,
+      institution: profile.university != null ? String(profile.university) : null,
+      photo_url: profile.photo != null ? String(profile.photo) : null,
+      facebook_url: social.fb || null,
+      instagram_url: social.ig || null,
+      linkedin_url: social.li || null,
+      college_name: FIXED_COLLEGE_NAME,
+      location: null,
+      expertise: null,
+      about: null,
+      wishing_message: wishingMessage,
+      winner_about: null,
+      candidate_number: null,
+      is_active: 1,
+    };
+
+    const [[{ maxO }]] = await pool.query(
+      "SELECT COALESCE(MAX(display_order), -1) + 1 AS maxO FROM committee_members WHERE post_id = ?",
+      [postId]
+    );
+    row.display_order = Number(maxO);
+
+    const wishingMax = await getWishingMaxWordsForPost();
+    const wishingLimit = wishingMessage ? Math.max(wishingMax, IMPORT_CONGRATULATIONS_WORD_CEILING) : wishingMax;
+    assertMemberTextLimits(row, wishingLimit);
+    pruneUnknownMemberColumns(row, memberCols);
+
+    await pool.query("INSERT INTO committee_members SET ?", [row]);
+    await recomputeAdminCommitteeDesignationForAlumniId(pool, regNum);
+    res.status(201).json({ ok: true, id });
+  } catch (e) {
+    if (e.code === "SINGLE_SEAT") {
+      return res.status(400).json({ ok: false, error: e.message });
+    }
+    if (e.code === "MAX_WORDS" || e.code === "MAX_250_WORDS") {
+      return res.status(400).json({ ok: false, error: e.message });
+    }
+    res.status(500).json({ ok: false, error: e.message || "Failed to import member" });
+  }
+});
+
 async function assertPostAllowsAnotherMember(pool, postId, excludeMemberId = null) {
   const [posts] = await pool.query(
     "SELECT allows_multiple FROM committee_posts WHERE id = ? LIMIT 1",
@@ -663,7 +922,7 @@ router.post("/committee/members", requireAuth, async (req, res) => {
     row.location = null;
     row.expertise = null;
     row.about = null;
-    const wishingMax = await getWishingMaxWordsForPost(pool, postId);
+    const wishingMax = await getWishingMaxWordsForPost();
     assertMemberTextLimits(row, wishingMax);
     if (row.display_order === undefined) {
       const [[{ maxO }]] = await pool.query(
@@ -681,6 +940,9 @@ router.post("/committee/members", requireAuth, async (req, res) => {
     pruneUnknownMemberColumns(row, memberCols);
 
     await pool.query("INSERT INTO committee_members SET ?", [row]);
+    if (row.alumni_id) {
+      await recomputeAdminCommitteeDesignationForAlumniId(pool, String(row.alumni_id));
+    }
     res.status(201).json({ ok: true, id });
   } catch (e) {
     if (e.code === "SINGLE_SEAT") {
@@ -732,7 +994,7 @@ router.put("/committee/members/:id", requireAuth, async (req, res) => {
     patch.location = null;
     patch.expertise = null;
     patch.about = null;
-    const wishingMax = await getWishingMaxWordsForPost(pool, nextPostId);
+    const wishingMax = await getWishingMaxWordsForPost();
     assertMemberTextLimits(patch, wishingMax);
     pruneUnknownMemberColumns(patch, memberCols);
 
@@ -753,6 +1015,17 @@ router.put("/committee/members/:id", requireAuth, async (req, res) => {
         }
       }
     }
+
+    const toRecompute = new Set();
+    if (existing.alumni_id) toRecompute.add(String(existing.alumni_id).trim());
+    if (Object.prototype.hasOwnProperty.call(patch || {}, "alumni_id")) {
+      const v = patch.alumni_id;
+      if (v) toRecompute.add(String(v).trim());
+    }
+    for (const aid of toRecompute) {
+      if (aid) await recomputeAdminCommitteeDesignationForAlumniId(pool, aid);
+    }
+
     res.status(200).json({ ok: true });
   } catch (e) {
     if (e.code === "SINGLE_SEAT") {
@@ -769,9 +1042,14 @@ router.delete("/committee/members/:id", requireAuth, async (req, res) => {
   try {
     const pool = await withAdmin(req, res);
     if (!pool) return;
-    const [rows] = await pool.query("SELECT photo_url FROM committee_members WHERE id = ? LIMIT 1", [req.params.id]);
+    const [rows] = await pool.query(
+      "SELECT photo_url, alumni_id FROM committee_members WHERE id = ? LIMIT 1",
+      [req.params.id]
+    );
+    const alumniId = rows?.[0]?.alumni_id;
     await deleteCloudinaryImageByUrl(rows?.[0]?.photo_url || null);
     await pool.query("DELETE FROM committee_members WHERE id = ?", [req.params.id]);
+    if (alumniId) await recomputeAdminCommitteeDesignationForAlumniId(pool, String(alumniId));
     res.status(200).json({ ok: true });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message || "Failed to delete member" });

@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Briefcase, Droplets, Facebook, GraduationCap, Instagram, Linkedin, MapPin, Phone, User } from "lucide-react";
+import { ArrowLeft, Award, Briefcase, Droplets, Facebook, GraduationCap, Instagram, Linkedin, MapPin, Phone, User } from "lucide-react";
 import { API_BASE_URL } from "@/api-production/api.js";
 
 interface AlumniProfile {
@@ -30,6 +30,7 @@ interface AlumniProfile {
   passing_year: string | null;
   college_name: string | null;
   registration_number: string | null;
+  admin_committee_designation?: string | null;
   social_links: { facebook?: string; instagram?: string; linkedin?: string } | null;
 }
 
@@ -81,6 +82,12 @@ const DirectoryProfile = () => {
           </div>
 
           <div className="flex flex-wrap gap-2">
+            {selected.admin_committee_designation ? (
+              <Badge className="bg-amber-600/95 text-white border-0">
+                <Award className="mr-1 h-3 w-3" />
+                {selected.admin_committee_designation}
+              </Badge>
+            ) : null}
             {selected.blood_group ? <Badge variant="outline"><Droplets className="mr-1 h-3 w-3" />{selected.blood_group}</Badge> : null}
             {selected.university ? <Badge variant="secondary"><GraduationCap className="mr-1 h-3 w-3" />{selected.university}</Badge> : null}
             {selected.job_status ? <Badge variant="outline"><Briefcase className="mr-1 h-3 w-3" />{selected.job_status}</Badge> : null}

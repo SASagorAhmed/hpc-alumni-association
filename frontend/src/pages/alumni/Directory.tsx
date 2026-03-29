@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, User, X, Briefcase, GraduationCap, Phone, Droplets, Facebook, Instagram, Linkedin } from "lucide-react";
+import { Search, User, X, Briefcase, GraduationCap, Phone, Droplets, Facebook, Instagram, Linkedin, Award } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { API_BASE_URL } from "@/api-production/api.js";
@@ -48,6 +48,7 @@ interface AlumniProfile {
   passing_year: string | null;
   college_name: string | null;
   registration_number: string | null;
+  admin_committee_designation?: string | null;
   created_at: string | null;
   social_links: { facebook?: string; instagram?: string; linkedin?: string } | null;
 }
@@ -120,7 +121,22 @@ const Directory = () => {
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter((a) =>
-        [a.name, a.batch, a.roll, a.phone, a.university, a.company, a.job_title, a.blood_group, a.gender, a.department, a.faculty, a.profession, a.college_name]
+        [
+          a.name,
+          a.batch,
+          a.roll,
+          a.phone,
+          a.university,
+          a.company,
+          a.job_title,
+          a.blood_group,
+          a.gender,
+          a.department,
+          a.faculty,
+          a.profession,
+          a.college_name,
+          a.admin_committee_designation,
+        ]
           .filter(Boolean)
           .some((field) => field!.toLowerCase().includes(q))
       );
@@ -258,6 +274,12 @@ const Directory = () => {
                   </div>
                 </div>
                 <div className="mt-3 flex min-h-[26px] min-w-0 flex-wrap gap-1.5">
+                  {a.admin_committee_designation ? (
+                    <Badge className="max-w-full min-w-0 truncate px-1.5 py-0 text-[10px] bg-amber-600/95 hover:bg-amber-600 text-white border-0">
+                      <Award className="w-2.5 h-2.5 mr-0.5 shrink-0" />
+                      <span className="truncate">{a.admin_committee_designation}</span>
+                    </Badge>
+                  ) : null}
                   {a.faculty && <Badge variant="outline" className="text-[10px] px-1.5 py-0">{a.faculty}</Badge>}
                   {a.blood_group && <Badge variant="outline" className="text-[10px] px-1.5 py-0"><Droplets className="w-2.5 h-2.5 mr-0.5" />{a.blood_group}</Badge>}
                   {a.university && <Badge variant="secondary" className="max-w-[120px] min-w-0 truncate px-1.5 py-0 text-[10px]"><GraduationCap className="w-2.5 h-2.5 mr-0.5 shrink-0" />{a.university}</Badge>}

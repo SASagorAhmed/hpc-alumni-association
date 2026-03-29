@@ -12,6 +12,8 @@ export interface User {
   batch: string;
   roll?: string;
   registrationNumber?: string;
+  /** Committee post title(s) from current published term — set by admin only. */
+  adminCommitteeDesignation?: string | null;
   gender?: string;
   bloodGroup?: string;
   department?: string;
