@@ -16,6 +16,7 @@ import { Award, Plus, Pencil, Trash2, Pin, ArrowUp, ArrowDown, Search, Settings,
 import { cn } from "@/lib/utils";
 import { AchievementPhotoCropDialog } from "@/components/admin/AchievementPhotoCropDialog";
 import { BANNER_DEFAULT_PHOTO_TAGLINE, BANNER_DEFAULT_CONGRATULATIONS_MESSAGE } from "@/constants/bannerCopy";
+import { ACHIEVEMENT_BANNER_ASPECT_STYLE } from "@/lib/achievementCrop";
 import { BANNER_MAX_WORDS, BANNER_MESSAGE_MAX_WORDS, clampToWordLimit, countWords } from "@/lib/bannerWordLimit";
 import { API_BASE_URL } from "@/api-production/api.js";
 import { getAuthToken } from "@/lib/authToken";
@@ -718,7 +719,7 @@ const AdminAchievements = () => {
                         src={form.photo_url}
                         alt="Preview"
                         className="h-14 w-[89px] rounded-md border border-border object-cover sm:h-16 sm:w-[102px]"
-                        style={{ aspectRatio: "8 / 5" }}
+                        style={{ aspectRatio: ACHIEVEMENT_BANNER_ASPECT_STYLE }}
                       />
                       <button
                         type="button"

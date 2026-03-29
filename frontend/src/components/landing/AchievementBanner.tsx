@@ -3,6 +3,7 @@ import { Award, ChevronLeft, ChevronRight, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BANNER_DEFAULT_PHOTO_TAGLINE } from "@/constants/bannerCopy";
 import { API_BASE_URL } from "@/api-production/api.js";
+import { ACHIEVEMENT_BANNER_CROP_ASPECT } from "@/lib/achievementCrop";
 import hpcLogo from "@/assets/hpc-logo.png";
 
 /** Five-point star (sketchy celebration style), viewBox 0 0 24 24 */
@@ -761,19 +762,23 @@ const AchievementBanner = () => {
           onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
         >
-          <div ref={bannerCardRef} className="relative min-w-0 w-full flex-1 overflow-hidden">
+          <div ref={bannerCardRef} className="relative min-h-0 min-w-0 w-full shrink-0 overflow-hidden">
       {isNarrowViewport ? (
         /* ── NARROW (≤1023px): stacked layout, no desktop scale transform ── */
         <div className={cn("flex flex-col", isTransitioning ? "opacity-0" : "opacity-100")} style={{ transition: "opacity 0.3s" }}>
-          {/* Photo — full width, consistent aspect ratio on all screen sizes */}
-          <div className="relative w-full overflow-hidden bg-neutral-950" style={{ aspectRatio: "4/3" }}>
+          {/* Photo — full width, 8∶5 (same as admin crop + desktop column) */}
+          <div
+            className="relative w-full max-w-full overflow-hidden bg-neutral-950"
+            style={{ aspectRatio: ACHIEVEMENT_BANNER_CROP_ASPECT }}
+          >
             {item.photo_url ? (
               <>
                 <img
                   src={item.photo_url}
                   alt={item.name}
-                  className="absolute inset-0 h-full w-full object-cover object-top"
+                  className="absolute inset-0 z-0 h-full w-full object-cover object-center"
                   decoding="async"
+                  sizes="100vw"
                 />
                 <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] h-[50%] bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
                 <div className="absolute inset-x-0 bottom-0 z-[2] flex flex-col items-start gap-0.5 px-3 pb-2.5">
@@ -965,7 +970,10 @@ const AchievementBanner = () => {
             style={bannerScale < 1 ? { width: `${DESIGN_W}px`, transform: `scale(${bannerScale})` } : { width: "100%" }}
           >
             {/* Photo column — fixed ratio on tablet/PC; right text area widened */}
-            <div className="relative z-0 w-[46%] max-w-none min-w-0 shrink-0 overflow-hidden border-r border-border/50 aspect-[4/3]">
+            <div
+              className="relative z-0 w-[46%] max-w-none min-w-0 shrink-0 overflow-hidden border-r border-border/50"
+              style={{ aspectRatio: ACHIEVEMENT_BANNER_CROP_ASPECT }}
+            >
               <BannerPhotoPanel
                 item={item}
                 isTransitioning={isTransitioning}

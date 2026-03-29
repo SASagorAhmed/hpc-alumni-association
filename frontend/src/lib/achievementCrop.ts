@@ -56,5 +56,11 @@ export async function getCroppedAchievementImageBlob(imageSrc: string, pixelCrop
   });
 }
 
-/** Banner spotlight photo panel is ~half width × full height → use a wide crop frame */
+/**
+ * Wide crop frame (8∶5) for admin crop dialog and for every banner photo slot
+ * (mobile stack + desktop left column). Keep display aspect in sync with this.
+ */
 export const ACHIEVEMENT_BANNER_CROP_ASPECT = 8 / 5;
+
+/** CSS `aspect-ratio` value for JSX style props — identical ratio, explicit fraction for clarity. */
+export const ACHIEVEMENT_BANNER_ASPECT_STYLE = "8 / 5" as const;
