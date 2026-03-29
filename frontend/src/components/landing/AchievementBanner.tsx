@@ -689,9 +689,18 @@ const AchievementBanner = () => {
     goTo((current - 1 + achievements.length) % achievements.length);
   }, [current, achievements.length, goTo]);
 
+  /** Advance slides (multi) or restart one-slide animations on each admin slide_duration tick. */
   useEffect(() => {
-    if (!settings || isPaused || achievements.length <= 1) return;
-    const interval = setInterval(next, (settings.slide_duration || 4) * 1000);
+    if (!settings || isPaused || achievements.length < 1) return;
+    const delay = (settings.slide_duration || 4) * 1000;
+    const tick = () => {
+      if (achievements.length === 1) {
+        setProgressKey((k) => k + 1);
+      } else {
+        next();
+      }
+    };
+    const interval = setInterval(tick, delay);
     return () => clearInterval(interval);
   }, [settings, isPaused, achievements.length, next]);
 
@@ -790,7 +799,7 @@ const AchievementBanner = () => {
               const drift = -18 + (i % 6) * 7;
               return (
                 <span
-                  key={`mob-c-${item.id}-${i}`}
+                  key={`mob-c-${item.id}-${progressKey}-${i}`}
                   className={cn("hpc-win-anim absolute -top-3 rounded-[1px] shadow-sm will-change-transform", isPaused && "achievement-winner-paused")}
                   style={{
                     left: c.left,
@@ -811,7 +820,7 @@ const AchievementBanner = () => {
 
             {/* Trophy — true top-right corner of photo; key restarts drop animation on each slide */}
             <div
-              key={`mob-trophy-${item.id}`}
+              key={`mob-trophy-${item.id}-${progressKey}`}
               className="absolute right-2 top-2 z-[6]"
               style={{
                 animation: "hpc-winner-trophy 1s cubic-bezier(0.34,1.56,0.64,1) 0.08s both",
@@ -877,7 +886,7 @@ const AchievementBanner = () => {
               {/* Achievement title — staggered enter */}
               {item.achievement_title?.trim() ? (
                 <div
-                  key={`mob-ach-${item.id}`}
+                  key={`mob-ach-${item.id}-${progressKey}`}
                   className="hpc-banner-right-enter rounded-lg border bg-white/[0.06] px-3 py-2 backdrop-blur-[2px]"
                   style={{
                     borderColor: isTheme2 ? "var(--achievement-banner-ach-border)" : "var(--achievement-banner-tag-border)",
@@ -906,14 +915,14 @@ const AchievementBanner = () => {
               {/* Message — with full CongratulationsBurstReveal animation */}
               {item.message?.trim() ? (
                 <div
-                  key={`mob-msg-${item.id}`}
+                  key={`mob-msg-${item.id}-${progressKey}`}
                   className="hpc-banner-right-enter"
                   style={{ animationDelay: "0.18s" }}
                 >
                   <CongratulationsBurstReveal
                     message={item.message.trim()}
                     heading={item.banner_congratulations_text}
-                    slideKey={`mob-${item.id}`}
+                    slideKey={`mob-${item.id}-${progressKey}`}
                     isPaused={isPaused}
                     theme2Style={isTheme2}
                   />
@@ -970,7 +979,7 @@ const AchievementBanner = () => {
               ) : null}
             </div>
 
-            <AchievementWinnerOverlay key={item.id} slideKey={item.id} isPaused={isPaused} />
+            <AchievementWinnerOverlay key={`${item.id}-${progressKey}`} slideKey={`${item.id}-${progressKey}`} isPaused={isPaused} />
 
             {/* Right column — stretches to photo height via flex align-items:stretch */}
             <div
@@ -1031,7 +1040,7 @@ const AchievementBanner = () => {
 
                   {item.achievement_title?.trim() ? (
                     <div
-                      key={`${item.id}-ach`}
+                      key={`${item.id}-ach-${progressKey}`}
                       className="hpc-banner-right-enter w-full min-w-0 shrink-0"
                       style={{ animationDelay: "0.12s" }}
                     >
@@ -1063,14 +1072,14 @@ const AchievementBanner = () => {
 
                   {item.message?.trim() ? (
                     <div
-                      key={`${item.id}-msg`}
+                      key={`${item.id}-msg-${progressKey}`}
                       className="hpc-banner-right-enter min-w-0 w-full shrink-0"
                       style={{ animationDelay: "0.2s" }}
                     >
                       <CongratulationsBurstReveal
                         message={item.message.trim()}
                         heading={item.banner_congratulations_text}
-                        slideKey={item.id}
+                        slideKey={`${item.id}-${progressKey}`}
                         isPaused={isPaused}
                         theme2Style={isTheme2}
                       />
@@ -1085,32 +1094,30 @@ const AchievementBanner = () => {
         </>
       )}
 
-      {/* Single slide counter */}
-      {achievements.length > 1 && (
-        <>
-          <div className="absolute bottom-5 left-1/2 z-20 -translate-x-1/2 sm:bottom-6 max-sm:hidden">
-            <span
-              className={cn(
-                "fs-ui rounded-full border border-border/50 bg-background/85 px-3 py-1 font-semibold text-foreground shadow-sm backdrop-blur-sm transition-all duration-300",
-                isTransitioning ? "scale-90 opacity-0" : "scale-100 opacity-100"
-              )}
-            >
-              {current + 1} / {achievements.length}
-            </span>
-          </div>
-          <div className="absolute bottom-0 left-0 right-0 z-20 h-1 bg-border/60">
-            <div
-              key={progressKey}
-              style={{
-                backgroundColor: "var(--achievement-banner-progress)",
-                height: "100%",
-                animation: isPaused ? "none" : `progress-fill ${duration}ms linear forwards`,
-                animationPlayState: isPaused ? "paused" : "running",
-              }}
-            />
-          </div>
-        </>
-      )}
+      {achievements.length > 1 ? (
+        <div className="absolute bottom-5 left-1/2 z-20 -translate-x-1/2 sm:bottom-6 max-sm:hidden">
+          <span
+            className={cn(
+              "fs-ui rounded-full border border-border/50 bg-background/85 px-3 py-1 font-semibold text-foreground shadow-sm backdrop-blur-sm transition-all duration-300",
+              isTransitioning ? "scale-90 opacity-0" : "scale-100 opacity-100"
+            )}
+          >
+            {current + 1} / {achievements.length}
+          </span>
+        </div>
+      ) : null}
+      {/* Progress tick restarts with progressKey each slide (or each single-slide cycle). */}
+      <div className="absolute bottom-0 left-0 right-0 z-20 h-1 bg-border/60">
+        <div
+          key={progressKey}
+          style={{
+            backgroundColor: "var(--achievement-banner-progress)",
+            height: "100%",
+            animation: isPaused ? "none" : `progress-fill ${duration}ms linear forwards`,
+            animationPlayState: isPaused ? "paused" : "running",
+          }}
+        />
+      </div>
 
       <style>{`
         @keyframes progress-fill {
