@@ -62,6 +62,42 @@ export default function CommitteeMemberProfile() {
       .catch(() => setLoading(false));
   }, [id]);
 
+  useEffect(() => {
+    // Prevent individual committee profile pages from appearing in search results.
+    const robotsMeta = document.querySelector('meta[name="robots"]') as HTMLMetaElement | null;
+    const googlebotMeta = document.querySelector('meta[name="googlebot"]') as HTMLMetaElement | null;
+
+    const createdRobots = !robotsMeta;
+    const createdGooglebot = !googlebotMeta;
+    const robotsNode = robotsMeta ?? document.createElement("meta");
+    const googlebotNode = googlebotMeta ?? document.createElement("meta");
+
+    const prevRobotsContent = robotsMeta?.getAttribute("content");
+    const prevGooglebotContent = googlebotMeta?.getAttribute("content");
+
+    robotsNode.setAttribute("name", "robots");
+    robotsNode.setAttribute("content", "noindex,follow");
+    googlebotNode.setAttribute("name", "googlebot");
+    googlebotNode.setAttribute("content", "noindex,follow");
+
+    if (createdRobots) document.head.appendChild(robotsNode);
+    if (createdGooglebot) document.head.appendChild(googlebotNode);
+
+    return () => {
+      if (createdRobots) {
+        robotsNode.remove();
+      } else if (prevRobotsContent != null) {
+        robotsNode.setAttribute("content", prevRobotsContent);
+      }
+
+      if (createdGooglebot) {
+        googlebotNode.remove();
+      } else if (prevGooglebotContent != null) {
+        googlebotNode.setAttribute("content", prevGooglebotContent);
+      }
+    };
+  }, []);
+
   const primary = "hsl(var(--primary))";
   const primaryTint = "hsl(var(--primary) / 0.12)";
   const primaryBorder = "hsl(var(--primary) / 0.25)";
