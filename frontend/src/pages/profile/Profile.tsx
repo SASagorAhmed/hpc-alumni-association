@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -7,7 +7,10 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { Save, User, AlertCircle, Facebook, Instagram, Linkedin, Award } from "lucide-react";
+import { Save, User, AlertCircle, Facebook, Instagram, Linkedin, Award, Camera } from "lucide-react";
+import { AlumniPhotoLightbox } from "@/components/alumni/AlumniPhotoLightbox";
+import { ProfilePhotoCropDialog } from "@/components/auth/ProfilePhotoCropDialog";
+import { cn } from "@/lib/utils";
 
 const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 const GENDERS = ["Male", "Female", "Other"];
@@ -16,6 +19,13 @@ const FIXED_COLLEGE_NAME = "Hamdard Public Collage";
 const Profile = () => {
   const { user, updateProfile } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [photoLightboxOpen, setPhotoLightboxOpen] = useState(false);
+  const [cropDialogOpen, setCropDialogOpen] = useState(false);
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
+  const cropObjectUrlRef = useRef<string | null>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const [pendingPhotoFile, setPendingPhotoFile] = useState<File | null>(null);
+  const [pendingPreviewUrl, setPendingPreviewUrl] = useState<string | null>(null);
   const [form, setForm] = useState({
     name: user?.name || "",
     phone: user?.phone || "",
@@ -49,6 +59,61 @@ const Profile = () => {
   const alumniIdComputed = sectionLetter && batch2 && rollDigits ? `${sectionLetter}${batch2}${rollDigits}` : "";
   const alumniIdValue = user?.registrationNumber || alumniIdComputed;
 
+  const revokeCropPreview = () => {
+    if (cropObjectUrlRef.current) {
+      URL.revokeObjectURL(cropObjectUrlRef.current);
+      cropObjectUrlRef.current = null;
+    }
+    setCropImageSrc(null);
+  };
+
+  useEffect(() => {
+    return () => revokeCropPreview();
+  }, []);
+
+  useEffect(() => {
+    if (!pendingPhotoFile) {
+      setPendingPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(pendingPhotoFile);
+    setPendingPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [pendingPhotoFile]);
+
+  const displayPhotoUrl = pendingPreviewUrl ?? user?.photo?.trim() ?? null;
+  const lightboxSrc = pendingPreviewUrl ?? user?.photo?.trim() ?? null;
+
+  const handlePhotoFileChosen = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (e.target) e.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file.");
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error("Please select an image under 8MB.");
+      return;
+    }
+    revokeCropPreview();
+    const url = URL.createObjectURL(file);
+    cropObjectUrlRef.current = url;
+    setCropImageSrc(url);
+    setCropDialogOpen(true);
+  };
+
+  const handleCroppedPhoto = async (blob: Blob) => {
+    if (blob.size > 2 * 1024 * 1024) {
+      toast.error("Cropped image is too large (max 2MB). Please zoom out and crop again.");
+      return;
+    }
+    const cropped = new File([blob], "profile-photo.jpg", { type: "image/jpeg" });
+    setPendingPhotoFile(cropped);
+    toast.success("New profile photo will save when you update your profile.");
+    revokeCropPreview();
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name.trim()) {
@@ -60,9 +125,11 @@ const Profile = () => {
     const result = await updateProfile({
       ...rest,
       socialLinks: { facebook, instagram, linkedin },
+      photoFile: pendingPhotoFile || undefined,
     });
     setLoading(false);
     if (result.success) {
+      setPendingPhotoFile(null);
       toast.success(result.message);
     } else {
       toast.error(result.message);
@@ -95,18 +162,67 @@ const Profile = () => {
 
       <Card className="shadow-card">
         <CardHeader>
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-              <User className="w-6 h-6 sm:w-7 sm:h-7 text-primary" />
-            </div>
-            <div className="min-w-0">
-              <CardTitle className="text-base sm:text-lg truncate">{user?.name}</CardTitle>
-              <CardDescription className="text-xs sm:text-sm truncate">{user?.email} | Batch: {user?.batch}</CardDescription>
-            </div>
-          </div>
+          <CardTitle className="text-base sm:text-lg">{user?.name}</CardTitle>
+          <CardDescription className="text-xs sm:text-sm">
+            {user?.email} | Batch: {user?.batch}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
+            <input
+              ref={photoInputRef}
+              type="file"
+              accept="image/*"
+              className="sr-only"
+              aria-hidden
+              onChange={handlePhotoFileChosen}
+            />
+            <div>
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Profile photo</h3>
+              <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
+                <button
+                  type="button"
+                  className={cn(
+                    "shrink-0 overflow-hidden rounded-2xl bg-primary/10 ring-2 ring-primary/25 transition-[box-shadow,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                    "h-56 w-56 sm:h-64 sm:w-64",
+                    displayPhotoUrl
+                      ? "cursor-zoom-in shadow-md hover:ring-primary/45 hover:shadow-lg"
+                      : "cursor-default"
+                  )}
+                  onClick={() => displayPhotoUrl && setPhotoLightboxOpen(true)}
+                  aria-label={displayPhotoUrl ? `View full photo of ${user?.name ?? "alumni"}` : "No profile photo"}
+                  disabled={!displayPhotoUrl}
+                >
+                  {displayPhotoUrl ? (
+                    <img src={displayPhotoUrl} alt="" className="h-full w-full object-cover" decoding="async" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center">
+                      <User className="h-24 w-24 text-primary sm:h-28 sm:w-28" aria-hidden />
+                    </div>
+                  )}
+                </button>
+                <div className="flex min-w-0 flex-1 flex-col items-center gap-2 text-center sm:items-start sm:text-left sm:pt-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => photoInputRef.current?.click()}
+                  >
+                    <Camera className="h-4 w-4" />
+                    {displayPhotoUrl ? "Change photo" : "Upload photo"}
+                  </Button>
+                  {pendingPhotoFile ? (
+                    <p className="text-xs text-amber-700 dark:text-amber-300">New photo selected — click &quot;Update Profile&quot; to save.</p>
+                  ) : displayPhotoUrl ? (
+                    <p className="text-xs text-muted-foreground">Tap the photo to view it full size.</p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Add a square profile photo. It appears in the alumni directory after approval.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
             {/* Basic Information */}
             <div>
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Basic Information</h3>
@@ -231,6 +347,23 @@ const Profile = () => {
           </form>
         </CardContent>
       </Card>
+
+      <AlumniPhotoLightbox
+        open={photoLightboxOpen}
+        onOpenChange={setPhotoLightboxOpen}
+        src={lightboxSrc}
+        name={user?.name ?? ""}
+      />
+
+      <ProfilePhotoCropDialog
+        open={cropDialogOpen}
+        imageSrc={cropImageSrc}
+        onOpenChange={(open) => {
+          setCropDialogOpen(open);
+          if (!open) revokeCropPreview();
+        }}
+        onCropped={handleCroppedPhoto}
+      />
     </div>
   );
 };

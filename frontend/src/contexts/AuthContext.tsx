@@ -57,7 +57,7 @@ interface AuthContextType {
   }>;
   verifyOtp: (otp: string) => Promise<{ success: boolean; message: string }>;
   logout: () => void;
-  updateProfile: (data: Partial<User>) => Promise<{ success: boolean; message: string }>;
+  updateProfile: (data: Partial<User> & { photoFile?: File }) => Promise<{ success: boolean; message: string }>;
 }
 
 interface RegisterData {
@@ -227,19 +227,43 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     clearAuthToken();
   };
 
-  const updateProfile = async (data: Partial<User>) => {
+  const updateProfile = async (data: Partial<User> & { photoFile?: File }) => {
     if (!user) return { success: false, message: "Please log in." };
     const token = getAuthToken();
     if (!token) return { success: false, message: "Please log in." };
 
-    const res = await fetch(`${API_BASE_URL}/api/auth/profile`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(data),
-    });
+    const { photoFile, ...rest } = data;
+
+    let res: Response;
+    if (photoFile) {
+      const fd = new FormData();
+      for (const [key, value] of Object.entries(rest)) {
+        if (value === undefined) continue;
+        if (key === "socialLinks" && value && typeof value === "object") {
+          fd.append("socialLinks", JSON.stringify(value));
+        } else {
+          fd.append(key, value === null ? "" : String(value));
+        }
+      }
+      fd.append("photo", photoFile);
+      res = await fetch(`${API_BASE_URL}/api/auth/profile`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: fd,
+      });
+    } else {
+      res = await fetch(`${API_BASE_URL}/api/auth/profile`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(rest),
+      });
+    }
+
     const body = await res.json().catch(() => ({}));
     if (!res.ok) return { success: false, message: body?.error || "Failed to update profile." };
     if (body?.user) setUser(body.user as User);

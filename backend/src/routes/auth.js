@@ -804,14 +804,34 @@ router.get("/google/callback", (req, res, next) => {
   })(req, res, next);
 });
 
-// PUT /api/auth/profile
-router.put("/profile", requireAuth, async (req, res) => {
+function profilePutMultipartMaybe(req, res, next) {
+  const ct = String(req.headers["content-type"] || "");
+  if (ct.includes("multipart/form-data")) {
+    return profileUpload.single("photo")(req, res, (err) => {
+      if (err) return res.status(400).json({ ok: false, error: err.message || "Upload failed" });
+      next();
+    });
+  }
+  next();
+}
+
+// PUT /api/auth/profile (JSON or multipart/form-data with optional `photo` file)
+router.put("/profile", requireAuth, profilePutMultipartMaybe, async (req, res) => {
   try {
     const pool = getOrCreatePool();
     if (!pool) return res.status(503).json({ ok: false, error: "MySQL not configured" });
 
     const currentProfile = await getUserProfile(pool, req.auth.userId);
     if (!currentProfile) return res.status(404).json({ ok: false, error: "Profile not found" });
+
+    const body = { ...(req.body || {}) };
+    if (typeof body.socialLinks === "string" && body.socialLinks.trim()) {
+      try {
+        body.socialLinks = JSON.parse(body.socialLinks);
+      } catch (_e) {
+        /* keep string; may fail validation downstream or store as-is */
+      }
+    }
 
     // Section, Batch, Collage ID (roll) and Alumni ID are locked after registration.
     // Only allow safe fields that the user may edit later.
@@ -852,15 +872,26 @@ router.put("/profile", requireAuth, async (req, res) => {
     const values = [];
 
     Object.entries(allowed).forEach(([apiKey, dbKey]) => {
-      if (Object.prototype.hasOwnProperty.call(req.body || {}, apiKey)) {
-        updates.push(`\`${dbKey}\` = ?`);
-        const value =
-          apiKey === "socialLinks" && req.body[apiKey]
-            ? JSON.stringify(req.body[apiKey])
-            : req.body[apiKey];
-        values.push(value ?? null);
-      }
+      if (req.file && apiKey === "photo") return;
+      if (!Object.prototype.hasOwnProperty.call(body, apiKey)) return;
+      updates.push(`\`${dbKey}\` = ?`);
+      const value =
+        apiKey === "socialLinks" && body[apiKey] && typeof body[apiKey] === "object"
+          ? JSON.stringify(body[apiKey])
+          : body[apiKey];
+      values.push(value ?? null);
     });
+
+    let uploadedPhotoUrl = null;
+    if (req.file) {
+      if (!String(req.file.mimetype || "").startsWith("image/")) {
+        return res.status(400).json({ ok: false, error: "Photo must be an image" });
+      }
+      const uploaded = await uploadToCloudinary(req.file, { folder: getCloudinaryFolder("profile"), resourceType: "image" });
+      uploadedPhotoUrl = uploaded.secure_url;
+      updates.push("`photo` = ?");
+      values.push(uploadedPhotoUrl);
+    }
 
     // Keep alumni ID consistent with locked Section/Batch/Roll (do not accept any user edits for these fields).
     if (alumniIdComputed && (!currentProfile.registrationNumber || currentProfile.registrationNumber !== alumniIdComputed)) {
@@ -870,8 +901,10 @@ router.put("/profile", requireAuth, async (req, res) => {
     if (!updates.length) return res.status(400).json({ ok: false, error: "Nothing to update" });
 
     const oldPhotoUrl = currentProfile.photo || null;
-    const photoWasProvided = Object.prototype.hasOwnProperty.call(req.body || {}, "photo");
-    const nextPhotoUrl = photoWasProvided ? (req.body.photo ?? null) : oldPhotoUrl;
+    const photoWasProvided = Boolean(req.file) || Object.prototype.hasOwnProperty.call(body, "photo");
+    let nextPhotoUrl = oldPhotoUrl;
+    if (req.file) nextPhotoUrl = uploadedPhotoUrl;
+    else if (Object.prototype.hasOwnProperty.call(body, "photo")) nextPhotoUrl = body.photo ?? null;
 
     await pool.query(`UPDATE profiles SET ${updates.join(", ")}, profile_pending = true WHERE id = ?`, [
       ...values,
