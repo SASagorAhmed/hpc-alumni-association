@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
+import { useHistorySyncOverlay } from "@/hooks/useHistorySyncOverlay";
 import { ArrowLeft, Calendar, Tag, ImageIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { API_BASE_URL } from "@/api-production/api.js";
@@ -22,6 +23,8 @@ export default function MemoryDetail() {
   const [memory, setMemory] = useState<Memory | null>(null);
   const [loading, setLoading] = useState(true);
   const [imgOpen, setImgOpen] = useState(false);
+
+  useHistorySyncOverlay(imgOpen, () => setImgOpen(false));
 
   useEffect(() => {
     if (!id) return;

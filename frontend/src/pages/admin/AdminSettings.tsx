@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ const comingSoonSections = [
 ];
 
 const AdminSettings = () => {
+  const qc = useQueryClient();
   const [admins, setAdmins] = useState<AdminRow[]>([]);
   const [loadingList, setLoadingList] = useState(true);
   const [email, setEmail] = useState("");
@@ -82,6 +84,7 @@ const AdminSettings = () => {
       toast.success(typeof body?.message === "string" ? body.message : "Administrator access granted");
       setEmail("");
       await loadAdmins();
+      qc.invalidateQueries({ queryKey: ["alumni-directory"] });
     } catch {
       toast.error("Network error");
     } finally {

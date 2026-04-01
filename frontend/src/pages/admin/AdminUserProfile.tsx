@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { API_BASE_URL } from "@/api-production/api.js";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
@@ -12,7 +13,55 @@ import { toast } from "sonner";
 import { getAuthToken } from "@/lib/authToken";
 import { useAuth } from "@/contexts/AuthContext";
 import { PRIMARY_ADMIN_EMAIL } from "@/constants/adminAccess";
-import { ArrowLeft, Ban, CheckCircle2, Crown, ShieldCheck, ShieldOff, Trash2, XCircle } from "lucide-react";
+import { ArrowLeft, Ban, CheckCircle2, Crown, History, ShieldCheck, ShieldOff, Trash2, XCircle } from "lucide-react";
+
+type ProfileEditAuditRow = {
+  id: number;
+  editedAt: string;
+  fieldKey: string;
+  oldValue: string | null;
+  newValue: string | null;
+};
+
+const PROFILE_EDIT_FIELD_LABELS: Record<string, string> = {
+  name: "Name",
+  phone: "Phone",
+  profession: "Profession",
+  company: "Company / Organization",
+  university: "University",
+  address: "Address",
+  bio: "Bio",
+  additional_info: "Additional information",
+  photo: "Photo (URL)",
+  social_links: "Social links",
+  registration_number: "Alumni ID",
+  session: "Session (passing year)",
+  passing_year: "Passing year",
+  birthday: "Date of birth",
+};
+
+function formatBirthdayAdmin(v: unknown): string {
+  if (v == null || v === "") return "—";
+  const s = String(v);
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return s;
+  try {
+    return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).toLocaleDateString(undefined, {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  } catch {
+    return s.slice(0, 10);
+  }
+}
+
+function formatAuditCell(v: string | null, max = 100) {
+  if (v == null || v === "") return "—";
+  const s = String(v);
+  if (s.length <= max) return s;
+  return `${s.slice(0, max)}…`;
+}
 
 type UserProfile = Record<string, unknown> & {
   id: string;
@@ -27,6 +76,7 @@ type UserProfile = Record<string, unknown> & {
   profile_review_note?: string | null;
   is_admin?: boolean;
   directory_visible?: boolean | number | null;
+  profile_edit_history?: ProfileEditAuditRow[];
 };
 
 const AdminUserProfile = () => {
@@ -119,14 +169,15 @@ const AdminUserProfile = () => {
     ["Roll", profile.roll],
     ["Gender", profile.gender],
     ["Blood Group", profile.blood_group],
-    ["Session", profile.session],
-    ["Passing Year", profile.passing_year],
+    ["Date of birth", formatBirthdayAdmin(profile.birthday)],
+    [
+      "Session (passing year)",
+      profile.session || profile.passing_year || "—",
+    ],
     ["College", profile.college_name],
     ["University", profile.university],
     ["Profession", profile.profession],
     ["Company", profile.company],
-    ["Job Status", profile.job_status],
-    ["Job Title", profile.job_title],
     ["Address", profile.address],
     ["Bio", profile.bio],
     ["Additional Info", profile.additional_info],
@@ -296,11 +347,60 @@ const AdminUserProfile = () => {
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <History className="h-4 w-4" aria-hidden />
+            Profile edit log
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Alumni ID <span className="font-mono font-medium">{String(profile.registration_number || profile.id)}</span>
+            — each row is one field change when the user saved their profile (time, field, before, after). Latest first.
+          </p>
+        </CardHeader>
+        <CardContent>
+          {!profile.profile_edit_history?.length ? (
+            <p className="text-sm text-muted-foreground">No self-service edits recorded yet.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[1%] whitespace-nowrap">Time</TableHead>
+                  <TableHead>Field</TableHead>
+                  <TableHead>Previous</TableHead>
+                  <TableHead>New</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {profile.profile_edit_history.map((r) => (
+                  <TableRow key={r.id}>
+                    <TableCell className="whitespace-nowrap text-xs align-top text-muted-foreground">
+                      {new Date(r.editedAt).toLocaleString()}
+                    </TableCell>
+                    <TableCell className="align-top font-medium">
+                      {PROFILE_EDIT_FIELD_LABELS[r.fieldKey] || r.fieldKey}
+                    </TableCell>
+                    <TableCell className="max-w-[min(28vw,220px)] align-top break-words text-xs" title={r.oldValue ?? ""}>
+                      {formatAuditCell(r.oldValue, 160)}
+                    </TableCell>
+                    <TableCell className="max-w-[min(28vw,220px)] align-top break-words text-xs" title={r.newValue ?? ""}>
+                      {formatAuditCell(r.newValue, 160)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
       <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Reject and Send Message</DialogTitle>
-            <DialogDescription>Tell user what extra information to provide, then user can update profile and resubmit.</DialogDescription>
+            <DialogDescription>
+              Tell the user what to fix. They can update their profile anytime; edits are logged for your review.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
             <Label htmlFor="reject-note">Message</Label>

@@ -101,16 +101,16 @@ const App = () => (
                   <Route path="/events" element={<Events />} />
                   <Route path="/events/:id" element={<EventDetail />} />
                   <Route path="/donations" element={<Donations />} />
-                  <Route path="/notices" element={<Notices />} />
-                  <Route path="/notices/:id" element={<NoticeDetail />} />
                   <Route path="/documents" element={<Documents />} />
                 </Route>
               </Route>
 
-              {/* Profile - any authenticated user */}
+              {/* Profile & notices — any authenticated user (same dashboard + sidebar) */}
               <Route element={<ProtectedRoute />}>
                 <Route element={<DashboardLayout />}>
                   <Route path="/profile" element={<Profile />} />
+                  <Route path="/notices" element={<Notices />} />
+                  <Route path="/notices/:id" element={<NoticeDetail />} />
                 </Route>
               </Route>
 

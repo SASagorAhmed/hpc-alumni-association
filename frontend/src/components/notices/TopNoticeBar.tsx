@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { AlertTriangle, X, Bell } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { API_BASE_URL } from "@/api-production/api.js";
+import { saveNavScrollRestore } from "@/lib/navScrollRestore";
 
 interface TopNotice {
   id: string;
@@ -43,6 +44,7 @@ export default function TopNoticeBar() {
           <Link
             to={`/notices/${notice.id}`}
             className="flex items-center gap-2 flex-1 min-w-0 hover:underline"
+            onClick={() => saveNavScrollRestore()}
           >
             {notice.urgent ? (
               <AlertTriangle className="w-4 h-4 shrink-0" />

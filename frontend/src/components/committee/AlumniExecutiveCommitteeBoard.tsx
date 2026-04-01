@@ -21,6 +21,8 @@ import {
 import { cn } from "@/lib/utils";
 import { isIosSafariViewport } from "@/lib/iosSafari";
 import { BREAKPOINT_MOBILE_MAX, BREAKPOINT_TABLET_MIN, layoutCanvasScale } from "@/lib/breakpoints";
+import { API_BASE_URL } from "@/api-production/api.js";
+import { saveNavScrollRestore } from "@/lib/navScrollRestore";
 import {
   Briefcase,
   Camera,
@@ -61,6 +63,53 @@ export interface DBMember {
   photo_url: string | null;
   display_order: number;
   is_active: boolean;
+}
+
+function resolveCommitteePhotoUrl(url: string | null | undefined): string | null {
+  const raw = String(url ?? "").trim();
+  if (!raw) return null;
+  if (/^https?:\/\//i.test(raw)) return raw.replace(/^http:\/\//i, "https://");
+  if (raw.startsWith("//")) return `https:${raw}`;
+  if (raw.startsWith("/")) return `${API_BASE_URL}${raw}`;
+  return `${API_BASE_URL}/${raw}`;
+}
+
+function CommitteePhoto({
+  photoUrl,
+  name,
+  imgClassName,
+  cameraClassName,
+  primary,
+  primaryTint,
+}: {
+  photoUrl: string | null | undefined;
+  name: string;
+  imgClassName: string;
+  cameraClassName: string;
+  primary: string;
+  primaryTint: string;
+}) {
+  const [broken, setBroken] = useState(false);
+  const src = resolveCommitteePhotoUrl(photoUrl);
+  if (!src || broken) {
+    return (
+      <div
+        className="absolute inset-0 z-10 flex items-center justify-center"
+        style={{ background: `linear-gradient(135deg, ${primaryTint} 0%, transparent 65%)` }}
+      >
+        <Camera className={cameraClassName} style={{ color: primary, opacity: 0.6 }} />
+      </div>
+    );
+  }
+  return (
+    <img
+      src={src}
+      alt={name}
+      className={imgClassName}
+      style={{ filter: "none" }}
+      onError={() => setBroken(true)}
+    />
+  );
 }
 
 export function committeeRowToDBMember(m: CommitteeMemberRow): DBMember {
@@ -148,6 +197,18 @@ export function restMembersExceptPresident(data: StructuredCommitteePayload, exc
 /** Executive member cards (non-president): show up to this many words (matches admin max). */
 export const EXECUTIVE_WISHING_DISPLAY_WORDS = 50;
 
+/** Governing body DB default uses “elected …” — light mint box + “Wishing you” + normal weight. */
+const WISHING_BOX_GOVERNING = {
+  backgroundColor: "#A6D9C7",
+  borderColor: "rgba(6, 88, 76, 0.35)",
+} as const;
+
+/** Heads / members / executive defaults use “selected … by the governing body” — separate look + “Congratulations” + bold. */
+const WISHING_BOX_OTHER = {
+  backgroundColor: "#C5E8E0",
+  borderColor: "rgba(6, 88, 76, 0.55)",
+} as const;
+
 export function truncateToWordCount(text: string, maxWords: number): string {
   const words = String(text || "")
     .trim()
@@ -203,9 +264,12 @@ function useFitSingleLineText(text: string, maxPx: number, minPx: number): RefOb
 export function PresidentHeroCard({
   member,
   roleLabel,
+  wishingGoverningTone = true,
 }: {
   member: DBMember;
   roleLabel?: string;
+  /** False when the featured president post is not under Governing Body (legacy layout defaults to true). */
+  wishingGoverningTone?: boolean;
 }) {
   const roleLine = roleLabel || member.designation || "President";
   const primary = "#FFFFFF";
@@ -219,7 +283,12 @@ export function PresidentHeroCard({
   const href = `/committee/member/${member.id}`;
 
   return (
-    <Link to={href} aria-label={`Open profile: ${member.name}`} className="block max-w-full">
+    <Link
+      to={href}
+      aria-label={`Open profile: ${member.name}`}
+      className="block max-w-full"
+      onClick={() => saveNavScrollRestore()}
+    >
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         whileInView={{ opacity: 1, y: 0 }}
@@ -327,15 +396,16 @@ export function PresidentHeroCard({
           {member.wishing_message ? (
             <div
               className="committee-member-wishing-box mt-0.5 w-full max-w-full rounded-md border p-2"
-              style={{ backgroundColor: "#A6D9C7", borderColor: "rgba(6, 88, 76, 0.35)" }}
+              style={wishingGoverningTone ? WISHING_BOX_GOVERNING : WISHING_BOX_OTHER}
             >
-              {/* President only: +15% vs member cards (8.75px / 9.25px baseline) */}
               <p className="font-semibold" style={{ color: "#000000", fontSize: "calc(8.75px * 1.15)" }}>
-                Wishing you
+                {wishingGoverningTone ? "Wishing you" : "Congratulations"}
               </p>
-              {/* Scroll inside if the full 50-word message exceeds the box height */}
               <div
-                className="mt-0.5 max-h-[7.92rem] overflow-y-auto overscroll-contain pr-0.5 leading-[1.4] [scrollbar-gutter:stable]"
+                className={cn(
+                  "mt-0.5 max-h-[7.92rem] overflow-y-auto overscroll-contain pr-0.5 leading-[1.4] [scrollbar-gutter:stable]",
+                  !wishingGoverningTone && "font-bold",
+                )}
                 style={{ fontSize: "calc(9.25px * 1.15)", color: "#000000" }}
               >
                 {member.wishing_message}
@@ -355,21 +425,14 @@ export function PresidentHeroCard({
               }}
             />
 
-            {member.photo_url ? (
-              <img
-                src={member.photo_url}
-                alt={member.name}
-                className="absolute inset-0 z-10 h-full w-full object-cover object-center"
-                style={{ filter: "none" }}
-              />
-            ) : (
-              <div
-                className="absolute inset-0 flex items-center justify-center relative z-10"
-                style={{ background: `linear-gradient(135deg, ${primaryTint} 0%, transparent 65%)` }}
-              >
-                <Camera className="h-[34px] w-[34px]" style={{ color: primary, opacity: 0.6 }} />
-              </div>
-            )}
+            <CommitteePhoto
+              photoUrl={member.photo_url}
+              name={member.name}
+              imgClassName="absolute inset-0 z-10 h-full w-full object-cover object-center"
+              cameraClassName="h-[34px] w-[34px]"
+              primary={primary}
+              primaryTint={primaryTint}
+            />
             <div className="pointer-events-none absolute inset-x-0 bottom-2 z-[12] flex justify-center px-2">
               <span
                 className="inline-flex rounded-full border px-4 py-1.5 text-[14px] font-extrabold tracking-[0.16em]"
@@ -422,7 +485,12 @@ export function ExecutiveMemberCard({
   const cameraClassName = governingBody ? "h-[42px] w-[42px]" : "h-[34px] w-[34px]";
 
   return (
-    <Link to={href} aria-label={`Open profile: ${member.name}`} className="block h-full w-full">
+    <Link
+      to={href}
+      aria-label={`Open profile: ${member.name}`}
+      className="block h-full w-full"
+      onClick={() => saveNavScrollRestore()}
+    >
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         whileInView={{ opacity: 1, y: 0 }}
@@ -450,21 +518,14 @@ export function ExecutiveMemberCard({
                 }}
               />
 
-              {member.photo_url ? (
-                <img
-                  src={member.photo_url}
-                  alt={member.name}
-                  className="absolute inset-0 z-10 h-full w-full object-cover object-center"
-                  style={{ filter: "none" }}
-                />
-              ) : (
-                <div
-                  className="absolute inset-0 flex items-center justify-center relative z-10"
-                  style={{ background: `linear-gradient(135deg, ${primaryTint} 0%, transparent 65%)` }}
-                >
-                  <Camera className={cameraClassName} style={{ color: primary, opacity: 0.6 }} />
-                </div>
-              )}
+              <CommitteePhoto
+                photoUrl={member.photo_url}
+                name={member.name}
+                imgClassName="absolute inset-0 z-10 h-full w-full object-cover object-center"
+                cameraClassName={cameraClassName}
+                primary={primary}
+                primaryTint={primaryTint}
+              />
             </div>
 
             <div
@@ -584,13 +645,16 @@ export function ExecutiveMemberCard({
           <div className="mt-auto space-y-1 px-2.5 pb-2.5">
             <div
               className="committee-member-wishing-box w-full rounded-md border p-2"
-              style={{ backgroundColor: "#A6D9C7", borderColor: "rgba(6, 88, 76, 0.35)" }}
+              style={governingBody ? WISHING_BOX_GOVERNING : WISHING_BOX_OTHER}
             >
               <p className="text-[8.75px] font-semibold" style={{ color: "#000000" }}>
-                Wishing you
+                {governingBody ? "Wishing you" : "Congratulations"}
               </p>
               <p
-                className="mt-0.5 max-h-[10.5rem] overflow-hidden text-[9.25px] leading-[1.4] text-muted-foreground break-words"
+                className={cn(
+                  "mt-0.5 max-h-[10.5rem] overflow-hidden text-[9.25px] leading-[1.4] break-words",
+                  governingBody ? "text-muted-foreground font-normal" : "font-bold",
+                )}
                 style={{ color: "#000000" }}
               >
                 {wishingYouText}
@@ -608,7 +672,15 @@ export function ExecutiveMemberCard({
    MOBILE CARDS — phone-friendly (<631 px), full native readable font sizes
    ───────────────────────────────────────────────────────────────────────────── */
 
-export function MobilePresidentCard({ member, roleLabel }: { member: DBMember; roleLabel?: string }) {
+export function MobilePresidentCard({
+  member,
+  roleLabel,
+  wishingGoverningTone = true,
+}: {
+  member: DBMember;
+  roleLabel?: string;
+  wishingGoverningTone?: boolean;
+}) {
   const roleLine = roleLabel || member.designation || "President";
   const primary = "#FFFFFF";
   const presidentBadgeYellow = "#FFE566";
@@ -618,7 +690,12 @@ export function MobilePresidentCard({ member, roleLabel }: { member: DBMember; r
   const href = `/committee/member/${member.id}`;
 
   return (
-    <Link to={href} aria-label={`Open profile: ${member.name}`} className="block">
+    <Link
+      to={href}
+      aria-label={`Open profile: ${member.name}`}
+      className="block"
+      onClick={() => saveNavScrollRestore()}
+    >
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         whileInView={{ opacity: 1, y: 0 }}
@@ -629,18 +706,14 @@ export function MobilePresidentCard({ member, roleLabel }: { member: DBMember; r
       >
         {/* Photo */}
         <div className="relative w-full overflow-hidden bg-muted" style={{ aspectRatio: "1/1" }}>
-          {member.photo_url ? (
-            <img
-              src={member.photo_url}
-              alt={member.name}
-              className="absolute inset-0 h-full w-full object-cover object-center"
-              style={{ filter: "none" }}
-            />
-          ) : (
-            <div className="absolute inset-0 flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${primaryTint} 0%, transparent 65%)` }}>
-              <Camera className="h-12 w-12" style={{ color: primary, opacity: 0.5 }} />
-            </div>
-          )}
+          <CommitteePhoto
+            photoUrl={member.photo_url}
+            name={member.name}
+            imgClassName="absolute inset-0 h-full w-full object-cover object-center"
+            cameraClassName="h-12 w-12"
+            primary={primary}
+            primaryTint={primaryTint}
+          />
           {/* Mobile president: KING badge on image; hide serial number */}
           <div className="absolute left-3 top-3 z-[7]">
             <span
@@ -746,10 +819,17 @@ export function MobilePresidentCard({ member, roleLabel }: { member: DBMember; r
           </div>
 
           {member.wishing_message && (
-            <div className="rounded-md border p-3" style={{ backgroundColor: "#A6D9C7", borderColor: "rgba(6, 88, 76, 0.35)" }}>
-              <p className="text-xs font-semibold" style={{ color: "#000000" }}>Message</p>
-              <p className="mt-1 break-words text-sm leading-relaxed italic text-justify hyphens-auto text-black [overflow-wrap:anywhere]">
-                "{member.wishing_message}"
+            <div className="rounded-md border p-3" style={wishingGoverningTone ? WISHING_BOX_GOVERNING : WISHING_BOX_OTHER}>
+              <p className="text-xs font-semibold" style={{ color: "#000000" }}>
+                {wishingGoverningTone ? "Wishing you" : "Congratulations"}
+              </p>
+              <p
+                className={cn(
+                  "mt-1 break-words text-sm leading-relaxed text-justify hyphens-auto text-black [overflow-wrap:anywhere]",
+                  wishingGoverningTone ? "italic font-normal" : "font-bold not-italic",
+                )}
+              >
+                {wishingGoverningTone ? `"${member.wishing_message}"` : member.wishing_message}
               </p>
             </div>
           )}
@@ -782,7 +862,12 @@ export function MobileMemberCard({
   const href = `/committee/member/${member.id}`;
 
   return (
-    <Link to={href} aria-label={`Open profile: ${member.name}`} className="block h-full w-full">
+    <Link
+      to={href}
+      aria-label={`Open profile: ${member.name}`}
+      className="block h-full w-full"
+      onClick={() => saveNavScrollRestore()}
+    >
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         whileInView={{ opacity: 1, y: 0 }}
@@ -795,18 +880,14 @@ export function MobileMemberCard({
         {/* Photo */}
         <div className="relative h-[88px] w-[88px] shrink-0 overflow-hidden rounded-md border" style={{ borderColor: primaryBorder }}>
           <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, hsl(var(--primary) / 0.12) 0%, transparent 60%)` }} />
-          {member.photo_url ? (
-            <img
-              src={member.photo_url}
-              alt={member.name}
-              className="absolute inset-0 z-10 h-full w-full object-cover object-center"
-              style={{ filter: "none" }}
-            />
-          ) : (
-            <div className="absolute inset-0 z-10 flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${primaryTint} 0%, transparent 65%)` }}>
-              <Camera className="h-8 w-8" style={{ color: primary, opacity: 0.5 }} />
-            </div>
-          )}
+          <CommitteePhoto
+            photoUrl={member.photo_url}
+            name={member.name}
+            imgClassName="absolute inset-0 z-10 h-full w-full object-cover object-center"
+            cameraClassName="h-8 w-8"
+            primary={primary}
+            primaryTint={primaryTint}
+          />
         </div>
 
         {/* Info */}
@@ -900,14 +981,19 @@ export function MobileMemberCard({
       {wishingText && (
         <div
           className="mx-3 mb-2 mt-auto min-w-0 rounded-md border p-2.5"
-          style={{ backgroundColor: "#A6D9C7", borderColor: "rgba(6, 88, 76, 0.35)" }}
+          style={governingBody ? WISHING_BOX_GOVERNING : WISHING_BOX_OTHER}
         >
-          <p className="text-[10px] font-semibold" style={{ color: "#000000" }}>Message</p>
+          <p className="text-[10px] font-semibold" style={{ color: "#000000" }}>
+            {governingBody ? "Wishing you" : "Congratulations"}
+          </p>
           <p
-            className="mt-0.5 break-words text-xs leading-relaxed text-muted-foreground italic [overflow-wrap:anywhere]"
+            className={cn(
+              "mt-0.5 break-words text-xs leading-relaxed [overflow-wrap:anywhere]",
+              governingBody ? "text-muted-foreground italic font-normal" : "font-bold not-italic",
+            )}
             style={{ color: "#000000" }}
           >
-            "{wishingText}"
+            {governingBody ? `"${wishingText}"` : wishingText}
           </p>
         </div>
       )}
@@ -1179,7 +1265,11 @@ export function AlumniExecutiveCommitteeBoard({
         </div>
         {showPresidentHere ? (
           <div className={twoColMobile ? "col-span-2" : undefined}>
-            <MobilePresidentCard member={presidentDb} roleLabel={presidentPick.postTitle} />
+            <MobilePresidentCard
+              member={presidentDb}
+              roleLabel={presidentPick.postTitle}
+              wishingGoverningTone={presidentInGoverning}
+            />
           </div>
         ) : null}
         {items.map((item) => (
@@ -1254,7 +1344,11 @@ export function AlumniExecutiveCommitteeBoard({
         </div>
         {showPresidentHere ? (
           <div className="mx-auto flex w-full min-w-0 justify-center px-0">
-            <PresidentHeroCard member={presidentDb} roleLabel={presidentPick.postTitle} />
+            <PresidentHeroCard
+              member={presidentDb}
+              roleLabel={presidentPick.postTitle}
+              wishingGoverningTone={presidentInGoverning}
+            />
           </div>
         ) : null}
         {items.length > 0 ? (
@@ -1357,7 +1451,11 @@ export function AlumniExecutiveCommitteeBoard({
           >
             {presidentPick && !presidentInGoverning ? (
               <div className={twoColMobile ? "col-span-2" : undefined}>
-                <MobilePresidentCard member={presidentDb} roleLabel={presidentPick.postTitle} />
+                <MobilePresidentCard
+                  member={presidentDb}
+                  roleLabel={presidentPick.postTitle}
+                  wishingGoverningTone={presidentInGoverning}
+                />
               </div>
             ) : null}
             {renderMobileGoverning()}
@@ -1379,7 +1477,11 @@ export function AlumniExecutiveCommitteeBoard({
             >
               {presidentPick && !presidentInGoverning ? (
                 <div className="mx-auto flex w-full min-w-0 justify-center px-0">
-                  <PresidentHeroCard member={presidentDb} roleLabel={presidentPick.postTitle} />
+                  <PresidentHeroCard
+                    member={presidentDb}
+                    roleLabel={presidentPick.postTitle}
+                    wishingGoverningTone={presidentInGoverning}
+                  />
                 </div>
               ) : null}
               {renderDesktopGoverning()}

@@ -3,8 +3,16 @@ import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog";
 
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
+import { useHistorySyncOverlay } from "@/hooks/useHistorySyncOverlay";
 
-const AlertDialog = AlertDialogPrimitive.Root;
+const AlertDialog = ({
+  open,
+  onOpenChange,
+  ...props
+}: React.ComponentProps<typeof AlertDialogPrimitive.Root>) => {
+  useHistorySyncOverlay(open === true, () => onOpenChange?.(false));
+  return <AlertDialogPrimitive.Root open={open} onOpenChange={onOpenChange} {...props} />;
+};
 
 const AlertDialogTrigger = AlertDialogPrimitive.Trigger;
 

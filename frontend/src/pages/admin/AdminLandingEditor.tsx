@@ -17,6 +17,7 @@ const sections = [
   { key: "academics", label: "Academics" },
   { key: "campus", label: "Campus" },
   { key: "community", label: "Community" },
+  { key: "notices", label: "Notices" },
   { key: "join", label: "Join" },
   { key: "contact", label: "Contact" },
   { key: "footer", label: "Footer" },
@@ -111,6 +112,12 @@ const defaults: Record<string, Record<string, any>> = {
       { title: "Academic", items: ["Science fair", "Quiz competitions", "Academic seminars", "Olympiad participation"] },
       { title: "Sports", items: ["Football & Cricket", "Volleyball & Basketball", "Indoor games", "Annual sports week"] },
     ],
+  },
+  notices: {
+    sectionLabel: "ANNOUNCEMENTS",
+    heading: "Latest notices",
+    description:
+      "Official updates from the association. Only notices published with audience “Public” appear in this homepage section; members may see additional items after logging in.",
   },
   community: {
     sectionLabel: "COMMUNITY",
@@ -416,6 +423,28 @@ const SectionEditor = ({
               <Label>Stats</Label>
               <ArrayEditor items={data.stats || []} fields={[{ key: "value", label: "Value" }, { key: "label", label: "Label" }]} onChange={(v) => set("stats", v)} addLabel="Add Stat" />
             </div>
+          </div>
+        );
+
+      case "notices":
+        return (
+          <div className="space-y-4">
+            <div>
+              <Label>Section label</Label>
+              <Input value={data.sectionLabel || ""} onChange={(e) => set("sectionLabel", e.target.value)} className="mt-1" />
+            </div>
+            <div>
+              <Label>Heading</Label>
+              <Input value={data.heading || ""} onChange={(e) => set("heading", e.target.value)} className="mt-1" />
+            </div>
+            <div>
+              <Label>Description</Label>
+              <Textarea value={data.description || ""} onChange={(e) => set("description", e.target.value)} className="mt-1" rows={4} />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Notice cards are loaded from published items with audience <strong className="text-foreground">Public</strong>. Edit
+              notices under Admin → Notices.
+            </p>
           </div>
         );
 

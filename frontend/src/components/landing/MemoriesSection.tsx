@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { API_BASE_URL } from "@/api-production/api.js";
 import { isIosSafariViewport } from "@/lib/iosSafari";
 import { BREAKPOINT_MOBILE_MAX, layoutCanvasScale, mqStackedMobile } from "@/lib/breakpoints";
+import { saveNavScrollRestore } from "@/lib/navScrollRestore";
 
 const CATEGORIES = [
   "All",
@@ -44,6 +45,7 @@ function MemoryGridCard({ memory, i }: { memory: MemoryItem; i: number }) {
       <Link
         to={`/memories/${memory.id}`}
         className="group relative flex min-w-0 flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-all duration-300 hover:border-primary/40 hover:shadow-lg"
+        onClick={() => saveNavScrollRestore()}
       >
         <div className="relative aspect-[4/3] overflow-hidden bg-muted">
           {memory.photo_url ? (

@@ -39,36 +39,41 @@ router.get("/directory/alumni", async (req, res) => {
 
     const [rows] = await pool.query(
       `SELECT
-        id,
-        name,
-        photo,
-        batch,
-        roll,
-        gender,
-        blood_group,
-        department,
-        faculty,
-        university,
-        job_status,
-        job_title,
-        company,
-        phone,
-        address,
-        bio,
-        additional_info,
-        profession,
-        session,
-        passing_year,
-        college_name,
-        registration_number,
-        admin_committee_designation,
-        created_at,
-        social_links
-      FROM profiles
-      WHERE (verified = true OR approved = true)
-        AND (blocked = false OR blocked IS NULL)
-        AND (directory_visible = 1 OR directory_visible IS NULL)
-      ORDER BY name ASC`
+        p.id,
+        p.name,
+        p.photo,
+        p.batch,
+        p.roll,
+        p.gender,
+        p.blood_group,
+        p.department,
+        p.faculty,
+        p.university,
+        p.job_status,
+        p.job_title,
+        p.company,
+        p.phone,
+        p.address,
+        p.bio,
+        p.additional_info,
+        p.profession,
+        p.session,
+        p.passing_year,
+        p.college_name,
+        p.registration_number,
+        p.admin_committee_designation,
+        p.created_at,
+        p.social_links,
+        (
+          SELECT COUNT(*)
+          FROM user_roles ur
+          WHERE ur.user_id = p.id AND ur.role = 'admin'
+        ) > 0 AS is_site_admin
+      FROM profiles p
+      WHERE (p.verified = true OR p.approved = true)
+        AND (p.blocked = false OR p.blocked IS NULL)
+        AND (p.directory_visible = 1 OR p.directory_visible IS NULL)
+      ORDER BY p.name ASC`
     );
 
     const normalized = (rows || []).map((r) => {

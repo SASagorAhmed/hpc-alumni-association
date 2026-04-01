@@ -63,24 +63,20 @@ export function useNotices(publishedOnly = false) {
   const fetchNotices = useCallback(async () => {
     setLoading(true);
     const token = getAuthToken();
-    const res = await fetch(
-      publishedOnly ? `${API_BASE_URL}/api/public/notices?limit=200` : `${API_BASE_URL}/api/admin/notices`,
-      {
-        headers: publishedOnly ? undefined : { Authorization: `Bearer ${token}` },
-      }
-    );
+    // Alumni view: use authenticated endpoint (/api/alumni/notices) which
+    // filters by audience (no admin-only notices) and joins is_read from DB.
+    // Admin view: use /api/admin/notices (all notices including drafts).
+    const url = publishedOnly
+      ? `${API_BASE_URL}/api/alumni/notices?limit=200`
+      : `${API_BASE_URL}/api/admin/notices`;
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
     if (!res.ok) {
       toast({ title: "Error", description: "Failed to load notices", variant: "destructive" });
     } else {
       const data = (await res.json()) as Notice[];
-      // Filter out expired notices for published view
-      const now = new Date();
-      const filtered = publishedOnly
-        ? (data as unknown as Notice[]).filter(
-            (n) => !n.expiry_date || new Date(n.expiry_date) > now
-          )
-        : (data as unknown as Notice[]);
-      setNotices(filtered);
+      setNotices(data);
     }
     setLoading(false);
   }, [publishedOnly, toast]);
@@ -158,7 +154,7 @@ export function useNotices(publishedOnly = false) {
       published: form.published,
       expiry_date: form.expiry_date || null,
       linked_document_id: form.linked_document_id || null,
-      updated_at: new Date().toISOString(),
+      // updated_at is intentionally omitted — the column has ON UPDATE CURRENT_TIMESTAMP
     };
 
     if (form.attachment_file) {

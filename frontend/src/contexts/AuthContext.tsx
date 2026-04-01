@@ -31,6 +31,8 @@ export interface User {
   additionalInfo?: string;
   photo?: string;
   socialLinks?: Record<string, string>;
+  /** ISO date YYYY-MM-DD */
+  birthday?: string | null;
   role: UserRole;
   verified: boolean;
   approved: boolean;
@@ -66,6 +68,8 @@ interface RegisterData {
   password: string;
   phone: string;
   batch: string;
+  /** Academic session / passing year label, e.g. 2020-2021 */
+  passingSession: string;
   section: string;
   faculty: string;
   roll: string;
@@ -81,6 +85,8 @@ interface RegisterData {
   facebook: string;
   instagram: string;
   linkedin: string;
+  /** ISO date YYYY-MM-DD; optional at registration */
+  birthday?: string;
   /** When true, sends draft cookie + marks Google-assisted registration (email verified server-side). */
   googleRegister?: boolean;
 }
@@ -135,6 +141,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     fd.set("name", data.name);
     fd.set("phone", data.phone);
     fd.set("batch", data.batch);
+    fd.set("passingSession", data.passingSession || "");
     fd.set("section", data.section || "");
     fd.set("faculty", data.faculty || "");
     fd.set("roll", data.roll);
@@ -149,6 +156,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     fd.set("facebook", data.facebook);
     fd.set("instagram", data.instagram);
     fd.set("linkedin", data.linkedin);
+    if (data.birthday != null && String(data.birthday).trim()) {
+      fd.set("birthday", String(data.birthday).trim());
+    }
     if (data.photoFile) fd.append("photo", data.photoFile);
     if (data.googleRegister) fd.set("googleRegister", "1");
 
@@ -267,7 +277,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const body = await res.json().catch(() => ({}));
     if (!res.ok) return { success: false, message: body?.error || "Failed to update profile." };
     if (body?.user) setUser(body.user as User);
-    return { success: true, message: "Profile updated successfully. Pending admin verification." };
+    return { success: true, message: "Profile updated successfully." };
   };
 
   return (

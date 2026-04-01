@@ -8,20 +8,54 @@ function toInt(v, fallback) {
   return Number.isFinite(n) ? n : fallback;
 }
 
+function truthyQuery(v) {
+  return v === "1" || v === "true" || v === 1 || v === true;
+}
+
+/**
+ * Visibility clause for public/landing endpoints.
+ * forTopBar / forLanding  → include only non-admin-audience notices
+ *   (public, verified, all, empty/null — anything except admin-only)
+ * generic public list      → same rule (don't leak admin-only notices publicly)
+ */
+function noticeVisibilityClause(forLanding) {
+  const expiry = `(expiry_date IS NULL OR expiry_date > NOW())`;
+  // Never show admin-only notices on the public site regardless of context
+  const notAdminOnly = `(
+    audience IS NULL
+    OR TRIM(audience) = ''
+    OR LOWER(TRIM(audience)) != 'admin'
+  )`;
+  if (forLanding) {
+    // Homepage notices section: only fully public audience
+    return `${expiry} AND (
+      audience IS NULL
+      OR TRIM(audience) = ''
+      OR LOWER(TRIM(audience)) = 'public'
+    )`;
+  }
+  return `${expiry} AND ${notAdminOnly}`;
+}
+
 // ----------------------------
 // Notices
 // ----------------------------
 
 // GET /api/public/notices/top
+// Shows published, non-expired, non-admin-audience notices with show_top_bar=1.
+// Appears on the landing page for everyone (public + verified audience).
 router.get("/notices/top", async (req, res) => {
   try {
     const pool = getOrCreatePool();
     if (!pool) return res.status(503).json({ ok: false, error: "MySQL not configured" });
 
+    const vis = noticeVisibilityClause(false); // excludes admin-only, checks expiry
     const [rows] = await pool.query(
       `SELECT id, title, summary, urgent
        FROM notices
-       WHERE published = true AND show_top_bar = true
+       WHERE published = 1
+         AND show_top_bar = 1
+         AND ${vis}
        ORDER BY urgent DESC, pinned DESC, created_at DESC
        LIMIT 1`
     );
@@ -32,13 +66,15 @@ router.get("/notices/top", async (req, res) => {
   }
 });
 
-// GET /api/public/notices?limit=10
+// GET /api/public/notices?limit=10  (&landing=1 for homepage — public audience only)
 router.get("/notices", async (req, res) => {
   try {
     const pool = getOrCreatePool();
     if (!pool) return res.status(503).json({ ok: false, error: "MySQL not configured" });
 
     const limit = toInt(req.query.limit, 10);
+    const forLanding = truthyQuery(req.query.landing);
+    const vis = noticeVisibilityClause(forLanding);
 
     const [rows] = await pool.query(
       `SELECT
@@ -59,7 +95,7 @@ router.get("/notices", async (req, res) => {
           image_url,
           created_at
         FROM notices
-        WHERE published = true
+        WHERE published = 1 AND ${vis}
         ORDER BY pinned DESC, urgent DESC, created_at DESC
         LIMIT ?`,
       [limit]
@@ -77,6 +113,7 @@ router.get("/notices/:id", async (req, res) => {
     const pool = getOrCreatePool();
     if (!pool) return res.status(503).json({ ok: false, error: "MySQL not configured" });
 
+    const vis = noticeVisibilityClause(false);
     const [rows] = await pool.query(
       `SELECT
         id,
@@ -97,7 +134,7 @@ router.get("/notices/:id", async (req, res) => {
         created_at,
         updated_at
       FROM notices
-      WHERE published = true AND id = ?
+      WHERE published = 1 AND id = ? AND ${vis}
       LIMIT 1`,
       [req.params.id]
     );

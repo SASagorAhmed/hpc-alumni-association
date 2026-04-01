@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { saveNavScrollRestore } from "@/lib/navScrollRestore";
 import { motion } from "framer-motion";
 import { GraduationCap, User, Crown, Mail, Phone, Hash } from "lucide-react";
 import { Camera } from "lucide-react";
@@ -82,6 +83,7 @@ const MemberRow = ({
       <Link
         to={`/member/${member.id}`}
         className={`relative shrink-0 overflow-hidden rounded-2xl border-2 border-border/80 bg-muted ${size}`}
+        onClick={() => saveNavScrollRestore()}
       >
         {member.photo_url ? (
           <img src={member.photo_url} alt="" className="h-full w-full object-cover" />
@@ -97,7 +99,7 @@ const MemberRow = ({
         )}
       </Link>
       <div className="flex min-w-0 flex-1 flex-col justify-center gap-1">
-        <Link to={`/member/${member.id}`} className="group">
+        <Link to={`/member/${member.id}`} className="group" onClick={() => saveNavScrollRestore()}>
           <h3 className="text-lg font-bold text-foreground transition-colors group-hover:text-primary" style={{ fontFamily: "'Outfit', sans-serif" }}>
             {member.name}
           </h3>

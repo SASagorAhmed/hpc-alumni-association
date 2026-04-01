@@ -62,6 +62,7 @@ CREATE TABLE IF NOT EXISTS `profiles` (
   `registration_number` TEXT NULL,
   `gender` TEXT NULL,
   `blood_group` TEXT NULL,
+  `birthday` DATE NULL,
   `department` TEXT NULL,
   `faculty` VARCHAR(32) NULL,
   `session` TEXT NULL,
@@ -91,6 +92,19 @@ CREATE TABLE IF NOT EXISTS `profiles` (
     FOREIGN KEY (`id`) REFERENCES `users` (`id`)
     ON DELETE CASCADE
 ) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS `profile_edit_audit` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `profile_id` CHAR(36) NOT NULL,
+  `edited_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `field_key` VARCHAR(64) NOT NULL,
+  `old_value` TEXT NULL,
+  `new_value` TEXT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_profile_edit_audit_profile_time` (`profile_id`, `edited_at`),
+  CONSTRAINT `profile_edit_audit_profile_fk`
+    FOREIGN KEY (`profile_id`) REFERENCES `profiles` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `user_roles` (
   `id` CHAR(36) NOT NULL,
@@ -349,6 +363,20 @@ CREATE TABLE IF NOT EXISTS `notices` (
   CONSTRAINT `notices_created_by_fk`
     FOREIGN KEY (`created_by`) REFERENCES `users` (`id`)
     ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS `notice_reads` (
+  `id`        CHAR(36)  NOT NULL,
+  `notice_id` CHAR(36)  NOT NULL,
+  `user_id`   CHAR(36)  NOT NULL,
+  `read_at`   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `notice_reads_notice_user_uq` (`notice_id`, `user_id`),
+  KEY `notice_reads_user_idx` (`user_id`),
+  CONSTRAINT `notice_reads_notice_fk`
+    FOREIGN KEY (`notice_id`) REFERENCES `notices`(`id`) ON DELETE CASCADE,
+  CONSTRAINT `notice_reads_user_fk`
+    FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 -- ----------------------------

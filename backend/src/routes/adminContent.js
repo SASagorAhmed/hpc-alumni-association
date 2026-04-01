@@ -1,6 +1,8 @@
 const express = require("express");
 const { v4: uuidv4 } = require("uuid");
 const { ensureAchievementSettingsRow } = require("../utils/achievementSettings");
+const { ensureProfileEditAuditTable } = require("../utils/ensureProfileEditAuditTable");
+const { ensureProfileBirthdayColumn } = require("../utils/ensureProfileBirthdayColumn");
 const { getOrCreatePool } = require("../db/pool");
 const { requireAuth } = require("../auth/jwt");
 const cloudinary = require("../config/cloudinary");
@@ -318,6 +320,7 @@ router.get("/users", requireAuth, async (req, res) => {
     if (!pool) return;
     await ensureProfileReviewNoteColumn(pool);
     await ensureProfileDirectoryVisibleColumn(pool);
+    await ensureProfileBirthdayColumn(pool);
     const [rows] = await pool.query(
       `SELECT p.*, u.email, u.email_verified,
         (SELECT COUNT(*) FROM user_roles ur WHERE ur.user_id = p.id AND ur.role = 'admin') AS admin_role_count
@@ -337,6 +340,8 @@ router.get("/users/:id", requireAuth, async (req, res) => {
     if (!pool) return;
     await ensureProfileReviewNoteColumn(pool);
     await ensureProfileDirectoryVisibleColumn(pool);
+    await ensureProfileBirthdayColumn(pool);
+    await ensureProfileEditAuditTable(pool);
     const [rows] = await pool.query(
       `SELECT p.*, u.email, u.email_verified,
         (SELECT COUNT(*) FROM user_roles ur WHERE ur.user_id = p.id AND ur.role = 'admin') AS admin_role_count
@@ -348,7 +353,21 @@ router.get("/users/:id", requireAuth, async (req, res) => {
     );
     const row = rows?.[0];
     if (!row) return res.status(404).json({ ok: false, error: "User not found" });
-    res.status(200).json(mapProfileRowWithAdminFlag(row));
+    const [auditRows] = await pool.query(
+      `SELECT id, edited_at, field_key, old_value, new_value
+       FROM profile_edit_audit WHERE profile_id = ? ORDER BY edited_at DESC, id DESC LIMIT 200`,
+      [req.params.id]
+    );
+    const payload = mapProfileRowWithAdminFlag(row);
+    payload.profile_edit_history = (auditRows || []).map((r) => ({
+      id: r.id,
+      editedAt:
+        r.edited_at instanceof Date ? r.edited_at.toISOString() : r.edited_at ? String(r.edited_at) : "",
+      fieldKey: r.field_key,
+      oldValue: r.old_value,
+      newValue: r.new_value,
+    }));
+    res.status(200).json(payload);
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message || "Failed to load user profile" });
   }
@@ -482,10 +501,12 @@ router.post("/admins/grant", requireAuth, async (req, res) => {
       [user.id]
     );
     if (existing?.length) {
+      await pool.query(`UPDATE profiles SET directory_visible = 1 WHERE id = ?`, [user.id]);
       return res.status(200).json({ ok: true, message: "This account is already an administrator", alreadyAdmin: true });
     }
 
     await pool.query(`INSERT INTO user_roles (id, user_id, role) VALUES (?, ?, 'admin')`, [uuidv4(), user.id]);
+    await pool.query(`UPDATE profiles SET directory_visible = 1 WHERE id = ?`, [user.id]);
     return res.status(201).json({ ok: true, message: "Administrator access granted", userId: user.id });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message || "Failed to grant admin" });
@@ -928,7 +949,11 @@ router.get("/notices", requireAuth, async (req, res) => {
   try {
     const pool = await withAdmin(req, res);
     if (!pool) return;
-    const [rows] = await pool.query("SELECT * FROM notices ORDER BY pinned DESC, created_at DESC");
+    const limitParam = parseInt(req.query.limit || "0", 10);
+    const limitClause = limitParam > 0 ? ` LIMIT ${limitParam}` : "";
+    const [rows] = await pool.query(
+      `SELECT * FROM notices ORDER BY pinned DESC, created_at DESC${limitClause}`
+    );
     res.status(200).json(rows || []);
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message || "Failed to load notices" });
@@ -1146,6 +1171,149 @@ router.delete("/winners/:id", requireAuth, async (req, res) => {
     res.status(200).json({ ok: true });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message || "Failed to remove winner" });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Admin Notifications (bell panel)
+// ─────────────────────────────────────────────────────────────────────────────
+const { ensureNoticeReadsTable } = require("../utils/ensureNoticeReadsTable");
+
+/**
+ * GET /api/admin/notifications
+ * Returns admin-targeted notices (audience='admin') with DB is_read, plus
+ * live pending-user counts the admin needs to action.
+ */
+async function safeEnsureReadsTableAdmin(pool) {
+  try { await ensureNoticeReadsTable(pool); return true; } catch { return false; }
+}
+
+router.get("/notifications", requireAuth, async (req, res) => {
+  try {
+    const pool = await withAdmin(req, res);
+    if (!pool) return;
+    const readsReady = await safeEnsureReadsTableAdmin(pool);
+
+    const userId = req.auth.userId;
+    const limit = Math.min(parseInt(req.query.limit || "10", 10) || 10, 50);
+
+    // Admin-targeted notices with is_read (or fallback without join)
+    let noticeRows;
+    const adminAudience = `(
+      LOWER(TRIM(COALESCE(n.audience,''))) = 'admin'
+      OR LOWER(TRIM(COALESCE(n.audience,''))) = 'all'
+      OR TRIM(COALESCE(n.audience,'')) = ''
+    )`;
+    const adminAudienceSimple = `(
+      LOWER(TRIM(COALESCE(audience,''))) = 'admin'
+      OR LOWER(TRIM(COALESCE(audience,''))) = 'all'
+      OR TRIM(COALESCE(audience,'')) = ''
+    )`;
+    if (readsReady) {
+      [noticeRows] = await pool.query(
+        `SELECT
+            n.id, n.title, n.summary, n.notice_type, n.urgent, n.pinned, n.created_at,
+            CASE WHEN nr.id IS NOT NULL THEN 1 ELSE 0 END AS is_read
+          FROM notices n
+          LEFT JOIN notice_reads nr ON nr.notice_id = n.id AND nr.user_id = ?
+          WHERE n.published = 1
+            AND ${adminAudience}
+            AND (n.expiry_date IS NULL OR n.expiry_date > NOW())
+          ORDER BY n.pinned DESC, n.urgent DESC, n.created_at DESC
+          LIMIT ?`,
+        [userId, limit]
+      );
+    } else {
+      [noticeRows] = await pool.query(
+        `SELECT id, title, summary, notice_type, urgent, pinned, created_at, 0 AS is_read
+          FROM notices
+          WHERE published = 1
+            AND ${adminAudienceSimple}
+            AND (expiry_date IS NULL OR expiry_date > NOW())
+          ORDER BY pinned DESC, urgent DESC, created_at DESC
+          LIMIT ?`,
+        [limit]
+      );
+    }
+
+    // Count profiles awaiting admin review
+    const [pendingRows] = await pool.query(
+      `SELECT COUNT(*) AS cnt FROM profiles WHERE profile_pending = 1`
+    );
+    const pendingUsers = Number(pendingRows?.[0]?.cnt ?? 0);
+
+    return res.status(200).json({
+      notices: noticeRows || [],
+      pending_users: pendingUsers,
+    });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message || "Failed to load notifications" });
+  }
+});
+
+/**
+ * POST /api/admin/notifications/notices/:id/read
+ * Mark a single admin notice as read.
+ */
+router.post("/notifications/notices/:id/read", requireAuth, async (req, res) => {
+  try {
+    const pool = await withAdmin(req, res);
+    if (!pool) return;
+    const ready = await safeEnsureReadsTableAdmin(pool);
+    if (!ready) return res.status(200).json({ ok: true });
+
+    const userId = req.auth.userId;
+    const noticeId = req.params.id;
+
+    await pool.query(
+      `INSERT IGNORE INTO notice_reads (id, notice_id, user_id) VALUES (UUID(), ?, ?)`,
+      [noticeId, userId]
+    );
+    return res.status(200).json({ ok: true });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message || "Failed to mark as read" });
+  }
+});
+
+/**
+ * POST /api/admin/notifications/notices/read-all
+ * Mark all visible admin notices as read.
+ */
+router.post("/notifications/notices/read-all", requireAuth, async (req, res) => {
+  try {
+    const pool = await withAdmin(req, res);
+    if (!pool) return;
+    const ready = await safeEnsureReadsTableAdmin(pool);
+    if (!ready) return res.status(200).json({ ok: true, marked: 0 });
+
+    const userId = req.auth.userId;
+
+    const [unread] = await pool.query(
+      `SELECT n.id
+        FROM notices n
+        LEFT JOIN notice_reads nr ON nr.notice_id = n.id AND nr.user_id = ?
+        WHERE n.published = TRUE
+          AND (
+            LOWER(TRIM(COALESCE(n.audience,''))) = 'admin'
+            OR LOWER(TRIM(COALESCE(n.audience,'')) ) = 'all'
+            OR TRIM(COALESCE(n.audience,'')) = ''
+          )
+          AND (n.expiry_date IS NULL OR n.expiry_date > NOW())
+          AND nr.id IS NULL`,
+      [userId]
+    );
+
+    if (unread?.length) {
+      const values = unread.map((r) => [uuidv4(), r.id, userId]);
+      await pool.query(
+        `INSERT IGNORE INTO notice_reads (id, notice_id, user_id) VALUES ?`,
+        [values]
+      );
+    }
+
+    return res.status(200).json({ ok: true, marked: unread?.length ?? 0 });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message || "Failed to mark all as read" });
   }
 });
 

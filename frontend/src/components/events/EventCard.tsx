@@ -4,6 +4,7 @@ import { CalendarDays, MapPin, Globe, Clock } from "lucide-react";
 import { format } from "date-fns";
 import { getEventStatus } from "./CountdownTimer";
 import { Link } from "react-router-dom";
+import { saveNavScrollRestore } from "@/lib/navScrollRestore";
 
 interface EventCardProps {
   event: {
@@ -34,7 +35,7 @@ const EventCard = ({ event }: EventCardProps) => {
   const config = statusConfig[computedStatus] || statusConfig.upcoming;
 
   return (
-    <Link to={`/events/${event.id}`} className="block group">
+    <Link to={`/events/${event.id}`} className="block group" onClick={() => saveNavScrollRestore()}>
       <Card className="overflow-hidden transition-all duration-300 hover:shadow-md hover:border-primary/30">
         {event.banner_url && (
           <div className="h-40 overflow-hidden">

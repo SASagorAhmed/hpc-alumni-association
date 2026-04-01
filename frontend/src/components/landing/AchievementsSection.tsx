@@ -183,16 +183,12 @@ const AchievementsSection = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      const now = new Date().toISOString();
       const res = await fetch(`${API_BASE_URL}/api/public/achievements?active=true`);
       const data = res.ok ? await res.json().catch(() => []) : [];
       if (Array.isArray(data)) {
-        const filtered = (data as unknown as (Achievement & { start_date: string | null; end_date: string | null; is_active: boolean })[]).filter((a) => {
-          if (a.start_date && a.start_date > now) return false;
-          if (a.end_date && a.end_date < now) return false;
-          return true;
-        });
-        setAchievements(filtered);
+        // Cards in the Achievements section should remain visible as long as they are published.
+        // Banner time windows (start/end) are handled separately in the banner component.
+        setAchievements(data as Achievement[]);
       }
     };
     fetchData();

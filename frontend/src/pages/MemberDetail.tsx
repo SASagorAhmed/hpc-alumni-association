@@ -1,4 +1,4 @@
-import { useParams, Link } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowLeft, GraduationCap, Briefcase, BadgeCheck, Phone, Mail, Hash, Facebook, Instagram, Linkedin } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -7,6 +7,15 @@ import { API_BASE_URL } from "@/api-production/api.js";
 
 const MemberDetail = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+
+  const handleBackToCommittee = () => {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate("/#committee");
+    }
+  };
 
   const { data: member, isLoading } = useQuery({
     queryKey: ["committee-member", id],
@@ -31,9 +40,13 @@ const MemberDetail = () => {
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-foreground">Member not found</h1>
-          <Link to="/committee" className="mt-4 inline-flex items-center gap-2 text-primary hover:underline">
+          <button
+            type="button"
+            onClick={handleBackToCommittee}
+            className="mt-4 inline-flex items-center gap-2 text-primary hover:underline"
+          >
             <ArrowLeft size={16} /> Back to Committee
-          </Link>
+          </button>
         </div>
       </div>
     );
@@ -48,12 +61,13 @@ const MemberDetail = () => {
       <div className="relative overflow-hidden bg-gradient-hpc pb-32 pt-20">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_50%,hsl(var(--primary)/0.15),transparent_60%)]" />
         <div className="relative mx-auto max-w-4xl px-6">
-          <Link
-            to="/committee"
+          <button
+            type="button"
+            onClick={handleBackToCommittee}
             className="mb-8 inline-flex items-center gap-2 rounded-full bg-background/20 px-4 py-2 text-sm font-medium text-foreground/80 backdrop-blur-sm transition-colors hover:bg-background/30"
           >
             <ArrowLeft size={16} /> Back to Committee
-          </Link>
+          </button>
         </div>
       </div>
 

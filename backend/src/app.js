@@ -19,6 +19,7 @@ const adminUploadsRoutes = require("./routes/adminUploads");
 const publicContentRoutes = require("./routes/publicContent");
 const adminContentRoutes = require("./routes/adminContent");
 const adminCommitteeModuleRoutes = require("./routes/adminCommitteeModule");
+const alumniNoticesRoutes = require("./routes/alumniNotices");
 
 const app = express();
 
@@ -82,6 +83,7 @@ app.use("/api/admin", adminDocumentsRoutes);
 app.use("/api/admin", adminUploadsRoutes);
 app.use("/api/admin", adminContentRoutes);
 app.use("/api/admin", adminCommitteeModuleRoutes);
+app.use("/api/alumni", alumniNoticesRoutes);
 
 // Configure Google OAuth strategy.
 configureGooglePassport();

@@ -10,6 +10,7 @@ import AchievementsSection from "@/components/landing/AchievementsSection";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { API_BASE_URL } from "@/api-production/api.js";
+import { saveNavScrollRestore } from "@/lib/navScrollRestore";
 
 interface Notice {
   id: string;
@@ -87,7 +88,12 @@ const AlumniDashboard = () => {
               {notices.length > 0 ? (
                 <div className="space-y-3">
                   {notices.map((n) => (
-                    <Link to={`/notices/${n.id}`} key={n.id} className="block p-3 rounded-lg bg-muted/50 border border-border hover:border-primary/30 transition-colors">
+                    <Link
+                      to={`/notices/${n.id}`}
+                      key={n.id}
+                      className="block p-3 rounded-lg bg-muted/50 border border-border hover:border-primary/30 transition-colors"
+                      onClick={() => saveNavScrollRestore()}
+                    >
                       <div className="flex items-center gap-2">
                         <h4 className="text-sm font-medium text-foreground">{n.title}</h4>
                         {(n as any).pinned && <Badge variant="secondary" className="text-[9px] gap-0.5"><Pin className="w-2.5 h-2.5" />Pinned</Badge>}
@@ -118,7 +124,12 @@ const AlumniDashboard = () => {
               {events.length > 0 ? (
                 <div className="space-y-3">
                   {events.map((e) => (
-                    <Link to={`/events/${e.id}`} key={e.id} className="block p-3 rounded-lg bg-muted/50 border border-border hover:border-primary/30 transition-colors">
+                    <Link
+                      to={`/events/${e.id}`}
+                      key={e.id}
+                      className="block p-3 rounded-lg bg-muted/50 border border-border hover:border-primary/30 transition-colors"
+                      onClick={() => saveNavScrollRestore()}
+                    >
                       <h4 className="text-sm font-medium text-foreground">{e.title}</h4>
                       <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
                         {e.event_date && (

@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Award, Briefcase, Droplets, Facebook, GraduationCap, Instagram, Linkedin, MapPin, Phone, User } from "lucide-react";
+import { ArrowLeft, Award, Briefcase, Crown, Droplets, Facebook, GraduationCap, Instagram, Linkedin, MapPin, Phone, User } from "lucide-react";
 import { API_BASE_URL } from "@/api-production/api.js";
 import { AlumniPhotoLightbox } from "@/components/alumni/AlumniPhotoLightbox";
 import { cn } from "@/lib/utils";
@@ -33,6 +33,7 @@ interface AlumniProfile {
   college_name: string | null;
   registration_number: string | null;
   admin_committee_designation?: string | null;
+  is_site_admin?: boolean | number | null;
   social_links: { facebook?: string; instagram?: string; linkedin?: string } | null;
 }
 
@@ -105,6 +106,12 @@ const DirectoryProfile = () => {
           </div>
 
           <div className="flex flex-wrap justify-center gap-2 sm:justify-start">
+            {Number(selected.is_site_admin) ? (
+              <Badge className="max-w-full min-w-0 whitespace-normal bg-violet-600/95 py-1 text-white border-0 text-left">
+                <Crown className="mr-1 h-3 w-3 shrink-0" />
+                Site administrator
+              </Badge>
+            ) : null}
             {selected.admin_committee_designation ? (
               <Badge className="max-w-full min-w-0 whitespace-normal bg-amber-600/95 py-1 text-white border-0 text-left">
                 <Award className="mr-1 h-3 w-3 shrink-0" />
@@ -123,15 +130,18 @@ const DirectoryProfile = () => {
                 <span className="[overflow-wrap:anywhere]">{selected.university}</span>
               </Badge>
             ) : null}
-            {selected.job_status ? (
-              <Badge variant="outline" className="text-sm">
-                <Briefcase className="mr-1 h-3 w-3" />
-                {selected.job_status}
+            {(selected.profession?.trim() || selected.job_title?.trim()) ? (
+              <Badge variant="outline" className="text-sm max-w-full min-w-0">
+                <Briefcase className="mr-1 h-3 w-3 shrink-0" />
+                <span className="[overflow-wrap:anywhere]">{selected.profession?.trim() || selected.job_title}</span>
               </Badge>
             ) : null}
           </div>
 
           <DetailSection title="Basic">
+            {Number(selected.is_site_admin) ? (
+              <DetailRow label="Role" value="Site administrator (dashboard access)" />
+            ) : null}
             <DetailRow label="Gender" value={selected.gender} />
             <DetailRow label="Blood Group" value={selected.blood_group} />
             <DetailRow label="Registration No." value={selected.registration_number} />
@@ -145,10 +155,20 @@ const DirectoryProfile = () => {
             <DetailRow label="University" value={selected.university} />
           </DetailSection>
           <DetailSection title="Professional">
-            <DetailRow label="Job Status" value={selected.job_status} />
-            <DetailRow label="Job Title" value={selected.job_title} />
+            <DetailRow
+              label="Profession"
+              value={
+                selected.profession?.trim() ||
+                selected.job_title?.trim() ||
+                null
+              }
+            />
+            {selected.job_title?.trim() &&
+            selected.profession?.trim() &&
+            selected.job_title.trim() !== selected.profession.trim() ? (
+              <DetailRow label="Job title" value={selected.job_title} />
+            ) : null}
             <DetailRow label="Company" value={selected.company} />
-            <DetailRow label="Profession" value={selected.profession} />
           </DetailSection>
           <DetailSection title="Contact">
             <DetailRow label="Phone" value={selected.phone} icon={<Phone className="h-3.5 w-3.5" />} />

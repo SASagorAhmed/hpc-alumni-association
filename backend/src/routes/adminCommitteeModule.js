@@ -7,6 +7,11 @@ const { inferBoardSectionFromTitle } = require("../utils/inferCommitteeBoardSect
 const { ensureCommitteePostsBoardSectionColumn } = require("../utils/ensureCommitteePostsBoardSection");
 const { ensureAdminCommitteeDesignationColumn } = require("../utils/ensureAdminCommitteeDesignation");
 const cloudinary = require("../config/cloudinary");
+const { winnerAboutFromProfileBio } = require("../utils/syncCommitteePhotoFromProfile");
+const {
+  buildGoverningDefaultWishing,
+  buildOtherSectionsDefaultWishing,
+} = require("../utils/committeeDefaultWishing");
 
 const router = express.Router();
 
@@ -517,6 +522,16 @@ function pruneUnknownMemberColumns(obj, allowedColumnSet) {
   return obj;
 }
 
+/** First trimmed non-empty string from profile-like columns (import / display fallbacks). */
+function firstNonEmptyTrimmedString(...candidates) {
+  for (const c of candidates) {
+    if (c == null) continue;
+    const s = String(c).trim();
+    if (s) return s;
+  }
+  return null;
+}
+
 function wordCount(text) {
   return String(text || "")
     .trim()
@@ -552,16 +567,41 @@ router.get("/committee/profession-options", requireAuth, async (req, res) => {
     const pool = await withAdmin(req, res);
     if (!pool) return;
     await ensureCommitteeDropdownTables(pool);
-    const [rows] = await pool.query("SELECT id, value FROM profession_options ORDER BY value ASC");
-    const [distinct] = await pool.query(
-      "SELECT DISTINCT profession AS value FROM committee_members WHERE profession IS NOT NULL AND TRIM(profession) <> ''"
+    const [optRows] = await pool.query("SELECT id, value FROM profession_options ORDER BY value ASC");
+    const [cmRows] = await pool.query(
+      "SELECT DISTINCT TRIM(profession) AS value FROM committee_members WHERE profession IS NOT NULL AND TRIM(profession) <> ''"
     );
-    const persisted = new Map((rows || []).map((r) => [r.value, r.id]));
-    const merged = (rows || []).map((r) => ({ id: r.id, value: r.value, persisted: true }));
-    for (const d of distinct || []) {
-      if (persisted.has(d.value)) continue;
-      merged.push({ id: `seed-${d.value}`, value: d.value, persisted: false });
+    const [profRows] = await pool.query(
+      "SELECT DISTINCT TRIM(profession) AS value FROM profiles WHERE profession IS NOT NULL AND TRIM(profession) <> ''"
+    );
+    const [jtRows] = await pool.query(
+      "SELECT DISTINCT TRIM(job_title) AS value FROM profiles WHERE job_title IS NOT NULL AND TRIM(job_title) <> ''"
+    );
+
+    const merged = [];
+    const seen = new Set();
+
+    for (const r of optRows || []) {
+      const v = String(r.value ?? "").trim();
+      if (!v || seen.has(v)) continue;
+      seen.add(v);
+      merged.push({ id: r.id, value: v, persisted: true });
     }
+
+    function addDistinct(rows, idPrefix) {
+      for (const d of rows || []) {
+        const v = String(d.value ?? "").trim();
+        if (!v || seen.has(v)) continue;
+        seen.add(v);
+        merged.push({ id: `${idPrefix}-${v}`, value: v, persisted: false });
+      }
+    }
+
+    addDistinct(cmRows, "cm");
+    addDistinct(profRows, "alumni");
+    addDistinct(jtRows, "title");
+
+    merged.sort((a, b) => a.value.localeCompare(b.value, undefined, { sensitivity: "base" }));
     res.status(200).json(merged);
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message || "Failed to load profession options" });
@@ -673,12 +713,6 @@ router.delete("/committee/job-status-options/:id", requireAuth, async (req, res)
 
 /** Default import message is ~43 words plus name and post title; allow headroom for long Bangla names/titles. */
 const IMPORT_CONGRATULATIONS_WORD_CEILING = 75;
-
-function buildImportCongratulationsAlumniMessage(alumnusName, postTitleEnglish) {
-  const n = String(alumnusName || "").trim() || "Alumni";
-  const p = String(postTitleEnglish || "").trim() || "Member";
-  return `Congratulations to our proud alumnus ${n} on being selected as ${p} of the HPC Alumni Association by the governing body. Wishing you continued success and impactful leadership ahead. With your support and guidance, the association will grow and achieve even greater success. Congratulations!`;
-}
 
 /**
  * For the import congratulations text only: use English for the post title (Bangla → EN via public API; English titles unchanged).
@@ -800,9 +834,16 @@ router.post("/committee/posts/:postId/import-from-alumni", requireAuth, async (r
     const designation = String(post.title || "").trim() || "Member";
     const boardSection = normalizeBoardSection(post.board_section);
     let wishingMessage = null;
-    if (boardSection !== "governing_body") {
+    if (boardSection === "governing_body") {
       const postTitleEn = await translatePostTitleToEnglishForWishing(designation);
-      wishingMessage = buildImportCongratulationsAlumniMessage(name, postTitleEn);
+      wishingMessage = buildGoverningDefaultWishing(name, postTitleEn);
+    } else if (
+      boardSection === "executive_committee" ||
+      boardSection === "committee_heads" ||
+      boardSection === "committee_members"
+    ) {
+      const postTitleEn = await translatePostTitleToEnglishForWishing(designation);
+      wishingMessage = buildOtherSectionsDefaultWishing(name, postTitleEn);
     }
 
     const row = {
@@ -816,7 +857,7 @@ router.post("/committee/posts/:postId/import-from-alumni", requireAuth, async (r
       alumni_id: regNum,
       phone: profile.phone != null ? String(profile.phone) : null,
       email: profile.user_email != null ? String(profile.user_email) : null,
-      profession: profile.profession != null ? String(profile.profession) : null,
+      profession: firstNonEmptyTrimmedString(profile.profession, profile.job_title),
       job_status: profile.job_status != null ? String(profile.job_status) : null,
       institution: profile.university != null ? String(profile.university) : null,
       photo_url: profile.photo != null ? String(profile.photo) : null,
@@ -828,7 +869,7 @@ router.post("/committee/posts/:postId/import-from-alumni", requireAuth, async (r
       expertise: null,
       about: null,
       wishing_message: wishingMessage,
-      winner_about: null,
+      winner_about: winnerAboutFromProfileBio(profile.bio),
       candidate_number: null,
       is_active: 1,
     };

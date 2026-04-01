@@ -16,6 +16,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -32,6 +33,7 @@ import {
   Loader2,
   X,
   UserPlus,
+  ChevronsUpDown,
 } from "lucide-react";
 import { BOARD_SECTION_OPTIONS, type BoardSectionKey } from "@/components/committee/boardSections";
 import { CommitteePhotoCropDialog } from "@/components/admin/CommitteePhotoCropDialog";
@@ -118,7 +120,6 @@ const emptyMemberForm = {
   candidate_number: "",
   college_name: FIXED_COLLEGE_NAME,
   institution: "",
-  job_status: "",
   profession: "",
   about: "",
   wishing_message: "",
@@ -162,18 +163,7 @@ const AdminCommittee = () => {
   const [importOpen, setImportOpen] = useState(false);
   const [importTargetPost, setImportTargetPost] = useState<CommitteePost | null>(null);
   const [importAlumniId, setImportAlumniId] = useState("");
-
-  // Profession options CRUD
-  const [professionManageOpen, setProfessionManageOpen] = useState(false);
-  const [newProfessionValue, setNewProfessionValue] = useState("");
-  const [editingProfessionId, setEditingProfessionId] = useState<string | null>(null);
-  const [editingProfessionValue, setEditingProfessionValue] = useState("");
-
-  // Job status options CRUD
-  const [jobStatusManageOpen, setJobStatusManageOpen] = useState(false);
-  const [newJobStatusValue, setNewJobStatusValue] = useState("");
-  const [editingJobStatusId, setEditingJobStatusId] = useState<string | null>(null);
-  const [editingJobStatusValue, setEditingJobStatusValue] = useState("");
+  const [professionListOpen, setProfessionListOpen] = useState(false);
 
   const { data: terms = [], isLoading: loadingTerms } = useQuery({
     queryKey: ["admin-committee-terms"],
@@ -207,7 +197,6 @@ const AdminCommittee = () => {
     qc.invalidateQueries({ queryKey: ["committee-active-public"] });
     qc.invalidateQueries({ queryKey: ["committee-terms-public"] });
     qc.invalidateQueries({ queryKey: ["committee-profession-options"] });
-    qc.invalidateQueries({ queryKey: ["committee-job-status-options"] });
   };
 
   const { data: professionOptions = [] } = useQuery({
@@ -221,16 +210,20 @@ const AdminCommittee = () => {
     },
   });
 
-  const { data: jobStatusOptions = [] } = useQuery({
-    queryKey: ["committee-job-status-options"],
-    queryFn: async () => {
-      const res = await fetch(`${API_BASE_URL}/api/admin/committee/job-status-options`, {
-        headers: authHeaders(),
-      });
-      if (!res.ok) throw new Error("Failed to load job statuses");
-      return res.json() as DropdownOption[];
-    },
-  });
+  const professionSuggestions = useMemo(() => {
+    const set = new Set<string>();
+    for (const o of professionOptions) {
+      const v = String(o.value ?? "").trim();
+      if (v) set.add(v);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+  }, [professionOptions]);
+
+  const filteredProfessionSuggestions = useMemo(() => {
+    const q = String(memberForm.profession ?? "").trim().toLowerCase();
+    if (!q) return professionSuggestions.slice(0, 100);
+    return professionSuggestions.filter((v) => v.toLowerCase().includes(q)).slice(0, 100);
+  }, [professionSuggestions, memberForm.profession]);
 
   const createTermMutation = useMutation({
     mutationFn: async () => {
@@ -596,7 +589,6 @@ const AdminCommittee = () => {
       candidate_number: m.candidate_number ?? "",
       college_name: m.college_name ?? FIXED_COLLEGE_NAME,
       institution: m.institution ?? "",
-      job_status: m.job_status ?? "",
       profession: m.profession ?? "",
       about: m.about ?? "",
       wishing_message: (m as any).wishing_message ?? "",
@@ -884,6 +876,7 @@ const AdminCommittee = () => {
                                   <div className="text-xs text-muted-foreground">
                                     {m.batch && `Batch ${m.batch}`}
                                     {m.alumni_id && ` · ID ${m.alumni_id}`}
+                                    {String(m.profession ?? "").trim() && ` · ${String(m.profession).trim()}`}
                                   </div>
                                 </div>
                               </div>
@@ -925,10 +918,11 @@ const AdminCommittee = () => {
             <DialogDescription className="text-left">
               Post: <span className="font-medium text-foreground">{importTargetPost?.title || "—"}</span>. Enter the{" "}
               <strong>Alumni ID</strong> (registration number on the member&apos;s profile). Name, photo, contact, batch,
-              profession, and social links are copied into this committee seat. The standard &quot;Congratulations…&quot; wishing
-              block is filled automatically (except for posts in the <strong>Governing Body</strong> section—leave that blank or add
-              manually). The alumni&apos;s profile will show this post under &quot;Committee designation&quot; for the current published
-              term. Manual &quot;Add member&quot; is unchanged.
+              profession (or job title if profession is empty), and social links are copied into this committee seat. The standard &quot;Congratulations…&quot; wishing
+              block is filled automatically—<strong>Governing Body</strong> posts get the &quot;elected&quot; message; Executive Committee,
+              Committee Heads, and Committee Members get the &quot;selected as … by the governing body&quot; message (post titles may
+              be translated to English where available). The alumni&apos;s profile will show this post under &quot;Committee designation&quot;
+              for the current published term. Manual &quot;Add member&quot; is unchanged.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
@@ -1114,24 +1108,65 @@ const AdminCommittee = () => {
                 <Input value={memberForm.linkedin_url || ""} onChange={(e) => setMemberForm({ ...memberForm, linkedin_url: e.target.value })} />
               </div>
               <div className="col-span-2">
-                <div className="flex items-center justify-between gap-2">
-                  <Label className="shrink-0">Profession</Label>
-                  <Button type="button" size="sm" variant="outline" className="h-7" onClick={() => setProfessionManageOpen(true)}>
-                    Manage professions
-                  </Button>
-                </div>
-                <Select value={memberForm.profession || ""} onValueChange={(v) => setMemberForm({ ...memberForm, profession: v })}>
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Select profession" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {professionOptions.map((o) => (
-                      <SelectItem key={o.id} value={o.value}>
-                        {o.value}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Profession *</Label>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Type any text, or use the list arrow for professions already used on the committee.
+                </p>
+                <Popover open={professionListOpen} onOpenChange={setProfessionListOpen}>
+                  <div className="flex w-full mt-1 gap-0">
+                    <Input
+                      className="rounded-r-none border-r-0 flex-1 min-w-0 focus-visible:z-[1]"
+                      value={memberForm.profession}
+                      onChange={(e) => setMemberForm({ ...memberForm, profession: e.target.value })}
+                      onFocus={() => setProfessionListOpen(true)}
+                      placeholder="e.g. Teacher, Engineer…"
+                      maxLength={150}
+                    />
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="rounded-l-none shrink-0 h-10 w-10 border-input -ml-px"
+                        aria-label="Show profession suggestions"
+                      >
+                        <ChevronsUpDown className="h-4 w-4 opacity-60" />
+                      </Button>
+                    </PopoverTrigger>
+                  </div>
+                  <PopoverContent
+                    className="p-0 w-[min(24rem,calc(100vw-2rem))]"
+                    align="end"
+                    sideOffset={4}
+                    onOpenAutoFocus={(e) => e.preventDefault()}
+                  >
+                    <div className="max-h-60 overflow-y-auto py-1">
+                      {filteredProfessionSuggestions.length === 0 ? (
+                        <p className="px-3 py-2 text-sm text-muted-foreground">
+                          No saved match. Continue typing—the value will be stored when you save the member.
+                        </p>
+                      ) : (
+                        <ul className="py-1">
+                          {filteredProfessionSuggestions.map((v) => (
+                            <li key={v}>
+                              <button
+                                type="button"
+                                className="w-full text-left px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground"
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  setMemberForm((prev) => ({ ...prev, profession: v }));
+                                  setProfessionListOpen(false);
+                                }}
+                              >
+                                {v}
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
               <div className="col-span-2 flex items-center gap-2">
                 <Label className="shrink-0">Photo</Label>
@@ -1186,29 +1221,9 @@ const AdminCommittee = () => {
                 <Input value={memberForm.photo_url} onChange={(e) => setMemberForm({ ...memberForm, photo_url: e.target.value })} />
               </div>
               <Separator className="col-span-2" />
-              <div>
+              <div className="col-span-2">
                 <Label>University name</Label>
                 <Input value={memberForm.institution} onChange={(e) => setMemberForm({ ...memberForm, institution: e.target.value })} />
-              </div>
-              <div>
-                <div className="flex items-center justify-between gap-2">
-                  <Label className="shrink-0">Job status</Label>
-                  <Button type="button" size="sm" variant="outline" className="h-7" onClick={() => setJobStatusManageOpen(true)}>
-                    Manage job status
-                  </Button>
-                </div>
-                <Select value={memberForm.job_status || ""} onValueChange={(v) => setMemberForm({ ...memberForm, job_status: v })}>
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Select job status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {jobStatusOptions.map((o) => (
-                      <SelectItem key={o.id} value={o.value}>
-                        {o.value}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
               <div className="col-span-2">
                 <Label>College name (fixed)</Label>
@@ -1257,6 +1272,9 @@ const AdminCommittee = () => {
                 {wordCount(memberForm.winner_about || "") > WINNER_ABOUT_MAX_WORDS ? (
                   <p className="mt-1 text-xs text-destructive">reduce word, max {WINNER_ABOUT_MAX_WORDS}</p>
                 ) : null}
+                <p className="mt-1.5 text-xs text-muted-foreground">
+                  For linked alumni, this is overwritten from their profile <span className="font-medium">Short Bio</span> when they save their profile (first {WINNER_ABOUT_MAX_WORDS} words).
+                </p>
               </div>
             </div>
           </div>
@@ -1268,7 +1286,6 @@ const AdminCommittee = () => {
                 !memberForm.batch.trim() ||
                 !memberForm.post_id ||
                 !String(memberForm.profession || "").trim() ||
-                !String(memberForm.job_status || "").trim() ||
                 wordCount(memberForm.wishing_message || "") > wishingMaxWordsForMemberForm ||
                 wordCount(memberForm.winner_about || "") > WINNER_ABOUT_MAX_WORDS ||
                 saveMemberMutation.isPending
@@ -1309,316 +1326,6 @@ const AdminCommittee = () => {
           }
         }}
       />
-
-      {/* Profession options CRUD */}
-      <Dialog
-        open={professionManageOpen}
-        modal={false}
-        onOpenChange={(open) => {
-          setProfessionManageOpen(open);
-          if (!open) {
-            setNewProfessionValue("");
-            setEditingProfessionId(null);
-            setEditingProfessionValue("");
-          }
-        }}
-      >
-        <DialogContent className="max-w-xl">
-          <DialogHeader>
-            <DialogTitle>Manage professions</DialogTitle>
-            <DialogDescription>Dropdown options for executive committee member “Profession”.</DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label>New profession</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  value={newProfessionValue}
-                  onChange={(e) => setNewProfessionValue(e.target.value)}
-                  placeholder="e.g. Teaching"
-                />
-                <Button
-                  type="button"
-                  onClick={async () => {
-                    const value = newProfessionValue.trim();
-                    if (!value) return;
-                    const res = await fetch(`${API_BASE_URL}/api/admin/committee/profession-options`, {
-                      method: "POST",
-                      headers: { ...authHeaders(), "Content-Type": "application/json" },
-                      body: JSON.stringify({ value }),
-                    });
-                    if (!res.ok) {
-                      toast({ title: "Add failed", description: (await res.json().catch(() => ({}))).error, variant: "destructive" });
-                      return;
-                    }
-                    setNewProfessionValue("");
-                    qc.invalidateQueries({ queryKey: ["committee-profession-options"] });
-                  }}
-                  disabled={!newProfessionValue.trim()}
-                >
-                  Add
-            </Button>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground">Saved options</Label>
-              {professionOptions.filter((o) => o.persisted).length === 0 ? (
-                <p className="text-sm text-muted-foreground">No saved professions yet.</p>
-              ) : (
-                professionOptions
-                  .filter((o) => o.persisted)
-                  .sort((a, b) => a.value.localeCompare(b.value))
-                  .map((o) => (
-                    <div key={o.id} className="flex items-center justify-between gap-3 rounded-lg border p-2">
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">{o.value}</p>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="h-8"
-                          onClick={() => {
-                            setEditingProfessionId(o.id);
-                            setEditingProfessionValue(o.value);
-                          }}
-                        >
-                          <Pencil className="w-3.5 h-3.5 mr-1" /> Edit
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="h-8 text-destructive"
-                          onClick={async () => {
-                            if (!confirm(`Delete profession "${o.value}"?`)) return;
-                            const res = await fetch(`${API_BASE_URL}/api/admin/committee/profession-options/${o.id}`, {
-                              method: "DELETE",
-                              headers: authHeaders(),
-                            });
-                            if (!res.ok) {
-                              toast({ title: "Delete failed", variant: "destructive" });
-                              return;
-                            }
-                            qc.invalidateQueries({ queryKey: ["committee-profession-options"] });
-                          }}
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))
-              )}
-            </div>
-
-            {editingProfessionId ? (
-              <div className="space-y-2 rounded-lg border p-3">
-                <Label>Edit profession</Label>
-                <Input
-                  value={editingProfessionValue}
-                  onChange={(e) => setEditingProfessionValue(e.target.value)}
-                />
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={async () => {
-                      const value = editingProfessionValue.trim();
-                      if (!value) return;
-                      const res = await fetch(
-                        `${API_BASE_URL}/api/admin/committee/profession-options/${editingProfessionId}`,
-                        {
-                          method: "PUT",
-                          headers: { ...authHeaders(), "Content-Type": "application/json" },
-                          body: JSON.stringify({ value }),
-                        }
-                      );
-                      if (!res.ok) {
-                        toast({ title: "Update failed", variant: "destructive" });
-                        return;
-                      }
-                      setEditingProfessionId(null);
-                      setEditingProfessionValue("");
-                      qc.invalidateQueries({ queryKey: ["committee-profession-options"] });
-                    }}
-                  >
-                    Save
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setEditingProfessionId(null);
-                      setEditingProfessionValue("");
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            ) : null}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Job status options CRUD */}
-      <Dialog
-        open={jobStatusManageOpen}
-        modal={false}
-        onOpenChange={(open) => {
-          setJobStatusManageOpen(open);
-          if (!open) {
-            setNewJobStatusValue("");
-            setEditingJobStatusId(null);
-            setEditingJobStatusValue("");
-          }
-        }}
-      >
-        <DialogContent className="max-w-xl">
-          <DialogHeader>
-            <DialogTitle>Manage job statuses</DialogTitle>
-            <DialogDescription>Dropdown options for executive committee member “Job status”.</DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label>New job status</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  value={newJobStatusValue}
-                  onChange={(e) => setNewJobStatusValue(e.target.value)}
-                  placeholder="e.g. Software Engineer"
-                />
-                <Button
-                  type="button"
-                  onClick={async () => {
-                    const value = newJobStatusValue.trim();
-                    if (!value) return;
-                    const res = await fetch(`${API_BASE_URL}/api/admin/committee/job-status-options`, {
-                      method: "POST",
-                      headers: { ...authHeaders(), "Content-Type": "application/json" },
-                      body: JSON.stringify({ value }),
-                    });
-                    if (!res.ok) {
-                      toast({ title: "Add failed", description: (await res.json().catch(() => ({}))).error, variant: "destructive" });
-                      return;
-                    }
-                    setNewJobStatusValue("");
-                    qc.invalidateQueries({ queryKey: ["committee-job-status-options"] });
-                  }}
-                  disabled={!newJobStatusValue.trim()}
-                >
-                  Add
-                </Button>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground">Saved options</Label>
-              {jobStatusOptions.filter((o) => o.persisted).length === 0 ? (
-                <p className="text-sm text-muted-foreground">No saved job statuses yet.</p>
-              ) : (
-                jobStatusOptions
-                  .filter((o) => o.persisted)
-                  .sort((a, b) => a.value.localeCompare(b.value))
-                  .map((o) => (
-                    <div key={o.id} className="flex items-center justify-between gap-3 rounded-lg border p-2">
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">{o.value}</p>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="h-8"
-                          onClick={() => {
-                            setEditingJobStatusId(o.id);
-                            setEditingJobStatusValue(o.value);
-                          }}
-                        >
-                          <Pencil className="w-3.5 h-3.5 mr-1" /> Edit
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="h-8 text-destructive"
-                          onClick={async () => {
-                            if (!confirm(`Delete job status "${o.value}"?`)) return;
-                            const res = await fetch(`${API_BASE_URL}/api/admin/committee/job-status-options/${o.id}`, {
-                              method: "DELETE",
-                              headers: authHeaders(),
-                            });
-                            if (!res.ok) {
-                              toast({ title: "Delete failed", variant: "destructive" });
-                              return;
-                            }
-                            qc.invalidateQueries({ queryKey: ["committee-job-status-options"] });
-                          }}
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))
-              )}
-            </div>
-
-            {editingJobStatusId ? (
-              <div className="space-y-2 rounded-lg border p-3">
-                <Label>Edit job status</Label>
-                <Input
-                  value={editingJobStatusValue}
-                  onChange={(e) => setEditingJobStatusValue(e.target.value)}
-                />
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={async () => {
-                      const value = editingJobStatusValue.trim();
-                      if (!value) return;
-                      const res = await fetch(
-                        `${API_BASE_URL}/api/admin/committee/job-status-options/${editingJobStatusId}`,
-                        {
-                          method: "PUT",
-                          headers: { ...authHeaders(), "Content-Type": "application/json" },
-                          body: JSON.stringify({ value }),
-                        }
-                      );
-                      if (!res.ok) {
-                        toast({ title: "Update failed", variant: "destructive" });
-                        return;
-                      }
-                      setEditingJobStatusId(null);
-                      setEditingJobStatusValue("");
-                      qc.invalidateQueries({ queryKey: ["committee-job-status-options"] });
-                    }}
-                  >
-                    Save
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setEditingJobStatusId(null);
-                      setEditingJobStatusValue("");
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            ) : null}
-          </div>
-        </DialogContent>
-      </Dialog>
     </>
   );
 };

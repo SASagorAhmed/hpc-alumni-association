@@ -7,14 +7,30 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { Save, User, AlertCircle, Facebook, Instagram, Linkedin, Award, Camera } from "lucide-react";
+import { Save, User, AlertCircle, Facebook, Instagram, Linkedin, Award, Camera, Crown } from "lucide-react";
 import { AlumniPhotoLightbox } from "@/components/alumni/AlumniPhotoLightbox";
 import { ProfilePhotoCropDialog } from "@/components/auth/ProfilePhotoCropDialog";
 import { cn } from "@/lib/utils";
+import { DateOfBirthPicker } from "@/components/ui/date-of-birth-picker";
+import { buildPassingSessionOptions, isValidPassingSession } from "@/lib/passingSessionOptions";
+import type { User } from "@/contexts/AuthContext";
 
-const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
-const GENDERS = ["Male", "Female", "Other"];
 const FIXED_COLLEGE_NAME = "Hamdard Public Collage";
+
+const PASSING_SESSION_OPTIONS = buildPassingSessionOptions();
+
+function deriveSessionFromUser(u: User | null | undefined): string {
+  if (!u) return "";
+  const s = String(u.session ?? "").trim();
+  if (s) return s;
+  const py = String(u.passingYear ?? "").trim();
+  if (/^\d{4}$/.test(py)) {
+    const y2 = Number(py);
+    const y1 = y2 - 1;
+    if (y1 >= 2005 && y1 <= 2050) return `${y1}-${y2}`;
+  }
+  return "";
+}
 
 const Profile = () => {
   const { user, updateProfile } = useAuth();
@@ -29,8 +45,7 @@ const Profile = () => {
   const [form, setForm] = useState({
     name: user?.name || "",
     phone: user?.phone || "",
-    gender: user?.gender || "",
-    bloodGroup: user?.bloodGroup || "",
+    session: deriveSessionFromUser(user),
     profession: user?.profession || "",
     company: user?.company || "",
     university: user?.university || "",
@@ -40,6 +55,7 @@ const Profile = () => {
     facebook: (user?.socialLinks as any)?.facebook || "",
     instagram: (user?.socialLinks as any)?.instagram || "",
     linkedin: (user?.socialLinks as any)?.linkedin || "",
+    birthday: user?.birthday ? String(user.birthday).slice(0, 10) : "",
   });
 
   const normalizeBatch2 = (b: unknown) => {
@@ -70,6 +86,27 @@ const Profile = () => {
   useEffect(() => {
     return () => revokeCropPreview();
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    const nextSession = deriveSessionFromUser(user);
+    setForm((prev) => ({
+      ...prev,
+      name: user.name || "",
+      phone: user.phone || "",
+      session: nextSession || prev.session,
+      profession: user.profession || "",
+      company: user.company || "",
+      university: user.university || "",
+      address: user.address || "",
+      bio: user.bio || "",
+      additionalInfo: user.additionalInfo || "",
+      facebook: (user.socialLinks as Record<string, string>)?.facebook || "",
+      instagram: (user.socialLinks as Record<string, string>)?.instagram || "",
+      linkedin: (user.socialLinks as Record<string, string>)?.linkedin || "",
+      birthday: user.birthday ? String(user.birthday).slice(0, 10) : "",
+    }));
+  }, [user]);
 
   useEffect(() => {
     if (!pendingPhotoFile) {
@@ -120,6 +157,33 @@ const Profile = () => {
       toast.error("Name is required.");
       return;
     }
+    if (!isValidPassingSession(form.session)) {
+      toast.error("Please select your session (passing year), e.g. 2020-2021.");
+      return;
+    }
+    if (form.birthday.trim()) {
+      const b = form.birthday.trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(b)) {
+        toast.error("Please use a valid date of birth.");
+        return;
+      }
+      const [y, mo, d] = b.split("-").map(Number);
+      const dt = new Date(y, mo - 1, d);
+      if (dt.getFullYear() !== y || dt.getMonth() !== mo - 1 || dt.getDate() !== d) {
+        toast.error("That date of birth is not valid.");
+        return;
+      }
+      const t = new Date();
+      const today = new Date(t.getFullYear(), t.getMonth(), t.getDate());
+      if (dt > today) {
+        toast.error("Date of birth cannot be in the future.");
+        return;
+      }
+      if (y < 1920) {
+        toast.error("Year must be 1920 or later.");
+        return;
+      }
+    }
     setLoading(true);
     const { facebook, instagram, linkedin, ...rest } = form;
     const result = await updateProfile({
@@ -141,11 +205,23 @@ const Profile = () => {
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-0">
       {user?.profilePending && (
-        <div className="mb-6 flex items-start gap-2 p-3 rounded-md bg-accent/20 border border-accent text-sm text-accent-foreground">
-          <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-          <p>Your profile update is awaiting admin approval.</p>
+        <div className="mb-6 flex items-start gap-2 rounded-md border border-accent bg-accent/20 p-3 text-sm text-accent-foreground">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          <p>Your profile is flagged for admin review. You can still update your details below; changes save right away.</p>
         </div>
       )}
+
+      {user?.role === "admin" ? (
+        <div className="mb-6 flex items-start gap-3 rounded-md border border-violet-200 bg-violet-50/90 px-3 py-3 text-sm text-violet-950 dark:border-violet-800 dark:bg-violet-950/35 dark:text-violet-50/95">
+          <Crown className="w-5 h-5 shrink-0 text-violet-700 dark:text-violet-300" />
+          <div>
+            <p className="font-semibold text-violet-900 dark:text-violet-100">Site administrator</p>
+            <p className="mt-1 text-violet-900/90 dark:text-violet-50/90">
+              You can manage alumni content, users, and settings from the dashboard. This role is assigned by the core administrator.
+            </p>
+          </div>
+        </div>
+      ) : null}
 
       {user?.adminCommitteeDesignation ? (
         <div className="mb-6 flex items-start gap-3 rounded-md border border-amber-200 bg-amber-50/90 px-3 py-3 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-50/95">
@@ -165,6 +241,7 @@ const Profile = () => {
           <CardTitle className="text-base sm:text-lg">{user?.name}</CardTitle>
           <CardDescription className="text-xs sm:text-sm">
             {user?.email} | Batch: {user?.batch}
+            {user?.session || user?.passingYear ? ` | Session: ${user.session || user.passingYear}` : ""}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -217,7 +294,7 @@ const Profile = () => {
                   ) : displayPhotoUrl ? (
                     <p className="text-xs text-muted-foreground">Tap the photo to view it full size.</p>
                   ) : (
-                    <p className="text-xs text-muted-foreground">Add a square profile photo. It appears in the alumni directory after approval.</p>
+                    <p className="text-xs text-muted-foreground">Add a square profile photo. It can appear in the alumni directory when your account is verified and visible there.</p>
                   )}
                 </div>
               </div>
@@ -244,26 +321,42 @@ const Profile = () => {
                   <Input id="batch" maxLength={2} value={batch2 || "—"} disabled />
                 </div>
                 <div className="space-y-1.5">
+                  <Label htmlFor="passingSession">Session (passing year) *</Label>
+                  <Select value={form.session ? form.session : undefined} onValueChange={(v) => set("session", v)}>
+                    <SelectTrigger id="passingSession">
+                      <SelectValue placeholder="e.g. 2020-2021" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-60">
+                      {PASSING_SESSION_OPTIONS.map((s) => (
+                        <SelectItem key={s} value={s}>
+                          {s}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">You can update this anytime. Same options as registration (2005-2006 … 2050-2051).</p>
+                </div>
+                <div className="space-y-1.5">
                   <Label htmlFor="alumniId">Alumni ID (auto)</Label>
                   <Input id="alumniId" maxLength={20} value={alumniIdValue || ""} disabled />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="gender">Gender</Label>
-                  <Select value={form.gender} onValueChange={(v) => set("gender", v)}>
-                    <SelectTrigger><SelectValue placeholder="Select gender" /></SelectTrigger>
-                    <SelectContent>
-                      {GENDERS.map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="gender">Gender (locked)</Label>
+                  <Input id="gender" value={user?.gender || "—"} disabled />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="bloodGroup">Blood Group</Label>
-                  <Select value={form.bloodGroup} onValueChange={(v) => set("bloodGroup", v)}>
-                    <SelectTrigger><SelectValue placeholder="Select blood group" /></SelectTrigger>
-                    <SelectContent>
-                      {BLOOD_GROUPS.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="bloodGroup">Blood group (locked)</Label>
+                  <Input id="bloodGroup" value={user?.bloodGroup || "—"} disabled />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="birthday">Date of birth</Label>
+                  <DateOfBirthPicker
+                    id="birthday"
+                    value={form.birthday}
+                    onChange={(ymd) => set("birthday", ymd)}
+                    placeholder="Choose date of birth"
+                  />
+                  <p className="text-xs text-muted-foreground">Optional. Visible to site administrators when reviewing your profile.</p>
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="phone">Phone Number</Label>
@@ -313,6 +406,10 @@ const Profile = () => {
                 <div className="space-y-1.5">
                   <Label htmlFor="bio">Short Bio</Label>
                   <Textarea id="bio" maxLength={500} rows={3} placeholder="Tell us about yourself..." value={form.bio} onChange={(e) => set("bio", e.target.value)} />
+                  <p className="text-xs text-muted-foreground">
+                    If you serve on the committee, this text is shown on your public committee profile as{" "}
+                    <span className="font-medium text-foreground/80">About winner</span> (up to 250 words there).
+                  </p>
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="additionalInfo">Additional Information</Label>

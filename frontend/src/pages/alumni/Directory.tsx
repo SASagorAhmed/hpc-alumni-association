@@ -5,12 +5,13 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, User, X, Briefcase, GraduationCap, Phone, Droplets, Facebook, Instagram, Linkedin, Award } from "lucide-react";
+import { Search, User, X, Briefcase, GraduationCap, Phone, Droplets, Facebook, Instagram, Linkedin, Award, Crown } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { API_BASE_URL } from "@/api-production/api.js";
 import { useSyncedQueryState } from "@/hooks/useSyncedQueryState";
 import { AlumniPhotoLightbox } from "@/components/alumni/AlumniPhotoLightbox";
+import { saveNavScrollRestore } from "@/lib/navScrollRestore";
 
 const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 const GENDERS = ["Male", "Female", "Other"];
@@ -49,6 +50,8 @@ interface AlumniProfile {
   college_name: string | null;
   registration_number: string | null;
   admin_committee_designation?: string | null;
+  /** Has dashboard admin role (user_roles.admin) */
+  is_site_admin?: boolean | number | null;
   created_at: string | null;
   social_links: { facebook?: string; instagram?: string; linkedin?: string } | null;
 }
@@ -60,7 +63,7 @@ const fetchAlumni = async (): Promise<AlumniProfile[]> => {
   return Array.isArray(data) ? data : [];
 };
 
-const DIRECTORY_FILTER_KEYS = ["q", "batch", "blood", "gender", "job", "uni", "faculty", "sort"] as const;
+const DIRECTORY_FILTER_KEYS = ["q", "batch", "blood", "gender", "prof", "uni", "faculty", "sort"] as const;
 
 const Directory = () => {
   const { user } = useAuth();
@@ -70,7 +73,7 @@ const Directory = () => {
   const [filterBatch, setFilterBatch] = useSyncedQueryState("batch", "");
   const [filterBlood, setFilterBlood] = useSyncedQueryState("blood", "");
   const [filterGender, setFilterGender] = useSyncedQueryState("gender", "");
-  const [filterJobStatus, setFilterJobStatus] = useSyncedQueryState("job", "");
+  const [filterProfession, setFilterProfession] = useSyncedQueryState("prof", "");
   const [filterUniversity, setFilterUniversity] = useSyncedQueryState("uni", "");
   const [filterFaculty, setFilterFaculty] = useSyncedQueryState("faculty", "");
   const [sortParam, setSortParam] = useSyncedQueryState("sort", "name_asc");
@@ -85,20 +88,20 @@ const Directory = () => {
   // Derive unique filter options
   const batches = useMemo(() => [...new Set(alumni.map((a) => a.batch).filter(Boolean))].sort(), [alumni]);
   const universities = useMemo(() => [...new Set(alumni.map((a) => a.university).filter(Boolean))].sort(), [alumni]);
-  const jobStatuses = useMemo(() => {
+  const professions = useMemo(() => {
     const set = new Set<string>();
     for (const a of alumni) {
-      const j = String(a.job_status ?? "").trim();
-      if (j) set.add(j);
+      const p = String(a.profession ?? "").trim();
+      if (p) set.add(p);
     }
-    return [...set].sort((a, b) => a.localeCompare(b));
+    return [...set].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
   }, [alumni]);
 
   const dropdownFilterCount = [
     filterBatch,
     filterBlood,
     filterGender,
-    filterJobStatus,
+    filterProfession,
     filterUniversity,
     filterFaculty,
   ].filter(Boolean).length;
@@ -123,9 +126,9 @@ const Directory = () => {
     if (filterBatch) list = list.filter((a) => a.batch === filterBatch);
     if (filterBlood) list = list.filter((a) => a.blood_group === filterBlood);
     if (filterGender) list = list.filter((a) => a.gender === filterGender);
-    if (filterJobStatus) {
-      const j = filterJobStatus.trim();
-      list = list.filter((a) => String(a.job_status ?? "").trim() === j);
+    if (filterProfession) {
+      const p = filterProfession.trim();
+      list = list.filter((a) => String(a.profession ?? "").trim() === p);
     }
     if (filterUniversity) list = list.filter((a) => a.university === filterUniversity);
     if (filterFaculty) {
@@ -149,6 +152,7 @@ const Directory = () => {
           a.department,
           a.faculty,
           a.profession,
+          a.job_status,
           a.college_name,
           a.admin_committee_designation,
         ]
@@ -167,7 +171,7 @@ const Directory = () => {
       case "recent": sorted.sort((a, b) => (b.created_at || "").localeCompare(a.created_at || "")); break;
     }
     return sorted;
-  }, [alumni, search, filterBatch, filterBlood, filterGender, filterJobStatus, filterUniversity, filterFaculty, sort]);
+  }, [alumni, search, filterBatch, filterBlood, filterGender, filterProfession, filterUniversity, filterFaculty, sort]);
 
   // Unverified gate
   if (!user?.verified) {
@@ -195,7 +199,12 @@ const Directory = () => {
         <div className="flex items-center gap-2">
           <div className="relative flex-1 sm:w-80">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input placeholder="Search by name, batch, roll..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <Input
+              placeholder="Search by name, batch, profession…"
+              className="pl-9"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
           </div>
         </div>
       </div>
@@ -236,12 +245,14 @@ const Directory = () => {
               <SelectTrigger className="text-xs"><SelectValue placeholder="Gender" /></SelectTrigger>
               <SelectContent>{GENDERS.map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent>
             </Select>
-            <Select value={filterJobStatus || undefined} onValueChange={setFilterJobStatus}>
-              <SelectTrigger className="text-xs"><SelectValue placeholder="Job Status" /></SelectTrigger>
-              <SelectContent>
-                {jobStatuses.map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {s}
+            <Select value={filterProfession || undefined} onValueChange={setFilterProfession}>
+              <SelectTrigger className="text-xs">
+                <SelectValue placeholder="Profession" />
+              </SelectTrigger>
+              <SelectContent className="max-h-64">
+                {professions.map((p) => (
+                  <SelectItem key={p} value={p}>
+                    {p}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -282,7 +293,12 @@ const Directory = () => {
       ) : (
         <div className="hpc-ios-touch-text-root grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((a) => (
-            <Link key={a.id} to={`/directory/${a.id}`} className="h-full min-w-0">
+            <Link
+              key={a.id}
+              to={`/directory/${a.id}`}
+              className="h-full min-w-0"
+              onClick={() => saveNavScrollRestore()}
+            >
               <Card className="h-full min-w-0 hover:shadow-md transition-shadow cursor-pointer group">
               <CardContent className="flex h-full min-h-[236px] min-w-0 flex-col p-4">
                 <div className="flex min-w-0 items-start gap-4">
@@ -317,6 +333,12 @@ const Directory = () => {
                   </div>
                 </div>
                 <div className="mt-3 flex min-h-[26px] min-w-0 flex-wrap gap-1.5">
+                  {Number(a.is_site_admin) ? (
+                    <Badge className="max-w-full min-w-0 truncate px-1.5 py-0 text-[10px] bg-violet-600/95 hover:bg-violet-600 text-white border-0">
+                      <Crown className="w-2.5 h-2.5 mr-0.5 shrink-0" />
+                      Administrator
+                    </Badge>
+                  ) : null}
                   {a.admin_committee_designation ? (
                     <Badge className="max-w-full min-w-0 truncate px-1.5 py-0 text-[10px] bg-amber-600/95 hover:bg-amber-600 text-white border-0">
                       <Award className="w-2.5 h-2.5 mr-0.5 shrink-0" />
@@ -334,7 +356,12 @@ const Directory = () => {
                       <span className="min-w-0 break-words leading-snug [overflow-wrap:anywhere]">{a.university}</span>
                     </Badge>
                   )}
-                  {a.job_status && <Badge variant="outline" className="text-[10px] px-1.5 py-0"><Briefcase className="w-2.5 h-2.5 mr-0.5" />{a.job_status}</Badge>}
+                  {(a.profession?.trim() || a.job_title?.trim()) ? (
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 max-w-full min-w-0">
+                      <Briefcase className="w-2.5 h-2.5 mr-0.5 shrink-0" />
+                      <span className="truncate">{a.profession?.trim() || a.job_title}</span>
+                    </Badge>
+                  ) : null}
                 </div>
                 {(a.phone || a.company) && (
                   <div className="mt-2 min-h-[32px] min-w-0 space-y-0.5">

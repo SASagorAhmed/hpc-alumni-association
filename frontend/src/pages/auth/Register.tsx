@@ -13,6 +13,8 @@ import { UserPlus, Eye, EyeOff, Facebook, Instagram, Linkedin, CheckCircle2, Cop
 import hpcLogo from "@/assets/hpc-logo.png";
 import { ProfilePhotoCropDialog } from "@/components/auth/ProfilePhotoCropDialog";
 import { API_BASE_URL } from "@/api-production/api.js";
+import { buildPassingSessionOptions } from "@/lib/passingSessionOptions";
+import { DateOfBirthPicker } from "@/components/ui/date-of-birth-picker";
 
 const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 
@@ -40,6 +42,8 @@ function GoogleMark({ className }: { className?: string }) {
 }
 const FACULTY_OPTIONS = ["Science", "Arts", "Commerce"] as const;
 
+const PASSING_SESSION_OPTIONS = buildPassingSessionOptions();
+
 const Register = () => {
   const { register } = useAuth();
   const navigate = useNavigate();
@@ -62,6 +66,7 @@ const Register = () => {
     confirmPassword: "",
     phone: "",
     batch: "",
+    passingSession: "",
     faculty: "",
     section: "",
     roll: "",
@@ -76,6 +81,7 @@ const Register = () => {
     facebook: "",
     instagram: "",
     linkedin: "",
+    birthday: "",
   });
 
   const SECTIONS = Array.from({ length: 10 }, (_, i) => {
@@ -186,6 +192,7 @@ const Register = () => {
     if (form.password !== form.confirmPassword) e.confirmPassword = "Passwords do not match";
     if (!form.phone.trim() || !/^[\d+\-() ]{7,15}$/.test(form.phone)) e.phone = "Enter a valid phone number";
     if (!form.batch) e.batch = "Please select a batch";
+    if (!form.passingSession) e.passingSession = "Please select session (passing year)";
     if (!form.faculty) e.faculty = "Please select department (Science, Arts, or Commerce)";
     if (!form.section) e.section = "Please select section (A..J)";
     if (!form.roll.trim()) e.roll = "Collage ID (Roll) is required";
@@ -196,6 +203,23 @@ const Register = () => {
     if (!form.university.trim()) e.university = "University is required";
     if (!form.profession.trim()) e.profession = "Profession is required";
     if (!form.bloodGroup) e.bloodGroup = "Blood group is required";
+    if (form.birthday.trim()) {
+      const b = form.birthday.trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(b)) {
+        e.birthday = "Select a valid date";
+      } else {
+        const [y, mo, d] = b.split("-").map(Number);
+        const dt = new Date(y, mo - 1, d);
+        if (dt.getFullYear() !== y || dt.getMonth() !== mo - 1 || dt.getDate() !== d) {
+          e.birthday = "Select a valid calendar date";
+        } else {
+          const t = new Date();
+          const today = new Date(t.getFullYear(), t.getMonth(), t.getDate());
+          if (dt > today) e.birthday = "Date of birth cannot be in the future";
+          if (y < 1920) e.birthday = "Year must be 1920 or later";
+        }
+      }
+    }
     const fb = form.facebook.trim();
     const ig = form.instagram.trim();
     const li = form.linkedin.trim();
@@ -218,6 +242,7 @@ const Register = () => {
       googleRegister: googleRegisterMode,
       phone: form.phone,
       batch: form.batch,
+      passingSession: form.passingSession,
       section: form.section,
       faculty: form.faculty,
       roll: form.roll,
@@ -233,6 +258,7 @@ const Register = () => {
       facebook: form.facebook,
       instagram: form.instagram,
       linkedin: form.linkedin,
+      birthday: form.birthday.trim(),
     });
     setLoading(false);
     if (result.success) {
@@ -389,6 +415,26 @@ const Register = () => {
                     {errors.batch && <p className="text-xs text-destructive">{errors.batch}</p>}
                   </div>
                   <div className="space-y-1.5">
+                    <Label htmlFor="passingSession">Session (passing year) *</Label>
+                    <Select
+                      value={form.passingSession}
+                      onValueChange={(v) => setForm({ ...form, passingSession: v })}
+                    >
+                      <SelectTrigger id="passingSession">
+                        <SelectValue placeholder="e.g. 2020-2021" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-60">
+                        {PASSING_SESSION_OPTIONS.map((s) => (
+                          <SelectItem key={s} value={s}>
+                            {s}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">Academic session when you passed (HSC), e.g. 2020-2021.</p>
+                    {errors.passingSession && <p className="text-xs text-destructive">{errors.passingSession}</p>}
+                  </div>
+                  <div className="space-y-1.5">
                     <Label htmlFor="faculty">Department *</Label>
                     <Select value={form.faculty} onValueChange={(v) => setForm({ ...form, faculty: v })}>
                       <SelectTrigger id="faculty">
@@ -466,6 +512,17 @@ const Register = () => {
                       </SelectContent>
                     </Select>
                     {errors.bloodGroup && <p className="text-xs text-destructive">{errors.bloodGroup}</p>}
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="birthday">Date of birth (optional)</Label>
+                    <DateOfBirthPicker
+                      id="birthday"
+                      value={form.birthday}
+                      onChange={(ymd) => setForm({ ...form, birthday: ymd })}
+                      placeholder="Choose date of birth"
+                    />
+                    <p className="text-xs text-muted-foreground">You can add or change this later in your profile.</p>
+                    {errors.birthday && <p className="text-xs text-destructive">{errors.birthday}</p>}
                   </div>
                 </div>
                 <div className="mt-4 space-y-1.5">
@@ -560,7 +617,8 @@ const Register = () => {
                 <p className="font-semibold text-amber-900">Warning</p>
                 <p className="mt-1 text-amber-900/90">
                   After you submit registration, <strong>Department</strong>, <strong>Section</strong>, <strong>Batch</strong>,{" "}
-                  <strong>Collage ID (Roll)</strong>, and your <strong>Alumni ID</strong> are fixed and you cannot edit them later. Complete the
+                  <strong>Collage ID (Roll)</strong>, and your <strong>Alumni ID</strong> are fixed and you cannot edit them later. You can
+                  change your <strong>session (passing year)</strong> anytime on your profile. Complete the
                   rest of your profile now. Please check before you submit.
                 </p>
                 <label className="mt-3 flex items-start gap-2 text-amber-900/90 cursor-pointer">

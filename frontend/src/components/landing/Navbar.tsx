@@ -15,6 +15,7 @@ const navLinks = [
   { label: "Home", href: "#" },
   { label: "Committee", href: "#committee" },
   { label: "Achievements", href: "#achievements" },
+  { label: "Notices", href: "#notices" },
   { label: "Memories", href: "#memories" },
   { label: "Community", href: "#community" },
   { label: "Contact", href: "#contact" },
@@ -31,6 +32,22 @@ function scrollToLandingSection(href: string) {
   if (!el) return;
   const y = el.getBoundingClientRect().top + window.scrollY - LANDING_NAV_SCROLL_OFFSET;
   window.scrollTo({ top: Math.max(0, y), behavior: "smooth" });
+}
+
+function scrollToLandingSectionWhenReady(href: string, attempt = 0) {
+  if (href === "#") {
+    scrollToLandingSection(href);
+    return;
+  }
+  const id = href.replace(/^#/, "");
+  if (!id) return;
+  const el = document.getElementById(id);
+  if (el) {
+    scrollToLandingSection(href);
+    return;
+  }
+  if (attempt >= 20) return;
+  window.setTimeout(() => scrollToLandingSectionWhenReady(href, attempt + 1), 80);
 }
 
 const Navbar = () => {
@@ -53,18 +70,20 @@ const Navbar = () => {
       setMobileOpen(false);
 
       const onHome = location.pathname === "/";
-      const hash = href === "#" ? undefined : href.replace(/^#/, "");
+      const sectionHash = href === "#" ? "" : `#${href.replace(/^#/, "")}`;
 
       if (!onHome) {
-        navigate(href === "#" ? "/" : { pathname: "/", hash });
-        window.setTimeout(() => scrollToLandingSection(href), 200);
+        navigate(sectionHash ? `/${sectionHash}` : "/");
+        scrollToLandingSectionWhenReady(href);
         return;
       }
 
-      navigate(href === "#" ? "/" : { pathname: "/", hash }, { replace: true });
-      window.requestAnimationFrame(() => {
-        window.requestAnimationFrame(() => scrollToLandingSection(href));
-      });
+      if (sectionHash) {
+        window.history.replaceState(null, "", `/${sectionHash}`);
+      } else {
+        window.history.replaceState(null, "", "/");
+      }
+      scrollToLandingSection(href);
     },
     [location.pathname, navigate]
   );
@@ -87,6 +106,7 @@ const Navbar = () => {
     const handleScroll = () => {
       const scrollY = window.scrollY;
       const offset = 72;
+      const activationY = scrollY + offset + 40;
 
       if (scrollY < 72) {
         setActiveSection("#");
@@ -100,12 +120,16 @@ const Navbar = () => {
       }
 
       let current = "#";
+      let currentTop = 0;
       for (const link of navLinks) {
         const id = link.href.replace("#", "");
         if (!id) continue;
         const el = document.getElementById(id);
-        if (el && el.getBoundingClientRect().top <= offset) {
+        if (!el) continue;
+        const top = el.offsetTop;
+        if (top <= activationY && top >= currentTop) {
           current = link.href;
+          currentTop = top;
         }
       }
       setActiveSection(current);
@@ -155,7 +179,7 @@ const Navbar = () => {
           {navLinks.map((link) => (
             <Link
               key={link.href + link.label}
-              to={link.href === "#" ? "/" : { pathname: "/", hash: link.href.replace(/^#/, "") }}
+              to={link.href === "#" ? "/" : `/${link.href}`}
               onClick={(e) => handleLandingNavClick(e, link.href)}
               className={cn(
                 "fs-nav group relative inline-flex h-8 min-h-0 items-center whitespace-nowrap rounded-md px-2 font-semibold transition-colors lg:px-2.5",
@@ -248,7 +272,7 @@ const Navbar = () => {
               {navLinks.map((link) => (
                 <Link
                   key={link.href + link.label}
-                  to={link.href === "#" ? "/" : { pathname: "/", hash: link.href.replace(/^#/, "") }}
+                  to={link.href === "#" ? "/" : `/${link.href}`}
                   onClick={(e) => handleLandingNavClick(e, link.href)}
                   className={cn(
                     "fs-ui inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 font-semibold transition-colors",

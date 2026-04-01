@@ -225,7 +225,12 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     }
   };
 
-  const isActive = (href: string) => location.pathname === href;
+  const isActive = (href: string) => {
+    if (location.pathname === href) return true;
+    if (href === "/" || !href) return false;
+    const base = href.endsWith("/") ? href.slice(0, -1) : href;
+    return location.pathname.startsWith(`${base}/`);
+  };
 
   return (
     <div className="min-h-screen bg-background">

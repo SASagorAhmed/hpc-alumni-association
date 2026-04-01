@@ -3,13 +3,14 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, GraduationCap, Briefcase, Phone, Mail, MapPin,
   Hash, Building2, Facebook, Instagram, Linkedin, Star, Lock,
-  MessageSquareQuote, Lightbulb, Crown, UserCheck,
+  MessageSquareQuote, Lightbulb, Crown, UserCheck, Trophy,
 } from "lucide-react";
 import { API_BASE_URL } from "@/api-production/api.js";
 import { getAuthToken } from "@/lib/authToken";
 import { useAuth } from "@/contexts/AuthContext";
 import Navbar from "@/components/landing/Navbar";
 import Footer from "@/components/landing/Footer";
+import { inferBoardSectionFromTitle } from "@/components/committee/boardSections";
 
 interface MemberProfile {
   id: string;
@@ -28,6 +29,8 @@ interface MemberProfile {
   photo_url: string | null;
   term_name: string | null;
   post_title: string | null;
+  /** `governing_body` vs other sections — drives wishing layout (do not mix with “Congratulations” styling). */
+  board_section?: string | null;
   // sensitive — only present if approved
   phone?: string | null;
   email?: string | null;
@@ -270,21 +273,43 @@ export default function CommitteeMemberProfile() {
                 </div>
               )}
 
-              {/* ── Wishing message ── */}
-              {member.wishing_message && (
-                <div
-                  className="mt-5 rounded-xl border p-5"
-                  style={{ backgroundColor: primaryTint, borderColor: primaryBorder }}
-                >
-                  <h2 className="mb-3 flex items-center gap-2 text-base font-bold" style={{ color: primary }}>
-                    <MessageSquareQuote className="h-4 w-4" />
-                    Message
+              {/* ── About winner (synced from alumni profile Short Bio) ── */}
+              {member.winner_about && (
+                <div className="mt-5 rounded-xl border border-amber-200/70 bg-gradient-to-br from-amber-50/90 to-card p-5 dark:border-amber-800/50 dark:from-amber-950/25 dark:to-card">
+                  <h2 className="mb-3 flex items-center gap-2 text-base font-bold text-foreground">
+                    <Trophy className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                    About winner
                   </h2>
-                  <p className="text-sm leading-relaxed text-foreground/80 whitespace-pre-line italic">
-                    "{member.wishing_message}"
-                  </p>
+                  <p className="text-sm leading-relaxed text-foreground/85 whitespace-pre-line">{member.winner_about}</p>
                 </div>
               )}
+
+              {/* ── Wishing / congratulations (governing vs other sections — different copy in DB + different styling) ── */}
+              {member.wishing_message && (() => {
+                const section =
+                  member.board_section?.trim() || inferBoardSectionFromTitle(member.post_title);
+                const governingWishing = section === "governing_body";
+                const box = governingWishing
+                  ? { backgroundColor: primaryTint, borderColor: primaryBorder }
+                  : { backgroundColor: "#C5E8E0", borderColor: "rgba(6, 88, 76, 0.55)" };
+                return (
+                  <div className="mt-5 rounded-xl border p-5" style={box}>
+                    <h2 className="mb-3 flex items-center gap-2 text-base font-bold" style={{ color: primary }}>
+                      <MessageSquareQuote className="h-4 w-4" />
+                      {governingWishing ? "Wishing you" : "Congratulations"}
+                    </h2>
+                    <p
+                      className={
+                        governingWishing
+                          ? "text-sm leading-relaxed text-foreground/80 whitespace-pre-line italic"
+                          : "text-sm font-bold leading-relaxed text-foreground whitespace-pre-line not-italic"
+                      }
+                    >
+                      {governingWishing ? `"${member.wishing_message}"` : member.wishing_message}
+                    </p>
+                  </div>
+                );
+              })()}
 
               {/* ── Expertise ── (only for approved, shown below wishing) */}
               {hasSensitive && member.expertise && (

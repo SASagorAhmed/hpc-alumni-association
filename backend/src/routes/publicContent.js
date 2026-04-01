@@ -2,6 +2,7 @@ const express = require("express");
 const { getOrCreatePool } = require("../db/pool");
 const { ensureAchievementSettingsRow } = require("../utils/achievementSettings");
 const { sanitizeCommitteeMemberForPublic } = require("../utils/publicCommitteeSanitize");
+const { ensurePublicWishingMessage } = require("../utils/committeeDefaultWishing");
 
 const router = express.Router();
 
@@ -36,7 +37,13 @@ async function loadStructuredCommittee(pool, termId = null) {
   );
   const postsWith = posts.map((p) => ({
     ...p,
-    members: members.filter((m) => m.post_id === p.id).map(sanitizeCommitteeMemberForPublic),
+    members: members
+      .filter((m) => m.post_id === p.id)
+      .map((m) => {
+        const base = sanitizeCommitteeMemberForPublic(m);
+        const wishing = ensurePublicWishingMessage(base, p.title, p.board_section);
+        return { ...base, wishing_message: wishing };
+      }),
   }));
   return { term, posts: postsWith };
 }
@@ -251,7 +258,7 @@ router.get("/committee/member/:id", async (req, res) => {
     if (!pool) return res.status(503).json({ ok: false, error: "MySQL not configured" });
 
     const [rows] = await pool.query(
-      `SELECT cm.*, ct.name AS term_name, cp.title AS post_title
+      `SELECT cm.*, ct.name AS term_name, cp.title AS post_title, cp.board_section AS board_section
        FROM committee_members cm
        LEFT JOIN committee_terms ct ON ct.id = cm.term_id
        LEFT JOIN committee_posts cp ON cp.id = cm.post_id
@@ -282,6 +289,12 @@ router.get("/committee/member/:id", async (req, res) => {
       }
     }
 
+    const wishingResolved = ensurePublicWishingMessage(
+      { name: m.name, wishing_message: m.wishing_message },
+      m.post_title,
+      m.board_section
+    );
+
     // Always public
     const publicData = {
       id: m.id,
@@ -295,12 +308,13 @@ router.get("/committee/member/:id", async (req, res) => {
       job_status: m.job_status,
       profession: m.profession,
       about: m.about,
-      wishing_message: m.wishing_message,
+      wishing_message: wishingResolved,
       winner_about: m.winner_about,
       photo_url: m.photo_url,
       display_order: m.display_order,
       term_name: m.term_name,
       post_title: m.post_title,
+      board_section: m.board_section ?? null,
     };
 
     // Only for admin-verified users

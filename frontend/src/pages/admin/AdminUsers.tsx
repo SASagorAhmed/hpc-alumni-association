@@ -36,8 +36,6 @@ type ProfileRow = {
   passing_year?: string | null;
   college_name?: string | null;
   profession: string | null;
-  job_status?: string | null;
-  job_title?: string | null;
   company: string | null;
   university: string | null;
   address: string | null;
@@ -205,7 +203,7 @@ const AdminUsers = () => {
           <div className="relative flex-1 sm:w-64 sm:flex-initial">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
-              placeholder="Search name, batch..."
+              placeholder="Search name, batch, session..."
               className="pl-9"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -257,6 +255,7 @@ const AdminUsers = () => {
                     <TableRow>
                       <TableHead>Name</TableHead>
                       <TableHead>Batch</TableHead>
+                      <TableHead>Session</TableHead>
                       <TableHead>Department</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
@@ -283,6 +282,7 @@ const AdminUsers = () => {
                           )}
                         </TableCell>
                         <TableCell className="text-sm">{p.batch || "—"}</TableCell>
+                        <TableCell className="text-sm whitespace-nowrap">{p.session || p.passing_year || "—"}</TableCell>
                         <TableCell className="text-sm">{p.department || "—"}</TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1">
@@ -381,7 +381,7 @@ const AdminUsers = () => {
                             {p.name || "—"}
                           </Link>
                           <p className="text-xs text-muted-foreground">
-                            {[p.batch, p.department].filter(Boolean).join(" · ") || "—"}
+                            {[p.batch, p.session || p.passing_year, p.department].filter(Boolean).join(" · ") || "—"}
                           </p>
                         </div>
                       </div>

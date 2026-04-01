@@ -13,6 +13,9 @@ const multer = require("multer");
 const cloudinary = require("../config/cloudinary");
 const { getCloudinaryFolder } = require("../utils/uploadFolders");
 const { ensureAdminCommitteeDesignationColumn } = require("../utils/ensureAdminCommitteeDesignation");
+const { syncCommitteeMembersFromAlumniProfile } = require("../utils/syncCommitteePhotoFromProfile");
+const { ensureProfileEditAuditTable } = require("../utils/ensureProfileEditAuditTable");
+const { ensureProfileBirthdayColumn } = require("../utils/ensureProfileBirthdayColumn");
 
 const router = express.Router();
 
@@ -141,6 +144,38 @@ function trimOrNull(v) {
   return s ? s : null;
 }
 
+/** @returns {string|null|false} null if empty, false if invalid */
+function normalizeBirthdayForStorage(raw) {
+  const s = String(raw ?? "").trim();
+  if (!s) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const [y, m, d] = s.split("-").map(Number);
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return false;
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== m - 1 || dt.getUTCDate() !== d) return false;
+  const today = new Date();
+  const todayUtc = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+  if (dt.getTime() > todayUtc) return false;
+  if (y < 1920) return false;
+  return s;
+}
+
+function formatBirthdayFromRow(v) {
+  if (v == null || v === "") return null;
+  if (typeof v === "string") {
+    const t = v.trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(t)) return t.slice(0, 10);
+    return t || null;
+  }
+  if (v instanceof Date && !Number.isNaN(v.getTime())) {
+    const y = v.getFullYear();
+    const mo = String(v.getMonth() + 1).padStart(2, "0");
+    const da = String(v.getDate()).padStart(2, "0");
+    return `${y}-${mo}-${da}`;
+  }
+  return null;
+}
+
 async function getUserProfile(pool, userId) {
   await ensureAdminCommitteeDesignationColumn(pool);
   // Role
@@ -167,6 +202,7 @@ async function getUserProfile(pool, userId) {
     adminCommitteeDesignation: p.admin_committee_designation || null,
     gender: p.gender || null,
     bloodGroup: p.blood_group || null,
+    birthday: formatBirthdayFromRow(p.birthday),
     department: p.department || null,
     faculty: p.faculty || null,
     session: p.session || null,
@@ -197,6 +233,7 @@ router.post("/register", registerLimiter, profileUpload.single("photo"), async (
     const pool = getOrCreatePool();
     if (!pool) return res.status(503).json({ ok: false, error: "MySQL not configured" });
     await ensureProfileFacultyColumn(pool);
+    await ensureProfileBirthdayColumn(pool);
 
     const {
       email,
@@ -208,6 +245,7 @@ router.post("/register", registerLimiter, profileUpload.single("photo"), async (
       department,
       faculty,
       roll,
+      passingSession,
       gender,
       bloodGroup,
       university,
@@ -220,6 +258,7 @@ router.post("/register", registerLimiter, profileUpload.single("photo"), async (
       instagram,
       linkedin,
       googleRegister,
+      birthday,
     } = req.body || {};
     const wantsGoogleRegister = String(googleRegister || "") === "1";
 
@@ -244,6 +283,27 @@ router.post("/register", registerLimiter, profileUpload.single("photo"), async (
     const facultyNorm = REGISTER_FACULTY_MAP[facultyKey];
     if (!email || !password || !name || !batch || !sectionRaw || !roll || !gender) {
       return res.status(400).json({ ok: false, error: "Missing required fields" });
+    }
+
+    const sessionLabel = String(passingSession ?? "")
+      .trim()
+      .replace(/\s*-\s*/g, "-");
+    let sessionNorm = null;
+    let passingYearNorm = null;
+    const mSession = sessionLabel.match(/^(\d{4})-(\d{4})$/);
+    if (mSession) {
+      const y1 = Number(mSession[1]);
+      const y2 = Number(mSession[2]);
+      if (Number.isFinite(y1) && Number.isFinite(y2) && y2 === y1 + 1 && y1 >= 2005 && y1 <= 2050) {
+        sessionNorm = `${y1}-${y2}`;
+        passingYearNorm = String(y2);
+      }
+    }
+    if (!sessionNorm) {
+      return res.status(400).json({
+        ok: false,
+        error: "Session (passing year) must be selected from the list (e.g. 2020-2021), years 2005–2050 to 2006–2051.",
+      });
     }
     if (!facultyNorm) {
       return res.status(400).json({ ok: false, error: "Department must be Science, Arts, or Commerce" });
@@ -331,6 +391,11 @@ router.post("/register", registerLimiter, profileUpload.single("photo"), async (
       linkedin: li,
     });
 
+    const birthdayNorm = normalizeBirthdayForStorage(birthday);
+    if (birthdayNorm === false) {
+      return res.status(400).json({ ok: false, error: "Invalid birthday. Use a calendar date on or before today." });
+    }
+
     const companyNorm = trimOrNull(company);
     const professionNorm = trimOrNull(profession);
     const addressNorm = trimOrNull(address);
@@ -357,10 +422,13 @@ router.post("/register", registerLimiter, profileUpload.single("photo"), async (
     await pool.query(
       `INSERT INTO profiles
         (id, name, phone, batch, department, faculty, roll, registration_number,
-         gender, photo, blood_group, college_name, university, company, profession,
+         session, passing_year,
+         gender, photo, blood_group, birthday, college_name, university, company, profession,
          address, bio, additional_info, social_links,
          verified, approved, blocked, profile_pending)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, false, false, false, false)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+         ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+         false, false, false, false)`,
       [
         userId,
         name,
@@ -370,9 +438,12 @@ router.post("/register", registerLimiter, profileUpload.single("photo"), async (
         facultyNorm,
         rollDigits,
         alumniId,
+        sessionNorm,
+        passingYearNorm,
         genderNorm,
         photoUrl,
         bloodNorm,
+        birthdayNorm,
         FIXED_COLLEGE_NAME,
         universityNorm,
         companyNorm,
@@ -815,11 +886,47 @@ function profilePutMultipartMaybe(req, res, next) {
   next();
 }
 
+function normalizeAuditScalar(v) {
+  if (v == null) return "";
+  if (typeof v === "object") {
+    try {
+      return JSON.stringify(v);
+    } catch {
+      return String(v);
+    }
+  }
+  return String(v).trim();
+}
+
+function normalizeAuditSocial(v) {
+  if (v == null || v === "") return "";
+  if (typeof v === "string") {
+    try {
+      return JSON.stringify(JSON.parse(v));
+    } catch {
+      return String(v).trim();
+    }
+  }
+  try {
+    return JSON.stringify(v);
+  } catch {
+    return String(v);
+  }
+}
+
+const AUDIT_TRUNC = 60000;
+
+function auditClip(s) {
+  const t = s == null ? "" : String(s);
+  return t.length > AUDIT_TRUNC ? `${t.slice(0, AUDIT_TRUNC)}…` : t;
+}
+
 // PUT /api/auth/profile (JSON or multipart/form-data with optional `photo` file)
 router.put("/profile", requireAuth, profilePutMultipartMaybe, async (req, res) => {
   try {
     const pool = getOrCreatePool();
     if (!pool) return res.status(503).json({ ok: false, error: "MySQL not configured" });
+    await ensureProfileEditAuditTable(pool);
 
     const currentProfile = await getUserProfile(pool, req.auth.userId);
     if (!currentProfile) return res.status(404).json({ ok: false, error: "Profile not found" });
@@ -833,13 +940,25 @@ router.put("/profile", requireAuth, profilePutMultipartMaybe, async (req, res) =
       }
     }
 
-    // Section, Batch, Collage ID (roll) and Alumni ID are locked after registration.
-    // Only allow safe fields that the user may edit later.
+    // Section, batch, roll, alumni ID, gender, blood group: locked after registration (no user edits).
+    // Session (passing year) is editable from the alumni profile.
+    const DB_KEY_TO_PROFILE_KEY = {
+      name: "name",
+      phone: "phone",
+      profession: "profession",
+      company: "company",
+      university: "university",
+      address: "address",
+      bio: "bio",
+      additional_info: "additionalInfo",
+      photo: "photo",
+      social_links: "socialLinks",
+      birthday: "birthday",
+    };
+
     const allowed = {
       name: "name",
       phone: "phone",
-      gender: "gender",
-      bloodGroup: "blood_group",
       profession: "profession",
       company: "company",
       university: "university",
@@ -848,6 +967,7 @@ router.put("/profile", requireAuth, profilePutMultipartMaybe, async (req, res) =
       additionalInfo: "additional_info",
       photo: "photo",
       socialLinks: "social_links",
+      birthday: "birthday",
     };
 
     const normalizeBatch2 = (b) => {
@@ -870,6 +990,61 @@ router.put("/profile", requireAuth, profilePutMultipartMaybe, async (req, res) =
 
     const updates = [];
     const values = [];
+    const auditEntries = [];
+
+    if (Object.prototype.hasOwnProperty.call(body, "birthday")) {
+      const b = normalizeBirthdayForStorage(body.birthday);
+      if (b === false) {
+        return res.status(400).json({ ok: false, error: "Invalid birthday. Use a calendar date on or before today." });
+      }
+      body.birthday = b;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, "session")) {
+      const sessionLabel = String(body.session ?? "")
+        .trim()
+        .replace(/\s*-\s*/g, "-");
+      let sessionVal = null;
+      let passingYearVal = null;
+      const mSession = sessionLabel.match(/^(\d{4})-(\d{4})$/);
+      if (mSession) {
+        const y1 = Number(mSession[1]);
+        const y2 = Number(mSession[2]);
+        if (Number.isFinite(y1) && Number.isFinite(y2) && y2 === y1 + 1 && y1 >= 2005 && y1 <= 2050) {
+          sessionVal = `${y1}-${y2}`;
+          passingYearVal = String(y2);
+        }
+      }
+      if (!sessionVal) {
+        return res.status(400).json({
+          ok: false,
+          error:
+            "Session (passing year) must be valid (e.g. 2020-2021), from 2005-2006 through 2050-2051.",
+        });
+      }
+      const oldS = normalizeAuditScalar(currentProfile.session);
+      const newS = normalizeAuditScalar(sessionVal);
+      if (oldS !== newS) {
+        updates.push("`session` = ?");
+        values.push(sessionVal);
+        auditEntries.push({
+          field_key: "session",
+          old_value: auditClip(oldS),
+          new_value: auditClip(newS),
+        });
+      }
+      const oldPy = normalizeAuditScalar(currentProfile.passingYear);
+      const newPy = normalizeAuditScalar(passingYearVal);
+      if (oldPy !== newPy) {
+        updates.push("`passing_year` = ?");
+        values.push(passingYearVal);
+        auditEntries.push({
+          field_key: "passing_year",
+          old_value: auditClip(oldPy),
+          new_value: auditClip(newPy),
+        });
+      }
+    }
 
     Object.entries(allowed).forEach(([apiKey, dbKey]) => {
       if (req.file && apiKey === "photo") return;
@@ -880,6 +1055,18 @@ router.put("/profile", requireAuth, profilePutMultipartMaybe, async (req, res) =
           ? JSON.stringify(body[apiKey])
           : body[apiKey];
       values.push(value ?? null);
+
+      const profileKey = DB_KEY_TO_PROFILE_KEY[dbKey];
+      const oldRaw = profileKey ? currentProfile[profileKey] : null;
+      const oldStr = dbKey === "social_links" ? normalizeAuditSocial(oldRaw) : normalizeAuditScalar(oldRaw);
+      const newStr = dbKey === "social_links" ? normalizeAuditSocial(value) : normalizeAuditScalar(value);
+      if (oldStr !== newStr) {
+        auditEntries.push({
+          field_key: dbKey,
+          old_value: auditClip(oldStr),
+          new_value: auditClip(newStr),
+        });
+      }
     });
 
     let uploadedPhotoUrl = null;
@@ -891,12 +1078,30 @@ router.put("/profile", requireAuth, profilePutMultipartMaybe, async (req, res) =
       uploadedPhotoUrl = uploaded.secure_url;
       updates.push("`photo` = ?");
       values.push(uploadedPhotoUrl);
+      const oldStr = normalizeAuditScalar(currentProfile.photo);
+      const newStr = normalizeAuditScalar(uploadedPhotoUrl);
+      if (oldStr !== newStr) {
+        auditEntries.push({
+          field_key: "photo",
+          old_value: auditClip(oldStr),
+          new_value: auditClip(newStr),
+        });
+      }
     }
 
     // Keep alumni ID consistent with locked Section/Batch/Roll (do not accept any user edits for these fields).
     if (alumniIdComputed && (!currentProfile.registrationNumber || currentProfile.registrationNumber !== alumniIdComputed)) {
       updates.push("`registration_number` = ?");
       values.push(alumniIdComputed);
+      const oldStr = normalizeAuditScalar(currentProfile.registrationNumber);
+      const newStr = normalizeAuditScalar(alumniIdComputed);
+      if (oldStr !== newStr) {
+        auditEntries.push({
+          field_key: "registration_number",
+          old_value: auditClip(oldStr),
+          new_value: auditClip(newStr),
+        });
+      }
     }
     if (!updates.length) return res.status(400).json({ ok: false, error: "Nothing to update" });
 
@@ -906,10 +1111,31 @@ router.put("/profile", requireAuth, profilePutMultipartMaybe, async (req, res) =
     if (req.file) nextPhotoUrl = uploadedPhotoUrl;
     else if (Object.prototype.hasOwnProperty.call(body, "photo")) nextPhotoUrl = body.photo ?? null;
 
-    await pool.query(`UPDATE profiles SET ${updates.join(", ")}, profile_pending = true WHERE id = ?`, [
-      ...values,
-      req.auth.userId,
-    ]);
+    const conn = await pool.getConnection();
+    try {
+      await conn.beginTransaction();
+      await conn.query(`UPDATE profiles SET ${updates.join(", ")}, profile_pending = false WHERE id = ?`, [
+        ...values,
+        req.auth.userId,
+      ]);
+      for (const row of auditEntries) {
+        await conn.query(
+          `INSERT INTO profile_edit_audit (profile_id, field_key, old_value, new_value) VALUES (?, ?, ?, ?)`,
+          [req.auth.userId, row.field_key, row.old_value, row.new_value]
+        );
+      }
+      await conn.commit();
+    } catch (e) {
+      try {
+        await conn.rollback();
+      } catch (_r) {
+        /* ignore */
+      }
+      throw e;
+    } finally {
+      conn.release();
+    }
+
     if (photoWasProvided && oldPhotoUrl && oldPhotoUrl !== nextPhotoUrl) {
       await deleteCloudinaryImageByUrl(oldPhotoUrl);
     }
@@ -918,6 +1144,12 @@ router.put("/profile", requireAuth, profilePutMultipartMaybe, async (req, res) =
     const user = userRows?.[0];
     const profile = await getUserProfile(pool, req.auth.userId);
     if (!user || !profile) return res.status(404).json({ ok: false, error: "User not found" });
+
+    try {
+      await syncCommitteeMembersFromAlumniProfile(pool, req.auth.userId);
+    } catch (_syncErr) {
+      /* best-effort; profile update already succeeded */
+    }
 
     return res.status(200).json({ ok: true, user: { ...profile, email: user.email } });
   } catch (e) {
