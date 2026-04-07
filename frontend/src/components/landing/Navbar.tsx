@@ -146,10 +146,10 @@ const Navbar = () => {
       style={{ background: "var(--navbar-bg)" }}
       data-navbar-text-scale="1.1"
     >
-      <div className="layout-container flex h-12 items-center justify-between">
+      <div className="layout-container flex h-11 items-center justify-between sm:h-12">
         <Link
           to="/"
-          className="flex min-w-0 shrink-0 items-center gap-1 md:gap-1.5"
+          className="flex min-w-0 max-w-[min(100%,14rem)] shrink-0 items-center gap-1 sm:max-w-[16rem] md:gap-1.5"
           onClick={(e) => {
             if (location.pathname === "/") {
               e.preventDefault();
@@ -158,16 +158,16 @@ const Navbar = () => {
             }
           }}
         >
-          <img src={hpcLogo} alt="HPC Logo" className="h-7 w-7 shrink-0 md:h-8 md:w-8" />
+          <img src={hpcLogo} alt="HPC Logo" className="h-6 w-6 shrink-0 sm:h-7 sm:w-7 md:h-8 md:w-8" />
           <div className="min-w-0 leading-none">
             <span
-              className="nav-brand-title block truncate text-[10px] font-bold leading-tight md:text-[11px]"
+              className="nav-brand-title block truncate font-bold"
               style={{ color: "var(--navbar-text)" }}
             >
               Hamdard Public College
             </span>
             <span
-              className="nav-brand-subtitle mt-px block truncate bg-gradient-to-r from-[#fb4d3d] via-[#16a34a] to-[#22c55e] bg-clip-text text-[7px] font-extrabold tracking-wide text-transparent md:text-[8px]"
+              className="nav-brand-subtitle mt-px block truncate bg-gradient-to-r from-[#fb4d3d] via-[#16a34a] to-[#22c55e] bg-clip-text font-extrabold tracking-[0.12em] text-transparent"
               style={{ textShadow: "0 0 0.15px rgba(0,0,0,0.25)" }}
             >
               ALUMNI ASSOCIATION
@@ -175,17 +175,17 @@ const Navbar = () => {
           </div>
         </Link>
 
-        {/* Desktop: use xl+ to prevent overflow at odd zoom/window combos */}
-        <div className="hidden min-w-0 flex-1 items-center justify-end gap-0 xl:flex">
+        {/* Desktop from lg (1025px) — matches tailwind `lg` and site desktop band; avoid xl (1280) gap where laptops saw hamburger */}
+        <div className="hidden min-w-0 flex-1 items-center justify-end gap-0 lg:flex">
           <div className="min-w-0 flex-1 overflow-hidden">
-            <div className="flex min-w-0 items-center justify-center gap-0 overflow-hidden">
+            <div className="flex min-w-0 items-center justify-center gap-0 overflow-hidden lg:gap-0.5">
               {navLinks.map((link) => (
                 <Link
                   key={link.href + link.label}
                   to={link.href === "#" ? "/" : `/${link.href}`}
                   onClick={(e) => handleLandingNavClick(e, link.href)}
                   className={cn(
-                    "fs-nav topnav-btn-text group relative inline-flex h-8 min-h-0 shrink-0 items-center whitespace-nowrap rounded-md px-2 font-semibold transition-colors",
+                    "fs-nav topnav-btn-text group relative inline-flex h-8 min-h-0 shrink-0 items-center whitespace-nowrap rounded-md px-1.5 font-semibold transition-colors lg:px-2",
                     activeSection === link.href
                       ? "text-primary"
                       : "text-muted-foreground hover:text-primary"
@@ -205,23 +205,23 @@ const Navbar = () => {
 
           {isLoading ? (
             <div className="ml-2 flex shrink-0 items-center gap-2 border-l border-border/40 pl-3">
-              <div className="h-8 w-[64px] animate-pulse rounded-md bg-muted/40" />
-              <div className="h-8 w-[72px] animate-pulse rounded-md bg-muted/40" />
+              <div className="h-9 w-[76px] animate-pulse rounded-md bg-muted/40" />
+              <div className="h-9 w-[84px] animate-pulse rounded-md bg-muted/40" />
             </div>
           ) : user ? (
             <div className="ml-2 flex shrink-0 items-center gap-2 border-l border-border/40 pl-3">
               <Link
                 to={dashboardPath}
-                className="fs-nav topnav-btn-text inline-flex h-8 min-h-0 items-center justify-center whitespace-nowrap rounded-md border border-transparent bg-primary px-3 font-semibold text-primary-foreground transition-all hover:bg-primary/90 active:scale-[0.98]"
+                className="fs-nav topnav-btn-text inline-flex h-9 min-h-0 items-center justify-center whitespace-nowrap rounded-md border border-transparent bg-primary px-3.5 font-semibold text-primary-foreground transition-all hover:bg-primary/90 active:scale-[0.98]"
               >
                 Dashboard
               </Link>
               <button
                 type="button"
                 onClick={logout}
-                className="fs-nav topnav-btn-text inline-flex h-8 min-h-0 items-center justify-center gap-1 whitespace-nowrap rounded-md border border-border/80 px-2.5 font-medium text-foreground transition-colors hover:bg-muted/50 hover:text-primary"
+                className="fs-nav topnav-btn-text inline-flex h-9 min-h-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-border/80 px-3.5 font-medium text-foreground transition-colors hover:bg-muted/50 hover:text-primary"
               >
-                <LogOut size={12} className="shrink-0" />
+                <LogOut size={14} className="shrink-0" />
                 Logout
               </button>
               {showThemeToggle ? (
@@ -232,13 +232,13 @@ const Navbar = () => {
             <div className="ml-2 flex shrink-0 items-center gap-2 border-l border-border/40 pl-3">
               <Link
                 to="/login"
-                className="fs-nav topnav-btn-text inline-flex h-8 min-h-0 items-center justify-center whitespace-nowrap rounded-md border border-border/80 px-3 font-semibold text-foreground transition-all hover:border-primary/40 hover:bg-muted/60 active:scale-[0.98]"
+                className="fs-nav topnav-btn-text inline-flex h-9 min-h-0 items-center justify-center whitespace-nowrap rounded-md border border-border/80 px-3.5 font-semibold text-foreground transition-all hover:border-primary/40 hover:bg-muted/60 active:scale-[0.98]"
               >
                 Login
               </Link>
               <Link
                 to="/register"
-                className="fs-nav topnav-btn-text inline-flex h-8 min-h-0 items-center justify-center whitespace-nowrap rounded-md border border-transparent bg-primary px-3 font-semibold text-primary-foreground transition-all hover:bg-primary/90 active:scale-[0.98]"
+                className="fs-nav topnav-btn-text inline-flex h-9 min-h-0 items-center justify-center whitespace-nowrap rounded-md border border-transparent bg-primary px-3.5 font-semibold text-primary-foreground transition-all hover:bg-primary/90 active:scale-[0.98]"
               >
                 Join Alumni
               </Link>
@@ -256,7 +256,7 @@ const Navbar = () => {
           aria-controls="landing-nav-mobile-menu"
           aria-label={mobileOpen ? "Close menu" : "Open menu"}
           onClick={() => setMobileOpen(!mobileOpen)}
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-foreground hover:bg-muted/50 xl:hidden"
+          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-foreground hover:bg-muted/50 lg:hidden"
         >
           {mobileOpen ? <X size={20} strokeWidth={2} /> : <Menu size={20} strokeWidth={2} />}
         </button>
@@ -271,9 +271,9 @@ const Navbar = () => {
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.2, ease: "easeInOut" }}
-            className="overflow-hidden border-t border-border/50 bg-card xl:hidden"
+            className="overflow-hidden border-t border-border/50 bg-card lg:hidden"
           >
-            <div className="flex max-h-[min(70vh,calc(100dvh-48px))] flex-col gap-0.5 overflow-y-auto overscroll-contain px-4 py-2.5">
+            <div className="flex max-h-[min(70vh,calc(100dvh-2.75rem))] flex-col gap-0.5 overflow-y-auto overscroll-contain px-4 py-2.5 sm:max-h-[min(70vh,calc(100dvh-3rem))]">
               {navLinks.map((link) => (
                 <Link
                   key={link.href + link.label}

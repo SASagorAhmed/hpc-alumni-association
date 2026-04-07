@@ -821,21 +821,26 @@
     line-height: 1.2;
   }
 
-  /* Navbar typography +10% (desktop + mobile) without layout/infrastructure changes */
+  /*
+   * Landing navbar typography — must use rem/clamp, NOT `calc(1em * …)`.
+   * `em` here was resolving to body/html size (~17px), so brand + links blew up at 100% zoom.
+   */
   [data-navbar-text-scale="1.1"] .fs-nav,
   [data-navbar-text-scale="1.1"] .fs-ui {
-    font-size: calc(1em * 1.1);
+    font-size: clamp(0.6875rem, 0.605rem + 0.242vw, 0.825rem);
+    line-height: 1.2;
   }
   [data-navbar-text-scale="1.1"] .nav-brand-title {
-    font-size: calc(1em * 1.012);
+    font-size: clamp(0.625rem, 0.58rem + 0.12vw, 0.6875rem);
+    line-height: 1.15;
+    letter-spacing: -0.02em;
   }
   [data-navbar-text-scale="1.1"] .nav-brand-subtitle {
-    font-size: calc(1em * 1.012);
+    font-size: clamp(0.4375rem, 0.4rem + 0.08vw, 0.5rem);
+    line-height: 1.2;
+    letter-spacing: 0.08em;
   }
-  /* Only navbar button text: decrease by 10% */
-  [data-navbar-text-scale="1.1"] .topnav-btn-text {
-    font-size: calc(1em * 0.9);
-  }
+  /* Auth / CTA: same type size as section links (`.fs-nav`); do not shrink `.topnav-btn-text` — was too small */
 
   /* Card typography +10% globally (cards only) */
   .card-text-scale .text-xs { font-size: calc(0.75rem * 1.1); }
