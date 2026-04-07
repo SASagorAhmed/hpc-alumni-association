@@ -26,12 +26,12 @@ const Index = () => {
 
       {/*
         Everything below is normal document flow.
-        pt-10/lg:pt-11 clears the fixed navbar height.
+        pt-12 clears the fixed navbar height.
         TopNoticeBar renders here when a notice is active; it pushes
         AchievementBanner and all content down automatically.
         When no notice exists (returns null) there is zero extra space.
       */}
-      <div className="pt-10 lg:pt-11">
+      <div className="pt-12">
         <TopNoticeBar />
         <AchievementBanner />
       </div>

@@ -120,6 +120,26 @@ async function deleteCloudinaryImageByUrl(url) {
   }
 }
 
+async function isImageUrlReferencedElsewhere(pool, imageUrl, userId) {
+  if (!pool || !imageUrl) return false;
+  const [profileRows] = await pool.query(
+    `SELECT COUNT(*) AS c
+     FROM profiles
+     WHERE photo = ?
+       AND id <> ?`,
+    [imageUrl, userId]
+  );
+  if (Number(profileRows?.[0]?.c || 0) > 0) return true;
+
+  const [committeeRows] = await pool.query(
+    `SELECT COUNT(*) AS c
+     FROM committee_members
+     WHERE photo_url = ?`,
+    [imageUrl]
+  );
+  return Number(committeeRows?.[0]?.c || 0) > 0;
+}
+
 const FIXED_COLLEGE_NAME = "Hamdard Public Collage";
 
 const REGISTER_FACULTY_MAP = {
@@ -1137,7 +1157,10 @@ router.put("/profile", requireAuth, profilePutMultipartMaybe, async (req, res) =
     }
 
     if (photoWasProvided && oldPhotoUrl && oldPhotoUrl !== nextPhotoUrl) {
-      await deleteCloudinaryImageByUrl(oldPhotoUrl);
+      const stillUsed = await isImageUrlReferencedElsewhere(pool, oldPhotoUrl, req.auth.userId);
+      if (!stillUsed) {
+        await deleteCloudinaryImageByUrl(oldPhotoUrl);
+      }
     }
 
     const [userRows] = await pool.query(`SELECT * FROM users WHERE id = ? LIMIT 1`, [req.auth.userId]);

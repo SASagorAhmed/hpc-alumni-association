@@ -118,13 +118,10 @@ const CommitteeSection = ({ showAll = false }: { showAll?: boolean }) => {
   if (!presidentMember && otherMembers.length === 0) return null;
   const displayCount = showAll ? otherMembers.length : visibleCount;
   const isLegacyMobile = legacyW < 540;
-  const legacyMobileZoom = isLegacyMobile && legacyW < MOBILE_REF_W ? legacyW / MOBILE_REF_W : 1;
-  const legacyMobileZoomStyle =
-    isLegacyMobile && legacyMobileZoom < 1 && !isIosSafariViewport()
-      ? ({ zoom: legacyMobileZoom } as CSSProperties)
-      : undefined;
-  // Always render 2-column cards on mobile; zoom scaling already keeps it fitting.
-  const legacyTwoColMobile = isLegacyMobile;
+  // Keep native font size on phones; avoid zoom shrinking.
+  const legacyMobileZoomStyle = undefined;
+  // Mobile readability: render one card per row.
+  const legacyTwoColMobile = false;
 
   return (
     <section id="committee" className="relative overflow-hidden border-t border-border/60 bg-background py-10 sm:py-16">

@@ -8,6 +8,7 @@ import { Settings, Shield, UserPlus, Loader2 } from "lucide-react";
 import { API_BASE_URL } from "@/api-production/api.js";
 import { getAuthToken } from "@/lib/authToken";
 import { toast } from "sonner";
+import BrokenPhotoScanCard from "@/components/admin/BrokenPhotoScanCard";
 
 type AdminRow = {
   id: string;
@@ -165,6 +166,8 @@ const AdminSettings = () => {
           </div>
         </CardContent>
       </Card>
+
+      <BrokenPhotoScanCard />
 
       <div className="grid gap-4">
         {comingSoonSections.map((section) => (

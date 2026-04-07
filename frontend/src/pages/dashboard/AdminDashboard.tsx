@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Users, Vote, Award, CalendarDays, FileText, Bell, Shield, Settings, ClipboardList, UserCheck, Trophy, FolderOpen, ScrollText, UserPlus } from "lucide-react";
 import { API_BASE_URL } from "@/api-production/api.js";
 import { getAuthToken } from "@/lib/authToken";
+import BrokenPhotoScanCard from "@/components/admin/BrokenPhotoScanCard";
 
 
 const AdminDashboard = () => {
@@ -179,6 +180,8 @@ const AdminDashboard = () => {
             ) : null}
           </CardContent>
         </Card>
+
+        <BrokenPhotoScanCard compact />
     </div>
   );
 };

@@ -5,16 +5,35 @@
 @layer base {
   html {
     scroll-behavior: smooth;
-    font-size: 16px;
+    font-size: 17px;
   }
 
-  /* Desktop 1025–1440 and tablet: slightly smaller root; large desktop 1441+ stays 16px */
-  @media (max-width: 1440px) {
-    html { font-size: 15px; }
+  /*
+   * Keep typography readable on all screens (including 27"+ monitors)
+   * without requiring browser zoom.
+   */
+  @media (min-width: 1920px) {
+    html { font-size: 18px; }
+  }
+
+  @media (min-width: 2560px) {
+    html { font-size: 19px; }
+  }
+
+  @media (max-width: 1600px) {
+    html { font-size: 16.5px; }
+  }
+
+  @media (max-width: 1280px) {
+    html { font-size: 16px; }
   }
 
   @media (max-width: 1024px) {
-    html { font-size: 14.5px; }
+    html { font-size: 15.5px; }
+  }
+
+  @media (max-width: 640px) {
+    html { font-size: 15px; }
   }
 
   section[id] {
@@ -701,6 +720,7 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-family: 'Public Sans', system-ui, -apple-system, sans-serif;
+    overflow-x: hidden;
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -712,11 +732,26 @@
 @layer utilities {
   .layout-container {
     width: 100%;
-    max-width: 1440px;
+    max-width: none;
     margin-left: auto;
     margin-right: auto;
-    padding-left: clamp(0.875rem, 2.4vw, 1.5rem);
-    padding-right: clamp(0.875rem, 2.4vw, 1.5rem);
+    padding-left: clamp(1rem, 2.2vw, 2.75rem);
+    padding-right: clamp(1rem, 2.2vw, 2.75rem);
+  }
+
+  /* Ultra-wide spacing polish for 24–32" monitors */
+  @media (min-width: 1920px) {
+    .layout-container {
+      padding-left: clamp(2rem, 4vw, 6rem);
+      padding-right: clamp(2rem, 4vw, 6rem);
+    }
+  }
+
+  @media (min-width: 2560px) {
+    .layout-container {
+      padding-left: clamp(2.5rem, 6vw, 10rem);
+      padding-right: clamp(2.5rem, 6vw, 10rem);
+    }
   }
 
   /* Responsive landing typography (fluid with viewport; caps on large screens) */
@@ -786,17 +821,45 @@
     line-height: 1.2;
   }
 
+  /* Navbar typography +10% (desktop + mobile) without layout/infrastructure changes */
+  [data-navbar-text-scale="1.1"] .fs-nav,
+  [data-navbar-text-scale="1.1"] .fs-ui {
+    font-size: calc(1em * 1.1);
+  }
+  [data-navbar-text-scale="1.1"] .nav-brand-title {
+    font-size: calc(1em * 1.012);
+  }
+  [data-navbar-text-scale="1.1"] .nav-brand-subtitle {
+    font-size: calc(1em * 1.012);
+  }
+  /* Only navbar button text: decrease by 10% */
+  [data-navbar-text-scale="1.1"] .topnav-btn-text {
+    font-size: calc(1em * 0.9);
+  }
+
+  /* Card typography +10% globally (cards only) */
+  .card-text-scale .text-xs { font-size: calc(0.75rem * 1.1); }
+  .card-text-scale .text-sm { font-size: calc(0.875rem * 1.1); }
+  .card-text-scale .text-base { font-size: calc(1rem * 1.1); }
+  .card-text-scale .text-lg { font-size: calc(1.125rem * 1.1); }
+  .card-text-scale .text-xl { font-size: calc(1.25rem * 1.1); }
+  .card-text-scale .text-2xl { font-size: calc(1.5rem * 1.1); }
+  .card-text-scale .text-3xl { font-size: calc(1.875rem * 1.1); }
+  .card-text-scale .fs-ui { font-size: calc(1em * 1.1); }
+  .card-text-scale .fs-card-title { font-size: calc(1em * 1.1); }
+  .card-text-scale .fs-card-title-lg { font-size: calc(1em * 1.1); }
+
   /**
    * Landing page (except achievement banner): ~15% smaller type + icons vs default.
    * Navbar + AchievementBanner stay outside `.landing-copy-scale`. Cards use the same scale.
    */
   .landing-copy-scale {
-    --fs-landing-mult: 0.85;
+    --fs-landing-mult: 0.935; /* +10% from previous 0.85 */
   }
 
   /* Lucide / SVG icons inside scaled landing content */
   .landing-copy-scale svg {
-    transform: scale(0.85);
+    transform: scale(0.935);
     transform-origin: center;
   }
 
@@ -804,6 +867,22 @@
   .landing-copy-scale #committee svg {
     transform: none;
   }
+
+  /* Landing exception: keep card typography/icons at previous scale (no +10% in cards). */
+  .landing-copy-scale .card-text-scale {
+    --fs-landing-mult: 0.85;
+  }
+  .landing-copy-scale .card-text-scale svg {
+    transform: scale(0.85);
+    transform-origin: center;
+  }
+  .landing-copy-scale .card-text-scale .text-xs { font-size: calc(0.75rem * 0.85); }
+  .landing-copy-scale .card-text-scale .text-sm { font-size: calc(0.875rem * 0.85); }
+  .landing-copy-scale .card-text-scale .text-base { font-size: calc(1rem * 0.85); }
+  .landing-copy-scale .card-text-scale .text-lg { font-size: calc(1.125rem * 0.85); }
+  .landing-copy-scale .card-text-scale .text-xl { font-size: calc(1.25rem * 0.85); }
+  .landing-copy-scale .card-text-scale .text-2xl { font-size: calc(1.5rem * 0.85); }
+  .landing-copy-scale .card-text-scale .text-3xl { font-size: calc(1.875rem * 0.85); }
 
   .landing-copy-scale .fs-display {
     font-size: clamp(
@@ -971,7 +1050,7 @@
    */
   @media (max-width: 1024px) {
     .landing-copy-scale {
-      --fs-landing-mult: 0.85;
+      --fs-landing-mult: 0.935; /* keep +10% on mobile/tablet too */
     }
 
     .landing-copy-scale .fs-body {

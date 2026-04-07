@@ -109,6 +109,24 @@ async function deleteCloudinaryImageByUrl(url) {
   }
 }
 
+async function isSharedCommitteeImage(pool, imageUrl, excludeMemberId = null) {
+  if (!pool || !imageUrl) return false;
+  let sql = "SELECT COUNT(*) AS c FROM committee_members WHERE photo_url = ?";
+  const params = [imageUrl];
+  if (excludeMemberId) {
+    sql += " AND id <> ?";
+    params.push(excludeMemberId);
+  }
+  const [committeeRows] = await pool.query(sql, params);
+  if (Number(committeeRows?.[0]?.c || 0) > 0) return true;
+
+  const [profileRows] = await pool.query(
+    "SELECT COUNT(*) AS c FROM profiles WHERE photo = ?",
+    [imageUrl]
+  );
+  return Number(profileRows?.[0]?.c || 0) > 0;
+}
+
 async function requireAdmin(pool, userId) {
   const [rows] = await pool.query(
     "SELECT id FROM user_roles WHERE user_id = ? AND role = 'admin' LIMIT 1",
@@ -137,6 +155,137 @@ async function withAdminAndBoardSection(req, res) {
   await ensureCommitteePostsBoardSectionColumn(pool);
   return pool;
 }
+
+async function checkImageUrlStatus(url) {
+  const target = String(url || "").trim();
+  if (!target) return { ok: false, status: 0, reason: "empty" };
+  if (!/^https?:\/\//i.test(target)) return { ok: false, status: 0, reason: "invalid_url" };
+  try {
+    const signal =
+      typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function"
+        ? AbortSignal.timeout(10000)
+        : undefined;
+    const res = await fetch(target, {
+      method: "HEAD",
+      redirect: "follow",
+      cache: "no-store",
+      signal,
+    });
+    return { ok: res.ok, status: Number(res.status || 0), reason: res.ok ? "ok" : "http_error" };
+  } catch (e) {
+    return { ok: false, status: 0, reason: String(e?.name || "network_error") };
+  }
+}
+
+router.get("/photos/broken", requireAuth, async (req, res) => {
+  try {
+    const pool = await withAdmin(req, res);
+    if (!pool) return;
+
+    const includeNonCloudinary = String(req.query.include_non_cloudinary || "").trim() === "1";
+    const maxUrls = Math.min(Math.max(parseInt(String(req.query.limit || "400"), 10) || 400, 1), 1500);
+
+    const [profileRows] = await pool.query(
+      `SELECT p.id, p.name, p.registration_number, p.photo
+       FROM profiles p
+       WHERE p.photo IS NOT NULL
+         AND TRIM(p.photo) <> ''`
+    );
+    const [committeeRows] = await pool.query(
+      `SELECT cm.id, cm.name, cm.alumni_id, cm.photo_url
+       FROM committee_members cm
+       WHERE cm.photo_url IS NOT NULL
+         AND TRIM(cm.photo_url) <> ''`
+    );
+
+    const urlRefs = new Map();
+    const cloudinaryHost = "res.cloudinary.com/";
+
+    function addRef(url, ref) {
+      const u = String(url || "").trim();
+      if (!u) return;
+      if (!includeNonCloudinary && !u.includes(cloudinaryHost)) return;
+      if (!urlRefs.has(u)) urlRefs.set(u, []);
+      urlRefs.get(u).push(ref);
+    }
+
+    for (const p of profileRows || []) {
+      addRef(p.photo, {
+        type: "profile",
+        id: p.id,
+        name: p.name || null,
+        alumni_id: p.registration_number || null,
+      });
+    }
+    for (const m of committeeRows || []) {
+      addRef(m.photo_url, {
+        type: "committee_member",
+        id: m.id,
+        name: m.name || null,
+        alumni_id: m.alumni_id || null,
+      });
+    }
+
+    const uniqueUrls = Array.from(urlRefs.keys()).slice(0, maxUrls);
+    const broken = [];
+    for (const url of uniqueUrls) {
+      const chk = await checkImageUrlStatus(url);
+      if (!chk.ok) {
+        broken.push({
+          url,
+          status: chk.status,
+          reason: chk.reason,
+          refs: urlRefs.get(url) || [],
+        });
+      }
+    }
+
+    const affectedProfiles = [];
+    const affectedCommitteeMembers = [];
+    for (const b of broken) {
+      for (const r of b.refs) {
+        if (r.type === "profile") {
+          affectedProfiles.push({
+            profile_id: r.id,
+            name: r.name,
+            alumni_id: r.alumni_id,
+            broken_url: b.url,
+            status: b.status,
+            reason: b.reason,
+          });
+        } else {
+          affectedCommitteeMembers.push({
+            member_id: r.id,
+            name: r.name,
+            alumni_id: r.alumni_id,
+            broken_url: b.url,
+            status: b.status,
+            reason: b.reason,
+          });
+        }
+      }
+    }
+
+    return res.status(200).json({
+      ok: true,
+      scanned: {
+        unique_urls_considered: uniqueUrls.length,
+        profile_rows: (profileRows || []).length,
+        committee_rows: (committeeRows || []).length,
+      },
+      summary: {
+        broken_url_count: broken.length,
+        affected_profile_count: affectedProfiles.length,
+        affected_committee_member_count: affectedCommitteeMembers.length,
+      },
+      affected_profiles: affectedProfiles,
+      affected_committee_members: affectedCommitteeMembers,
+      broken_urls: broken,
+    });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message || "Failed to scan broken photos" });
+  }
+});
 
 // ---------- Terms ----------
 router.get("/committee/terms", requireAuth, async (req, res) => {
@@ -1047,12 +1196,15 @@ router.put("/committee/members/:id", requireAuth, async (req, res) => {
 
     // If admin changed photo_url, delete the previous Cloudinary asset.
     if (photoWasProvided && oldPhotoUrl && oldPhotoUrl !== nextPhotoUrl) {
-      const oldPublicId = extractCloudinaryPublicIdFromUrl(oldPhotoUrl);
-      if (oldPublicId) {
-        try {
-          await cloudinary.uploader.destroy(oldPublicId, { resource_type: "image" });
-        } catch (e) {
-          console.error("[admin] Failed to delete old committee member photo", e?.message || e);
+      const stillUsed = await isSharedCommitteeImage(pool, oldPhotoUrl, memberId);
+      if (!stillUsed) {
+        const oldPublicId = extractCloudinaryPublicIdFromUrl(oldPhotoUrl);
+        if (oldPublicId) {
+          try {
+            await cloudinary.uploader.destroy(oldPublicId, { resource_type: "image" });
+          } catch (e) {
+            console.error("[admin] Failed to delete old committee member photo", e?.message || e);
+          }
         }
       }
     }
@@ -1088,7 +1240,11 @@ router.delete("/committee/members/:id", requireAuth, async (req, res) => {
       [req.params.id]
     );
     const alumniId = rows?.[0]?.alumni_id;
-    await deleteCloudinaryImageByUrl(rows?.[0]?.photo_url || null);
+    const oldPhotoUrl = rows?.[0]?.photo_url || null;
+    const isShared = await isSharedCommitteeImage(pool, oldPhotoUrl, req.params.id);
+    if (!isShared) {
+      await deleteCloudinaryImageByUrl(oldPhotoUrl);
+    }
     await pool.query("DELETE FROM committee_members WHERE id = ?", [req.params.id]);
     if (alumniId) await recomputeAdminCommitteeDesignationForAlumniId(pool, String(alumniId));
     res.status(200).json({ ok: true });

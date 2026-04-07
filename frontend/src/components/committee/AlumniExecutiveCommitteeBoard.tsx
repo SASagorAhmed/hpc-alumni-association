@@ -488,7 +488,7 @@ export function ExecutiveMemberCard({
     <Link
       to={href}
       aria-label={`Open profile: ${member.name}`}
-      className="block h-full w-full"
+      className="block w-full"
       onClick={() => saveNavScrollRestore()}
     >
       <motion.div
@@ -865,7 +865,7 @@ export function MobileMemberCard({
     <Link
       to={href}
       aria-label={`Open profile: ${member.name}`}
-      className="block h-full w-full"
+      className="block w-full"
       onClick={() => saveNavScrollRestore()}
     >
       <motion.div
@@ -873,114 +873,87 @@ export function MobileMemberCard({
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
         transition={{ duration: 0.5 }}
-        className="flex h-full min-w-0 cursor-pointer flex-col overflow-hidden rounded-[13px] border border-border/55 shadow-card"
+        className="flex w-full min-w-0 cursor-pointer flex-col overflow-hidden rounded-[13px] border border-border/55 shadow-card"
         style={{ background: "linear-gradient(135deg, #0a6f62 0%, #075f54 48%, #045248 100%)" }}
       >
-      <div className={cn("flex min-w-0 p-3", governingBody ? "gap-3" : "gap-2")}>
-        {/* Photo */}
-        <div className="relative h-[88px] w-[88px] shrink-0 overflow-hidden rounded-md border" style={{ borderColor: primaryBorder }}>
-          <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, hsl(var(--primary) / 0.12) 0%, transparent 60%)` }} />
-          <CommitteePhoto
-            photoUrl={member.photo_url}
-            name={member.name}
-            imgClassName="absolute inset-0 z-10 h-full w-full object-cover object-center"
-            cameraClassName="h-8 w-8"
-            primary={primary}
-            primaryTint={primaryTint}
-          />
+        {/* Top row: desktop-like proportions (photo left, details right) */}
+        <div className="grid min-w-0 grid-cols-[40%_60%] gap-2 p-2.5 sm:gap-2.5 sm:p-3">
+          <div className="relative aspect-[4/5] w-full min-w-0 overflow-hidden rounded-md border border-border/45">
+            <div className="absolute inset-0" style={{ background: "linear-gradient(135deg, hsl(var(--primary) / 0.12) 0%, transparent 60%)" }} />
+            <CommitteePhoto
+              photoUrl={member.photo_url}
+              name={member.name}
+              imgClassName="absolute inset-0 z-10 h-full w-full object-cover object-center"
+              cameraClassName="h-9 w-9"
+              primary={primary}
+              primaryTint={primaryTint}
+            />
+          </div>
+
+          <div className="min-w-0">
+            <span
+              className="inline-flex w-fit items-center rounded-full border px-2 py-0.5 text-[10px] font-bold"
+              style={{ backgroundColor: primaryTint, borderColor: primaryBorder, color: primary }}
+            >
+              {badgeText}
+            </span>
+
+            <h3
+              className="mt-1 break-words font-bold leading-tight [overflow-wrap:anywhere]"
+              style={{
+                fontFamily: "'Cinzel', Georgia, serif",
+                fontSize: "clamp(0.95rem, 2.6vw, 1.125rem)",
+                fontWeight: 900,
+                letterSpacing: "0.02em",
+                color: "#FFB347",
+              }}
+            >
+              {member.name}
+            </h3>
+
+            <span
+              className="mt-1 inline-flex w-fit max-w-full min-w-0 shrink-0 self-start items-center break-words rounded-full border px-2.5 py-0.5 text-xs font-semibold [overflow-wrap:anywhere]"
+              style={{
+                backgroundColor: "rgba(251, 146, 60, 0.25)",
+                borderColor: "rgba(253, 224, 71, 0.65)",
+                color: "#FFF7D6",
+                textShadow: "0 1px 4px rgba(0,0,0,0.55)",
+              }}
+            >
+              {role}
+            </span>
+
+            <div
+              className="mt-1.5 flex min-w-0 flex-col gap-y-0.5 text-[12.5px] leading-snug"
+              style={{ fontFamily: "Georgia, 'Times New Roman', serif", color: "#FFFFFF" }}
+            >
+              <span className="inline-flex min-w-0 items-start gap-1.5">
+                <Hash className="mt-0.5 h-4 w-4 shrink-0" style={{ color: "#FFFFFF" }} />
+                <span className="min-w-0 break-words [overflow-wrap:anywhere]"><span className="font-semibold">Alumni Id: </span>{member.alumni_id ?? "N/A"}</span>
+              </span>
+              <span className="inline-flex min-w-0 items-start gap-1.5">
+                <GraduationCap className="mt-0.5 h-4 w-4 shrink-0" style={{ color: "#FFFFFF" }} />
+                <span className="min-w-0 break-words [overflow-wrap:anywhere]"><span className="font-semibold">Batch: </span>{member.batch ?? "N/A"}</span>
+              </span>
+              <span className="inline-flex min-w-0 items-start gap-1.5">
+                <Briefcase className="mt-0.5 h-4 w-4 shrink-0" style={{ color: "#FFFFFF" }} />
+                <span className="min-w-0 break-words [overflow-wrap:anywhere]"><span className="font-semibold">Profession: </span>{member.profession ?? "N/A"}</span>
+              </span>
+              <span className="inline-flex min-w-0 items-start gap-1.5">
+                <Building2 className="mt-0.5 h-4 w-4 shrink-0" style={{ color: "#FFFFFF" }} />
+                <span className="min-w-0 break-words [overflow-wrap:anywhere]"><span className="font-semibold">University: </span>{member.institution ?? "N/A"}</span>
+              </span>
+              <span className="inline-flex min-w-0 items-start gap-1.5">
+                <GraduationCap className="mt-0.5 h-4 w-4 shrink-0" style={{ color: "#FFFFFF" }} />
+                <span className="min-w-0 break-words [overflow-wrap:anywhere]"><span className="font-semibold">College: </span>{member.college_name || "N/A"}</span>
+              </span>
+            </div>
+          </div>
         </div>
-
-        {/* Info */}
-        <div className="flex min-w-0 flex-1 flex-col gap-1 pt-0.5">
-          <span
-            className="inline-flex w-fit items-center rounded-full border px-2 py-0.5 text-[11px] font-bold"
-            style={{ backgroundColor: primaryTint, borderColor: primaryBorder, color: primary }}
-          >
-            {badgeText}
-          </span>
-          <h3
-            className={cn(
-              "break-words font-bold leading-tight text-foreground [overflow-wrap:anywhere]",
-              governingBody ? "text-base" : "text-sm"
-            )}
-            style={{
-              fontFamily: "'Cinzel', Georgia, serif",
-              fontWeight: 900,
-              letterSpacing: "0.02em",
-              color: "#FFB347",
-            }}
-          >
-            {member.name}
-          </h3>
-          <span
-            className="inline-flex w-fit max-w-full min-w-0 shrink-0 self-start items-center break-words rounded-full border px-2.5 py-0.5 text-xs font-semibold [overflow-wrap:anywhere]"
-            style={{
-              backgroundColor: "rgba(251, 146, 60, 0.25)",
-              borderColor: "rgba(253, 224, 71, 0.65)",
-              color: "#FFF7D6",
-              textShadow: "0 1px 4px rgba(0,0,0,0.55)",
-            }}
-          >
-            {role}
-          </span>
-        </div>
-      </div>
-
-      {/* Bottom fields (serially in one column) */}
-      <div
-        className="mx-3 mb-2 flex min-w-0 flex-col gap-0.5 text-xs"
-        style={{ fontFamily: "Georgia, 'Times New Roman', serif", color: "#FFFFFF" }}
-      >
-        <span className="inline-flex min-w-0 items-start gap-1.5">
-          <Hash className="mt-0.5 h-3 w-3 shrink-0" style={{ color: "#FFFFFF" }} />
-          <span className="min-w-0 break-words [overflow-wrap:anywhere]">
-            <span className="font-semibold" style={{ color: "#FFFFFF" }}>Alumni Id: </span>
-            {member.alumni_id ?? "N/A"}
-          </span>
-        </span>
-
-        <span className="inline-flex min-w-0 items-start gap-1.5">
-          <GraduationCap className="mt-0.5 h-3 w-3 shrink-0" style={{ color: "#FFFFFF" }} />
-          <span className="min-w-0 break-words [overflow-wrap:anywhere]">
-            <span className="font-semibold" style={{ color: "#FFFFFF" }}>Batch: </span>
-            {member.batch ?? "N/A"}
-          </span>
-        </span>
-
-        <span className="inline-flex min-w-0 items-start gap-1.5">
-          <Briefcase className="mt-0.5 h-3 w-3 shrink-0" style={{ color: "#FFFFFF" }} />
-          <span className="min-w-0 break-words [overflow-wrap:anywhere]">
-            <span className="font-semibold" style={{ color: "#FFFFFF" }}>Profession: </span>
-            {member.profession ?? "N/A"}
-          </span>
-        </span>
-      </div>
-
-      {/* College/University shown without bordered box */}
-          <div
-            className="mx-3 mb-2 flex min-w-0 flex-col gap-0.5 text-xs"
-            style={{ fontFamily: "Georgia, 'Times New Roman', serif", color: "#FFFFFF" }}
-          >
-        <span className="inline-flex min-w-0 items-start gap-1.5">
-              <GraduationCap className="mt-0.5 h-3 w-3 shrink-0" style={{ color: "#FFFFFF" }} />
-          <span className="min-w-0 break-words [overflow-wrap:anywhere]">
-                <span className="font-semibold" style={{ color: "#FFFFFF" }}>College: </span>
-            {member.college_name || "N/A"}
-          </span>
-        </span>
-
-        <span className="inline-flex min-w-0 items-start gap-1.5">
-              <Building2 className="mt-0.5 h-3 w-3 shrink-0" style={{ color: "#FFFFFF" }} />
-          <span className="min-w-0 break-words text-[10px] leading-snug [overflow-wrap:anywhere]">
-                <span className="font-semibold" style={{ color: "#FFFFFF" }}>Uni: </span>
-            {member.institution ?? "N/A"}
-          </span>
-        </span>
-      </div>
 
       {wishingText && (
         <div
-          className="mx-3 mb-2 mt-auto min-w-0 rounded-md border p-2.5"
+          className="mx-3 mb-2 mt-0 min-w-0 rounded-md border p-2.5"
           style={governingBody ? WISHING_BOX_GOVERNING : WISHING_BOX_OTHER}
         >
           <p className="text-[10px] font-semibold" style={{ color: "#000000" }}>
@@ -998,7 +971,7 @@ export function MobileMemberCard({
         </div>
       )}
 
-      <div className="pb-3" />
+      <div className="pb-2" />
     </motion.div>
     </Link>
   );
@@ -1105,9 +1078,10 @@ export function AlumniExecutiveCommitteeBoard({
   showAll?: boolean;
   compactIntro?: boolean;
 }) {
-  const [openExecutive, setOpenExecutive] = useState(showAll);
-  const [openHeads, setOpenHeads] = useState(showAll);
-  const [openMembers, setOpenMembers] = useState(showAll);
+  // Keep sections visible by default so uploaded members appear immediately on all screens.
+  const [openExecutive, setOpenExecutive] = useState(true);
+  const [openHeads, setOpenHeads] = useState(true);
+  const [openMembers, setOpenMembers] = useState(true);
 
   useEffect(() => {
     if (showAll) {
@@ -1213,10 +1187,10 @@ export function AlumniExecutiveCommitteeBoard({
   };
 
   const isMobile = boardW < BREAKPOINT_TABLET_MIN;
-  const twoColMobile = isMobile;
-  const mobileZoom = isMobile && boardW < MOBILE_REF_W ? boardW / MOBILE_REF_W : 1;
-  const mobileGridZoomStyle =
-    isMobile && mobileZoom < 1 && !isIosSafariViewport() ? ({ zoom: mobileZoom } as CSSProperties) : undefined;
+  // Mobile readability: always render single-column cards.
+  const twoColMobile = false;
+  // Do NOT zoom-shrink mobile cards; it makes text unreadable.
+  const mobileGridZoomStyle = undefined;
 
   const renderRevealBar = (sec: CollapsibleSection, colSpan2: boolean) => {
     const items = sectionItemsFor(withSerial, sec);
@@ -1288,9 +1262,9 @@ export function AlumniExecutiveCommitteeBoard({
   const renderMobileCollapsible = (sec: CollapsibleSection) => {
     const count = sectionItemsFor(withSerial, sec).length;
     if (count === 0) return null;
-    if (!sectionIsOpen(sec) && !showAll) return renderRevealBar(sec, true);
     const meta = BOARD_SECTION_LABELS[sec];
     const items = sectionItemsFor(withSerial, sec);
+    const isOpen = sectionIsOpen(sec);
     return (
       <Fragment key={sec}>
         <div className={twoColMobile ? "col-span-2" : undefined}>
@@ -1305,19 +1279,36 @@ export function AlumniExecutiveCommitteeBoard({
                 <h3 className="text-sm font-bold tracking-wide text-foreground/80">{meta.title}</h3>
                 {meta.subtitle ? <p className="mt-0.5 text-xs text-muted-foreground">{meta.subtitle}</p> : null}
               </div>
-              <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground transition-transform duration-200 group-hover:text-primary rotate-180" />
+              <ChevronDown
+                className={cn(
+                  "h-5 w-5 shrink-0 text-muted-foreground transition-transform duration-200 group-hover:text-primary",
+                  isOpen ? "rotate-180" : "rotate-0"
+                )}
+              />
             </div>
           </button>
         </div>
-        {items.map((item) => (
-          <MobileMemberCard
-            key={item.row.id}
-            member={committeeRowToDBMember(item.row)}
-            serial={item.serial}
-            postTitle={item.postTitle}
-          />
-        ))}
-        {!showAll ? (
+        {isOpen
+          ? items.map((item) => {
+              const forceSingleColumnOnMobile = sec === "committee_members" && twoColMobile;
+              const card = (
+                <MobileMemberCard
+                  key={item.row.id}
+                  member={committeeRowToDBMember(item.row)}
+                  serial={item.serial}
+                  postTitle={item.postTitle}
+                />
+              );
+              return forceSingleColumnOnMobile ? (
+                <div key={`single-${item.row.id}`} className="col-span-2">
+                  {card}
+                </div>
+              ) : (
+                card
+              );
+            })
+          : null}
+        {!showAll && isOpen ? (
           <div className={cn(twoColMobile && "col-span-2", "flex justify-center pb-1 pt-1")}>
             <button
               type="button"
