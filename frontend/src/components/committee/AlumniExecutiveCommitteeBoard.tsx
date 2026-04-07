@@ -877,8 +877,8 @@ export function MobileMemberCard({
         style={{ background: "linear-gradient(135deg, #0a6f62 0%, #075f54 48%, #045248 100%)" }}
       >
         {/* Top row: desktop-like proportions (photo left, details right) */}
-        <div className="grid min-w-0 grid-cols-[40%_60%] gap-2 p-2.5 sm:gap-2.5 sm:p-3">
-          <div className="relative aspect-[4/5] w-full min-w-0 overflow-hidden rounded-md border border-border/45">
+        <div className="grid min-w-0 grid-cols-[34%_66%] gap-2 p-2.5 max-[360px]:grid-cols-[31%_69%] max-[360px]:gap-1.5 max-[360px]:p-2 sm:gap-2.5 sm:p-3">
+          <div className="relative aspect-[3/4] w-full min-w-0 max-w-full overflow-hidden rounded-md border border-border/45">
             <div className="absolute inset-0" style={{ background: "linear-gradient(135deg, hsl(var(--primary) / 0.12) 0%, transparent 60%)" }} />
             <CommitteePhoto
               photoUrl={member.photo_url}
@@ -892,17 +892,17 @@ export function MobileMemberCard({
 
           <div className="min-w-0">
             <span
-              className="inline-flex w-fit items-center rounded-full border px-2 py-0.5 text-[10px] font-bold"
+              className="inline-flex w-fit items-center rounded-full border px-2 py-0.5 text-[10px] font-bold max-[360px]:px-1.5 max-[360px]:text-[9px]"
               style={{ backgroundColor: primaryTint, borderColor: primaryBorder, color: primary }}
             >
               {badgeText}
             </span>
 
             <h3
-              className="mt-1 break-words font-bold leading-tight [overflow-wrap:anywhere]"
+              className="mt-1 break-words font-bold leading-tight [overflow-wrap:anywhere] max-[360px]:mt-0.5"
               style={{
                 fontFamily: "'Cinzel', Georgia, serif",
-                fontSize: "clamp(0.95rem, 2.6vw, 1.125rem)",
+                fontSize: "clamp(0.875rem, 2.5vw, 1.1rem)",
                 fontWeight: 900,
                 letterSpacing: "0.02em",
                 color: "#FFB347",
@@ -912,7 +912,7 @@ export function MobileMemberCard({
             </h3>
 
             <span
-              className="mt-1 inline-flex w-fit max-w-full min-w-0 shrink-0 self-start items-center break-words rounded-full border px-2.5 py-0.5 text-xs font-semibold [overflow-wrap:anywhere]"
+              className="mt-1 inline-flex w-fit max-w-full min-w-0 shrink-0 self-start items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold max-[360px]:mt-0.5 max-[360px]:px-2 max-[360px]:text-[10px]"
               style={{
                 backgroundColor: "rgba(251, 146, 60, 0.25)",
                 borderColor: "rgba(253, 224, 71, 0.65)",
@@ -924,28 +924,28 @@ export function MobileMemberCard({
             </span>
 
             <div
-              className="mt-1.5 flex min-w-0 flex-col gap-y-0.5 text-[12.5px] leading-snug"
+              className="mt-1.5 flex min-w-0 flex-col gap-y-0.5 text-[12.5px] leading-snug max-[360px]:mt-1 max-[360px]:text-[11px]"
               style={{ fontFamily: "Georgia, 'Times New Roman', serif", color: "#FFFFFF" }}
             >
               <span className="inline-flex min-w-0 items-start gap-1.5">
-                <Hash className="mt-0.5 h-4 w-4 shrink-0" style={{ color: "#FFFFFF" }} />
-                <span className="min-w-0 break-words [overflow-wrap:anywhere]"><span className="font-semibold">Alumni Id: </span>{member.alumni_id ?? "N/A"}</span>
+                <Hash className="mt-0.5 h-4 w-4 shrink-0 max-[360px]:h-3.5 max-[360px]:w-3.5" style={{ color: "#FFFFFF" }} />
+                <span className="min-w-0 break-words [overflow-wrap:break-word]"><span className="font-semibold">Alumni Id: </span>{member.alumni_id ?? "N/A"}</span>
               </span>
               <span className="inline-flex min-w-0 items-start gap-1.5">
-                <GraduationCap className="mt-0.5 h-4 w-4 shrink-0" style={{ color: "#FFFFFF" }} />
-                <span className="min-w-0 break-words [overflow-wrap:anywhere]"><span className="font-semibold">Batch: </span>{member.batch ?? "N/A"}</span>
+                <GraduationCap className="mt-0.5 h-4 w-4 shrink-0 max-[360px]:h-3.5 max-[360px]:w-3.5" style={{ color: "#FFFFFF" }} />
+                <span className="min-w-0 break-words [overflow-wrap:break-word]"><span className="font-semibold">Batch: </span>{member.batch ?? "N/A"}</span>
               </span>
               <span className="inline-flex min-w-0 items-start gap-1.5">
-                <Briefcase className="mt-0.5 h-4 w-4 shrink-0" style={{ color: "#FFFFFF" }} />
-                <span className="min-w-0 break-words [overflow-wrap:anywhere]"><span className="font-semibold">Profession: </span>{member.profession ?? "N/A"}</span>
+                <Briefcase className="mt-0.5 h-4 w-4 shrink-0 max-[360px]:h-3.5 max-[360px]:w-3.5" style={{ color: "#FFFFFF" }} />
+                <span className="min-w-0 break-words [overflow-wrap:break-word]"><span className="font-semibold">Profession: </span>{member.profession ?? "N/A"}</span>
               </span>
               <span className="inline-flex min-w-0 items-start gap-1.5">
-                <Building2 className="mt-0.5 h-4 w-4 shrink-0" style={{ color: "#FFFFFF" }} />
-                <span className="min-w-0 break-words [overflow-wrap:anywhere]"><span className="font-semibold">University: </span>{member.institution ?? "N/A"}</span>
+                <Building2 className="mt-0.5 h-4 w-4 shrink-0 max-[360px]:h-3.5 max-[360px]:w-3.5" style={{ color: "#FFFFFF" }} />
+                <span className="min-w-0 break-words [overflow-wrap:break-word]"><span className="font-semibold">University: </span>{member.institution ?? "N/A"}</span>
               </span>
               <span className="inline-flex min-w-0 items-start gap-1.5">
-                <GraduationCap className="mt-0.5 h-4 w-4 shrink-0" style={{ color: "#FFFFFF" }} />
-                <span className="min-w-0 break-words [overflow-wrap:anywhere]"><span className="font-semibold">College: </span>{member.college_name || "N/A"}</span>
+                <GraduationCap className="mt-0.5 h-4 w-4 shrink-0 max-[360px]:h-3.5 max-[360px]:w-3.5" style={{ color: "#FFFFFF" }} />
+                <span className="min-w-0 break-words [overflow-wrap:break-word]"><span className="font-semibold">College: </span>{member.college_name || "N/A"}</span>
               </span>
             </div>
           </div>
@@ -961,7 +961,7 @@ export function MobileMemberCard({
           </p>
           <p
             className={cn(
-              "mt-0.5 break-words text-xs leading-relaxed [overflow-wrap:anywhere]",
+              "mt-0.5 break-words text-xs leading-relaxed [overflow-wrap:anywhere] max-[360px]:text-[11px]",
               governingBody ? "text-muted-foreground italic font-normal" : "font-bold not-italic",
             )}
             style={{ color: "#000000" }}
