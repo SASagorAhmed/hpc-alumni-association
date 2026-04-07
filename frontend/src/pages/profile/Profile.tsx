@@ -15,7 +15,7 @@ import { DateOfBirthPicker } from "@/components/ui/date-of-birth-picker";
 import { buildPassingSessionOptions, isValidPassingSession } from "@/lib/passingSessionOptions";
 import type { User } from "@/contexts/AuthContext";
 
-const FIXED_COLLEGE_NAME = "Hamdard Public Collage";
+const FIXED_COLLEGE_NAME = "Hamdard Public College";
 
 const PASSING_SESSION_OPTIONS = buildPassingSessionOptions();
 
@@ -44,11 +44,13 @@ const Profile = () => {
   const [pendingPreviewUrl, setPendingPreviewUrl] = useState<string | null>(null);
   const [form, setForm] = useState({
     name: user?.name || "",
+    nickname: user?.nickname ?? "",
     phone: user?.phone || "",
     session: deriveSessionFromUser(user),
     profession: user?.profession || "",
     company: user?.company || "",
     university: user?.university || "",
+    universityShortName: user?.universityShortName ?? "",
     address: user?.address || "",
     bio: user?.bio || "",
     additionalInfo: user?.additionalInfo || "",
@@ -93,11 +95,13 @@ const Profile = () => {
     setForm((prev) => ({
       ...prev,
       name: user.name || "",
+      nickname: user.nickname ?? "",
       phone: user.phone || "",
       session: nextSession || prev.session,
       profession: user.profession || "",
       company: user.company || "",
       university: user.university || "",
+      universityShortName: user.universityShortName ?? "",
       address: user.address || "",
       bio: user.bio || "",
       additionalInfo: user.additionalInfo || "",
@@ -157,6 +161,18 @@ const Profile = () => {
       toast.error("Name is required.");
       return;
     }
+    if (!form.universityShortName.trim()) {
+      toast.error("University short name is required.");
+      return;
+    }
+    if (form.universityShortName.trim().length > 100) {
+      toast.error("University short name is too long (max 100 characters).");
+      return;
+    }
+    if (form.nickname.trim().length > 200) {
+      toast.error("Nickname is too long (max 200 characters).");
+      return;
+    }
     if (!isValidPassingSession(form.session)) {
       toast.error("Please select your session (passing year), e.g. 2020-2021.");
       return;
@@ -188,6 +204,7 @@ const Profile = () => {
     const { facebook, instagram, linkedin, ...rest } = form;
     const result = await updateProfile({
       ...rest,
+      nickname: form.nickname.trim() || null,
       socialLinks: { facebook, instagram, linkedin },
       photoFile: pendingPhotoFile || undefined,
     });
@@ -238,7 +255,7 @@ const Profile = () => {
 
       <Card className="shadow-card">
         <CardHeader>
-          <CardTitle className="text-base sm:text-lg">{user?.name}</CardTitle>
+          <CardTitle className="text-base sm:text-lg">{user?.name ?? ""}</CardTitle>
           <CardDescription className="text-xs sm:text-sm">
             {user?.email} | Batch: {user?.batch}
             {user?.session || user?.passingYear ? ` | Session: ${user.session || user.passingYear}` : ""}
@@ -309,6 +326,20 @@ const Profile = () => {
                   <Input id="name" maxLength={100} value={form.name} onChange={(e) => set("name", e.target.value)} />
                 </div>
                 <div className="space-y-1.5">
+                  <Label htmlFor="nickname">Nickname</Label>
+                  <Input
+                    id="nickname"
+                    maxLength={200}
+                    placeholder="Optional; shown only on your directory profile page"
+                    value={form.nickname}
+                    onChange={(e) => set("nickname", e.target.value)}
+                    autoComplete="nickname"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Lists and cards use your full name above. This nickname appears only on your public directory detail page.
+                  </p>
+                </div>
+                <div className="space-y-1.5">
                   <Label htmlFor="section">Section (locked)</Label>
                   <Input id="section" maxLength={2} value={sectionLetter || "—"} disabled />
                 </div>
@@ -374,8 +405,19 @@ const Profile = () => {
                   <Input id="collegeName" maxLength={150} value={FIXED_COLLEGE_NAME} disabled />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="university">University</Label>
+                  <Label htmlFor="university">University (full name)</Label>
                   <Input id="university" maxLength={150} value={form.university} onChange={(e) => set("university", e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="universityShortName">University short name *</Label>
+                  <Input
+                    id="universityShortName"
+                    maxLength={100}
+                    value={form.universityShortName}
+                    onChange={(e) => set("universityShortName", e.target.value)}
+                    placeholder="e.g. DU, BUET"
+                  />
+                  <p className="text-xs text-muted-foreground">Short label used in compact views. Required.</p>
                 </div>
               </div>
             </div>

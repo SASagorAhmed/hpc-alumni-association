@@ -43,7 +43,7 @@ const authHeaders = () => ({
   Authorization: `Bearer ${getAuthToken()}`,
 });
 
-const FIXED_COLLEGE_NAME = "Hamdard Public Collage";
+const FIXED_COLLEGE_NAME = "Hamdard Public College";
 
 interface CommitteeTerm {
   id: string;
@@ -80,6 +80,8 @@ interface CommitteeMember {
   term_id: string | null;
   post_id: string | null;
   name: string;
+  /** Optional shorter label for public committee cards */
+  name_short?: string | null;
   designation: string;
   category: string;
   batch: string | null;
@@ -92,6 +94,8 @@ interface CommitteeMember {
   candidate_number: string | null;
   college_name: string | null;
   institution: string | null;
+  /** Optional shorter label for public committee cards */
+  institution_short?: string | null;
   job_status: string | null;
   profession: string | null;
   about: string | null;
@@ -108,6 +112,7 @@ type DropdownOption = { id: string; value: string; persisted?: boolean };
 
 const emptyMemberForm = {
   name: "",
+  name_short: "",
   designation: "",
   category: "executive",
   batch: "",
@@ -120,6 +125,7 @@ const emptyMemberForm = {
   candidate_number: "",
   college_name: FIXED_COLLEGE_NAME,
   institution: "",
+  institution_short: "",
   profession: "",
   about: "",
   wishing_message: "",
@@ -435,6 +441,8 @@ const AdminCommittee = () => {
         ...memberForm,
         is_active: memberForm.is_active,
         designation: memberForm.designation || undefined,
+        name_short: String(memberForm.name_short || "").trim() || null,
+        institution_short: String(memberForm.institution_short || "").trim() || null,
         // Executive team should not store address/location, expertise, or about.
         location: null,
         expertise: null,
@@ -529,7 +537,7 @@ const AdminCommittee = () => {
       return { label: "President", outputSize: 900 };
     }
     const section = String(post.board_section || "").trim();
-    if (section === "governing_body") return { label: "Governing Body", outputSize: 760 };
+    if (section === "governing_body") return { label: "Governing Body of HPCAA", outputSize: 760 };
     if (section === "executive_committee") return { label: "Executive Committee", outputSize: 680 };
     if (section === "committee_heads") return { label: "Committee Heads", outputSize: 620 };
     return { label: "Committee Members", outputSize: 560 };
@@ -577,6 +585,7 @@ const AdminCommittee = () => {
     setEditingMember(m);
     setMemberForm({
       name: m.name,
+      name_short: m.name_short ?? "",
       designation: m.designation,
       category: m.category,
       batch: m.batch ?? "",
@@ -589,6 +598,7 @@ const AdminCommittee = () => {
       candidate_number: m.candidate_number ?? "",
       college_name: m.college_name ?? FIXED_COLLEGE_NAME,
       institution: m.institution ?? "",
+      institution_short: m.institution_short ?? "",
       profession: m.profession ?? "",
       about: m.about ?? "",
       wishing_message: (m as any).wishing_message ?? "",
@@ -749,7 +759,7 @@ const AdminCommittee = () => {
                     <div>
                       <CardTitle className="text-base">Posts</CardTitle>
                       <CardDescription className="mt-1 max-w-prose">
-                        Each post is assigned to one of four public sections (Governing Body, Executive Committee, Committee Heads,
+                        Each post is assigned to one of four public sections (Governing Body of HPCAA, Executive Committee, Committee Heads,
                         Committee Members). Titles can be Bangla or English; you can still add custom posts anytime.
                       </CardDescription>
                     </div>
@@ -919,7 +929,7 @@ const AdminCommittee = () => {
               Post: <span className="font-medium text-foreground">{importTargetPost?.title || "—"}</span>. Enter the{" "}
               <strong>Alumni ID</strong> (registration number on the member&apos;s profile). Name, photo, contact, batch,
               profession (or job title if profession is empty), and social links are copied into this committee seat. The standard &quot;Congratulations…&quot; wishing
-              block is filled automatically—<strong>Governing Body</strong> posts get the &quot;elected&quot; message; Executive Committee,
+              block is filled automatically—<strong>Governing Body of HPCAA</strong> posts get the &quot;elected&quot; message; Executive Committee,
               Committee Heads, and Committee Members get the &quot;selected as … by the governing body&quot; message (post titles may
               be translated to English where available). The alumni&apos;s profile will show this post under &quot;Committee designation&quot;
               for the current published term. Manual &quot;Add member&quot; is unchanged.
@@ -1071,6 +1081,18 @@ const AdminCommittee = () => {
                 <Label>Name *</Label>
                 <Input value={memberForm.name} onChange={(e) => setMemberForm({ ...memberForm, name: e.target.value })} />
             </div>
+              <div className="col-span-2">
+                <Label>Short name (optional)</Label>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  If the full name is too long for committee cards, use a shorter label here; cards prefer this when set.
+                </p>
+                <Input
+                  value={memberForm.name_short}
+                  onChange={(e) => setMemberForm({ ...memberForm, name_short: e.target.value })}
+                  placeholder="e.g. initials or first name"
+                  maxLength={120}
+                />
+              </div>
               <div>
                 <Label>Designation (fixed)</Label>
                 <Input value={memberForm.designation} disabled />
@@ -1224,6 +1246,18 @@ const AdminCommittee = () => {
               <div className="col-span-2">
                 <Label>University name</Label>
                 <Input value={memberForm.institution} onChange={(e) => setMemberForm({ ...memberForm, institution: e.target.value })} />
+              </div>
+              <div className="col-span-2">
+                <Label>Short university name (optional)</Label>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  If the full university name is too long on cards, use an abbreviation here; cards prefer this when set.
+                </p>
+                <Input
+                  value={memberForm.institution_short}
+                  onChange={(e) => setMemberForm({ ...memberForm, institution_short: e.target.value })}
+                  placeholder="e.g. DU, BUET"
+                  maxLength={120}
+                />
               </div>
               <div className="col-span-2">
                 <Label>College name (fixed)</Label>

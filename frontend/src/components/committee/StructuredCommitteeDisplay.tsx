@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { useAdaptiveStaticHeadingLine } from "@/components/committee/committeeAdaptiveCardText";
 import { saveNavScrollRestore } from "@/lib/navScrollRestore";
 import { motion } from "framer-motion";
 import { GraduationCap, User, Crown, Mail, Phone, Hash } from "lucide-react";
@@ -7,6 +8,8 @@ import { Camera } from "lucide-react";
 export interface CommitteeMemberRow {
   id: string;
   name: string;
+  /** Optional shorter label for cards when full name is too long */
+  name_short?: string | null;
   designation: string;
   category: string;
   batch: string | null;
@@ -15,6 +18,8 @@ export interface CommitteeMemberRow {
   email?: string | null;
   candidate_number?: string | null;
   institution: string | null;
+  /** Optional shorter label for cards when full university name is too long */
+  institution_short?: string | null;
   college_name?: string | null;
   job_status: string | null;
   profession?: string | null;
@@ -71,6 +76,11 @@ const MemberRow = ({
   postTitle?: string;
 }) => {
   const size = highlighted ? "min-w-[140px] w-[140px] h-[140px]" : "min-w-[120px] w-[120px] h-[120px]";
+  const { ref: nameTitleRef, text: nameTitleDisplay } = useAdaptiveStaticHeadingLine(
+    member.name,
+    member.name_short,
+    18
+  );
   return (
     <motion.article
       initial={{ opacity: 0, y: 10 }}
@@ -100,8 +110,13 @@ const MemberRow = ({
       </Link>
       <div className="flex min-w-0 flex-1 flex-col justify-center gap-1">
         <Link to={`/member/${member.id}`} className="group" onClick={() => saveNavScrollRestore()}>
-          <h3 className="text-lg font-bold text-foreground transition-colors group-hover:text-primary" style={{ fontFamily: "'Outfit', sans-serif" }}>
-            {member.name}
+          <h3
+            ref={nameTitleRef}
+            className="text-lg font-bold text-foreground transition-colors group-hover:text-primary"
+            style={{ fontFamily: "'Outfit', sans-serif" }}
+            title={member.name}
+          >
+            {nameTitleDisplay}
           </h3>
         </Link>
         {postTitle ? (

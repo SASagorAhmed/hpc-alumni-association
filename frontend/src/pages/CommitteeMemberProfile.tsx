@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import Navbar from "@/components/landing/Navbar";
 import Footer from "@/components/landing/Footer";
 import { inferBoardSectionFromTitle } from "@/components/committee/boardSections";
+import { displayCollegeName } from "@/lib/collegeDisplay";
 
 interface MemberProfile {
   id: string;
@@ -254,7 +255,7 @@ export default function CommitteeMemberProfile() {
                       {member.college_name && (
                         <span className="inline-flex items-center gap-1.5">
                           <GraduationCap className="h-3.5 w-3.5 shrink-0" style={{ color: primary }} />
-                          <span className="truncate"><span className="font-semibold" style={{ color: primary }}>College: </span>{member.college_name}</span>
+                          <span className="truncate"><span className="font-semibold" style={{ color: primary }}>College: </span>{displayCollegeName(member.college_name)}</span>
                         </span>
                       )}
                     </div>

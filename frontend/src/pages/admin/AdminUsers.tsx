@@ -19,12 +19,12 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-
 type ProfileRow = {
   id: string;
   email?: string | null;
   email_verified?: boolean | null;
   name: string;
+  nickname?: string | null;
   phone: string | null;
   batch: string | null;
   roll?: string | null;
@@ -38,6 +38,7 @@ type ProfileRow = {
   profession: string | null;
   company: string | null;
   university: string | null;
+  university_short_name?: string | null;
   address: string | null;
   bio: string | null;
   additional_info?: string | null;
@@ -100,6 +101,8 @@ const AdminUsers = () => {
       list = list.filter(
         (p) =>
           p.name?.toLowerCase().includes(q) ||
+          p.nickname?.toLowerCase().includes(q) ||
+          p.university_short_name?.toLowerCase().includes(q) ||
           p.batch?.toLowerCase().includes(q) ||
           p.department?.toLowerCase().includes(q) ||
           p.phone?.toLowerCase().includes(q)

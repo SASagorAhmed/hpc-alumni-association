@@ -14,7 +14,7 @@ export const BOARD_SECTION_ORDER: BoardSectionKey[] = [
 ];
 
 export const BOARD_SECTION_LABELS: Record<BoardSectionKey, { title: string; subtitle?: string }> = {
-  governing_body: { title: "Governing Body" },
+  governing_body: { title: "Governing Body of HPCAA" },
   executive_committee: { title: "Executive Committee" },
   committee_heads: { title: "Committee Heads" },
   committee_members: { title: "Committee Members", subtitle: "নির্বাহী সদস্য" },
@@ -22,7 +22,7 @@ export const BOARD_SECTION_LABELS: Record<BoardSectionKey, { title: string; subt
 
 /** Admin / forms */
 export const BOARD_SECTION_OPTIONS: { value: BoardSectionKey; label: string }[] = [
-  { value: "governing_body", label: "Governing Body (সভাপতি, মহাসচিব, …)" },
+  { value: "governing_body", label: "Governing Body of HPCAA (সভাপতি, মহাসচিব, …)" },
   { value: "executive_committee", label: "Executive Committee" },
   { value: "committee_heads", label: "Committee Heads" },
   { value: "committee_members", label: "Committee Members (নির্বাহী সদস্য)" },

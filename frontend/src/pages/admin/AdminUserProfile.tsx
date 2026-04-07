@@ -14,6 +14,7 @@ import { getAuthToken } from "@/lib/authToken";
 import { useAuth } from "@/contexts/AuthContext";
 import { PRIMARY_ADMIN_EMAIL } from "@/constants/adminAccess";
 import { ArrowLeft, Ban, CheckCircle2, Crown, History, ShieldCheck, ShieldOff, Trash2, XCircle } from "lucide-react";
+import { displayCollegeNameOrNull } from "@/lib/collegeDisplay";
 
 type ProfileEditAuditRow = {
   id: number;
@@ -25,10 +26,12 @@ type ProfileEditAuditRow = {
 
 const PROFILE_EDIT_FIELD_LABELS: Record<string, string> = {
   name: "Name",
+  nickname: "Nickname",
   phone: "Phone",
   profession: "Profession",
   company: "Company / Organization",
   university: "University",
+  university_short_name: "University short name",
   address: "Address",
   bio: "Bio",
   additional_info: "Additional information",
@@ -161,6 +164,7 @@ const AdminUserProfile = () => {
 
   const fields: Array<[string, unknown]> = [
     ["Name", profile.name],
+    ["Nickname", profile.nickname],
     ["Email", profile.email],
     ["Phone", profile.phone],
     ["Batch", profile.batch],
@@ -174,8 +178,9 @@ const AdminUserProfile = () => {
       "Session (passing year)",
       profile.session || profile.passing_year || "—",
     ],
-    ["College", profile.college_name],
-    ["University", profile.university],
+    ["College", displayCollegeNameOrNull(profile.college_name) ?? "—"],
+    ["University (full)", profile.university],
+    ["University short name", profile.university_short_name],
     ["Profession", profile.profession],
     ["Company", profile.company],
     ["Address", profile.address],

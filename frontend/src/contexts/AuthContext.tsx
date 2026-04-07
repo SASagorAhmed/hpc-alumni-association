@@ -7,6 +7,8 @@ export type UserRole = "alumni" | "admin";
 export interface User {
   id: string;
   name: string;
+  /** Optional; shown only on the public directory detail page. Lists use full name. */
+  nickname?: string | null;
   email: string;
   phone: string;
   batch: string;
@@ -24,6 +26,8 @@ export interface User {
   profession?: string;
   company?: string;
   university?: string;
+  /** Short label (e.g. DU, BUET); required at registration, editable later. */
+  universityShortName?: string | null;
   jobStatus?: string;
   jobTitle?: string;
   address?: string;
@@ -64,6 +68,7 @@ interface AuthContextType {
 
 interface RegisterData {
   name: string;
+  nickname: string;
   email: string;
   password: string;
   phone: string;
@@ -77,6 +82,8 @@ interface RegisterData {
   photoFile?: File;
   bloodGroup: string;
   university: string;
+  /** Required short form (not locked); editable in profile later. */
+  universityShortName: string;
   company: string;
   profession: string;
   address: string;
@@ -139,6 +146,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     fd.set("email", data.email);
     fd.set("password", data.password);
     fd.set("name", data.name);
+    fd.set("nickname", data.nickname.trim());
     fd.set("phone", data.phone);
     fd.set("batch", data.batch);
     fd.set("passingSession", data.passingSession || "");
@@ -148,6 +156,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     fd.set("gender", data.gender);
     fd.set("bloodGroup", data.bloodGroup);
     fd.set("university", data.university);
+    fd.set("universityShortName", data.universityShortName.trim());
     fd.set("company", data.company);
     fd.set("profession", data.profession);
     fd.set("address", data.address);

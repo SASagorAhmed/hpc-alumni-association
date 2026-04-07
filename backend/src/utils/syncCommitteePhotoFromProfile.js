@@ -46,6 +46,24 @@ function trimOrNull(v) {
   return s ? s : null;
 }
 
+/** Same columns as `ensureCommitteeMemberColumns` in admin (avoid importing admin route → circular). */
+async function ensureCommitteeMemberShortDisplayColumns(pool) {
+  const stmts = [
+    "ALTER TABLE committee_members ADD COLUMN name_short TEXT NULL",
+    "ALTER TABLE committee_members ADD COLUMN institution_short VARCHAR(120) NULL",
+  ];
+  for (const stmt of stmts) {
+    try {
+      await pool.query(stmt);
+    } catch (e) {
+      const msg = String(e?.message || "");
+      const code = e?.code ?? e?.errno;
+      if (String(code) === "1060" || msg.toLowerCase().includes("duplicate column")) continue;
+      console.error("[sync][committee] ensure short columns failed:", msg.slice(0, 200));
+    }
+  }
+}
+
 /** Matches admin committee “About winner” max word count. */
 const WINNER_ABOUT_MAX_WORDS = 250;
 
@@ -63,6 +81,7 @@ function truncateToMaxWords(text, maxWords) {
  */
 async function syncCommitteeMembersFromAlumniProfile(pool, userId) {
   if (!pool || !userId) return;
+  await ensureCommitteeMemberShortDisplayColumns(pool);
 
   const [rows] = await pool.query(
     `SELECT p.*, u.email AS user_email
@@ -86,6 +105,8 @@ async function syncCommitteeMembersFromAlumniProfile(pool, userId) {
   const profession = trimOrNull(profile.profession);
   const jobStatus = trimOrNull(profile.job_status);
   const institution = trimOrNull(profile.university);
+  const nameShort = trimOrNull(profile.nickname);
+  const institutionShort = trimOrNull(profile.university_short_name);
   const collegeName = trimOrNull(profile.college_name);
   const photoUrl = trimOrNull(profile.photo);
   const batch = trimOrNull(profile.batch);
@@ -94,11 +115,13 @@ async function syncCommitteeMembersFromAlumniProfile(pool, userId) {
   await pool.query(
     `UPDATE committee_members
      SET name = ?,
+         name_short = ?,
          phone = ?,
          email = ?,
          profession = ?,
          job_status = ?,
          institution = ?,
+         institution_short = ?,
          college_name = ?,
          photo_url = ?,
          facebook_url = ?,
@@ -107,7 +130,24 @@ async function syncCommitteeMembersFromAlumniProfile(pool, userId) {
          batch = ?,
          winner_about = ?
      WHERE UPPER(TRIM(COALESCE(alumni_id,''))) = UPPER(?)`,
-    [name, phone, email, profession, jobStatus, institution, collegeName, photoUrl, social.fb, social.ig, social.li, batch, winnerAbout, key]
+    [
+      name,
+      nameShort,
+      phone,
+      email,
+      profession,
+      jobStatus,
+      institution,
+      institutionShort,
+      collegeName,
+      photoUrl,
+      social.fb,
+      social.ig,
+      social.li,
+      batch,
+      winnerAbout,
+      key,
+    ]
   );
 }
 

@@ -61,6 +61,7 @@ const Register = () => {
   const cropObjectUrlRef = useRef<string | null>(null);
   const [form, setForm] = useState({
     name: "",
+    nickname: "",
     email: "",
     password: "",
     confirmPassword: "",
@@ -73,6 +74,7 @@ const Register = () => {
     gender: "",
     bloodGroup: "",
     university: "",
+    universityShortName: "",
     company: "",
     profession: "",
     address: "",
@@ -132,7 +134,13 @@ const Register = () => {
         });
         const body = await res.json().catch(() => ({}));
         if (cancelled || !res.ok || !body?.ok || !body?.email) return;
-        setForm((f) => ({ ...f, email: body.email, name: String(body.name || f.name || "").trim() }));
+        const prefillName = String(body.name || "").trim();
+        setForm((f) => ({
+          ...f,
+          email: body.email,
+          name: prefillName || f.name,
+          nickname: prefillName || f.nickname,
+        }));
         setGoogleRegisterMode(true);
         if (stripDraft) {
           if (fromLogin) {
@@ -187,6 +195,8 @@ const Register = () => {
   const validate = () => {
     const e: Record<string, string> = {};
     if (!form.name.trim()) e.name = "Name is required";
+    if (!form.nickname.trim()) e.nickname = "Nickname is required";
+    if (form.nickname.trim().length > 200) e.nickname = "Nickname is too long (max 200 characters)";
     if (!form.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = "Enter a valid email";
     if (form.password.length < 6) e.password = "Password must be at least 6 characters";
     if (form.password !== form.confirmPassword) e.confirmPassword = "Passwords do not match";
@@ -201,6 +211,8 @@ const Register = () => {
     if (!form.gender) e.gender = "Please select gender";
     if (form.gender === "Male" && !photoFile) e.photo = "Profile picture is required for Male";
     if (!form.university.trim()) e.university = "University is required";
+    if (!form.universityShortName.trim()) e.universityShortName = "University short name is required";
+    if (form.universityShortName.trim().length > 100) e.universityShortName = "University short name is too long (max 100 characters)";
     if (!form.profession.trim()) e.profession = "Profession is required";
     if (!form.bloodGroup) e.bloodGroup = "Blood group is required";
     if (form.birthday.trim()) {
@@ -237,6 +249,7 @@ const Register = () => {
     setLoading(true);
     const result = await register({
       name: form.name,
+      nickname: form.nickname.trim(),
       email: form.email,
       password: form.password,
       googleRegister: googleRegisterMode,
@@ -250,6 +263,7 @@ const Register = () => {
       photoFile: photoFile || undefined,
       bloodGroup: form.bloodGroup,
       university: form.university,
+      universityShortName: form.universityShortName.trim(),
       company: form.company,
       profession: form.profession,
       address: form.address,
@@ -371,6 +385,18 @@ const Register = () => {
                       <p className="text-xs text-muted-foreground">From your Google account</p>
                     ) : null}
                     {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
+                  </div>
+                  <div className="space-y-1.5 md:col-span-2">
+                    <Label htmlFor="nickname">Nickname *</Label>
+                    <Input
+                      id="nickname"
+                      maxLength={200}
+                      placeholder="Shown only on your directory profile page"
+                      value={form.nickname}
+                      onChange={(e) => setForm({ ...form, nickname: e.target.value })}
+                      autoComplete="nickname"
+                    />
+                    {errors.nickname && <p className="text-xs text-destructive">{errors.nickname}</p>}
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="password">Password *</Label>
@@ -547,9 +573,21 @@ const Register = () => {
                 <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Academic & professional</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1.5 md:col-span-2">
-                    <Label htmlFor="university">University *</Label>
+                    <Label htmlFor="university">University (full name) *</Label>
                     <Input id="university" maxLength={150} placeholder="Your university" value={form.university} onChange={(e) => setForm({ ...form, university: e.target.value })} />
                     {errors.university && <p className="text-xs text-destructive">{errors.university}</p>}
+                  </div>
+                  <div className="space-y-1.5 md:col-span-2">
+                    <Label htmlFor="universityShortName">University short name *</Label>
+                    <Input
+                      id="universityShortName"
+                      maxLength={100}
+                      placeholder="e.g. DU, BUET, NSU"
+                      value={form.universityShortName}
+                      onChange={(e) => setForm({ ...form, universityShortName: e.target.value })}
+                    />
+                    <p className="text-xs text-muted-foreground">Required abbreviation or short label. You can change this later in your profile.</p>
+                    {errors.universityShortName && <p className="text-xs text-destructive">{errors.universityShortName}</p>}
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="company">Company / Organization</Label>
@@ -617,9 +655,9 @@ const Register = () => {
                 <p className="font-semibold text-amber-900">Warning</p>
                 <p className="mt-1 text-amber-900/90">
                   After you submit registration, <strong>Department</strong>, <strong>Section</strong>, <strong>Batch</strong>,{" "}
-                  <strong>Collage ID (Roll)</strong>, and your <strong>Alumni ID</strong> are fixed and you cannot edit them later. You can
-                  change your <strong>session (passing year)</strong> anytime on your profile. Complete the
-                  rest of your profile now. Please check before you submit.
+                  <strong>Collage ID (Roll)</strong>, and your <strong>Alumni ID</strong> are fixed. You can change your{" "}
+                  <strong>session (passing year)</strong>, <strong>nickname</strong>, and <strong>university short name</strong> anytime on your
+                  profile. Complete the rest of your profile now. Please check before you submit.
                 </p>
                 <label className="mt-3 flex items-start gap-2 text-amber-900/90 cursor-pointer">
                   <input type="checkbox" checked={confirmImmutable} onChange={(e) => setConfirmImmutable(e.target.checked)} className="mt-1" />

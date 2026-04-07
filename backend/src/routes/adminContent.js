@@ -3,6 +3,7 @@ const { v4: uuidv4 } = require("uuid");
 const { ensureAchievementSettingsRow } = require("../utils/achievementSettings");
 const { ensureProfileEditAuditTable } = require("../utils/ensureProfileEditAuditTable");
 const { ensureProfileBirthdayColumn } = require("../utils/ensureProfileBirthdayColumn");
+const { ensureProfileNicknameUniShortColumns } = require("../utils/ensureProfileNicknameUniShortColumns");
 const { getOrCreatePool } = require("../db/pool");
 const { requireAuth } = require("../auth/jwt");
 const cloudinary = require("../config/cloudinary");
@@ -321,6 +322,7 @@ router.get("/users", requireAuth, async (req, res) => {
     await ensureProfileReviewNoteColumn(pool);
     await ensureProfileDirectoryVisibleColumn(pool);
     await ensureProfileBirthdayColumn(pool);
+    await ensureProfileNicknameUniShortColumns(pool);
     const [rows] = await pool.query(
       `SELECT p.*, u.email, u.email_verified,
         (SELECT COUNT(*) FROM user_roles ur WHERE ur.user_id = p.id AND ur.role = 'admin') AS admin_role_count
@@ -341,6 +343,7 @@ router.get("/users/:id", requireAuth, async (req, res) => {
     await ensureProfileReviewNoteColumn(pool);
     await ensureProfileDirectoryVisibleColumn(pool);
     await ensureProfileBirthdayColumn(pool);
+    await ensureProfileNicknameUniShortColumns(pool);
     await ensureProfileEditAuditTable(pool);
     const [rows] = await pool.query(
       `SELECT p.*, u.email, u.email_verified,

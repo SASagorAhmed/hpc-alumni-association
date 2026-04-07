@@ -16,6 +16,7 @@ const { ensureAdminCommitteeDesignationColumn } = require("../utils/ensureAdminC
 const { syncCommitteeMembersFromAlumniProfile } = require("../utils/syncCommitteePhotoFromProfile");
 const { ensureProfileEditAuditTable } = require("../utils/ensureProfileEditAuditTable");
 const { ensureProfileBirthdayColumn } = require("../utils/ensureProfileBirthdayColumn");
+const { ensureProfileNicknameUniShortColumns } = require("../utils/ensureProfileNicknameUniShortColumns");
 
 const router = express.Router();
 
@@ -140,7 +141,7 @@ async function isImageUrlReferencedElsewhere(pool, imageUrl, userId) {
   return Number(committeeRows?.[0]?.c || 0) > 0;
 }
 
-const FIXED_COLLEGE_NAME = "Hamdard Public Collage";
+const FIXED_COLLEGE_NAME = "Hamdard Public College";
 
 const REGISTER_FACULTY_MAP = {
   science: "Science",
@@ -214,6 +215,9 @@ async function getUserProfile(pool, userId) {
   return {
     id: p.id,
     name: p.name || "",
+    /** Optional display nickname; lists use `name`. */
+    nickname:
+      p.nickname != null && String(p.nickname).trim() !== "" ? String(p.nickname).trim() : null,
     email: null, // filled by caller when needed
     phone: p.phone || "",
     batch: p.batch || "",
@@ -231,6 +235,7 @@ async function getUserProfile(pool, userId) {
     profession: p.profession || null,
     company: p.company || null,
     university: p.university || null,
+    universityShortName: p.university_short_name != null && String(p.university_short_name).trim() !== "" ? String(p.university_short_name).trim() : null,
     jobStatus: p.job_status || null,
     jobTitle: p.job_title || null,
     address: p.address || null,
@@ -254,6 +259,7 @@ router.post("/register", registerLimiter, profileUpload.single("photo"), async (
     if (!pool) return res.status(503).json({ ok: false, error: "MySQL not configured" });
     await ensureProfileFacultyColumn(pool);
     await ensureProfileBirthdayColumn(pool);
+    await ensureProfileNicknameUniShortColumns(pool);
 
     const {
       email,
@@ -269,6 +275,8 @@ router.post("/register", registerLimiter, profileUpload.single("photo"), async (
       gender,
       bloodGroup,
       university,
+      universityShortName,
+      nickname,
       company,
       profession,
       address,
@@ -391,6 +399,24 @@ router.post("/register", registerLimiter, profileUpload.single("photo"), async (
       return res.status(400).json({ ok: false, error: "University is required" });
     }
 
+    const uniShortRaw = universityShortName != null ? universityShortName : req.body?.university_short_name;
+    const universityShortNorm = trimOrNull(uniShortRaw);
+    if (!universityShortNorm) {
+      return res.status(400).json({ ok: false, error: "University short name is required" });
+    }
+    if (universityShortNorm.length > 100) {
+      return res.status(400).json({ ok: false, error: "University short name is too long (max 100 characters)" });
+    }
+
+    const nameTrim = String(name || "").trim();
+    const nicknameNorm = trimOrNull(nickname);
+    if (!nicknameNorm) {
+      return res.status(400).json({ ok: false, error: "Nickname is required" });
+    }
+    if (nicknameNorm.length > 200) {
+      return res.status(400).json({ ok: false, error: "Nickname is too long (max 200 characters)" });
+    }
+
     if (!String(profession ?? "").trim()) {
       return res.status(400).json({ ok: false, error: "Profession is required" });
     }
@@ -441,17 +467,19 @@ router.post("/register", registerLimiter, profileUpload.single("photo"), async (
 
     await pool.query(
       `INSERT INTO profiles
-        (id, name, phone, batch, department, faculty, roll, registration_number,
+        (id, name, nickname, phone, batch, department, faculty, roll, registration_number,
          session, passing_year,
-         gender, photo, blood_group, birthday, college_name, university, company, profession,
+         gender, photo, blood_group, birthday, college_name, university, university_short_name, company, profession,
          address, bio, additional_info, social_links,
          verified, approved, blocked, profile_pending)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-         ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?,
+         ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+         ?, ?, ?, ?,
          false, false, false, false)`,
       [
         userId,
-        name,
+        nameTrim,
+        nicknameNorm,
         phone || null,
         batchNorm,
         dep,
@@ -466,6 +494,7 @@ router.post("/register", registerLimiter, profileUpload.single("photo"), async (
         birthdayNorm,
         FIXED_COLLEGE_NAME,
         universityNorm,
+        universityShortNorm,
         companyNorm,
         professionNorm,
         addressNorm,
@@ -758,6 +787,7 @@ router.get("/me", requireAuth, async (req, res) => {
   try {
     const pool = getOrCreatePool();
     if (!pool) return res.status(503).json({ ok: false, error: "MySQL not configured" });
+    await ensureProfileNicknameUniShortColumns(pool);
 
     const userId = req.auth.userId;
     const [userRows] = await pool.query(`SELECT * FROM users WHERE id = ? LIMIT 1`, [userId]);
@@ -947,6 +977,7 @@ router.put("/profile", requireAuth, profilePutMultipartMaybe, async (req, res) =
     const pool = getOrCreatePool();
     if (!pool) return res.status(503).json({ ok: false, error: "MySQL not configured" });
     await ensureProfileEditAuditTable(pool);
+    await ensureProfileNicknameUniShortColumns(pool);
 
     const currentProfile = await getUserProfile(pool, req.auth.userId);
     if (!currentProfile) return res.status(404).json({ ok: false, error: "Profile not found" });
@@ -964,10 +995,12 @@ router.put("/profile", requireAuth, profilePutMultipartMaybe, async (req, res) =
     // Session (passing year) is editable from the alumni profile.
     const DB_KEY_TO_PROFILE_KEY = {
       name: "name",
+      nickname: "nickname",
       phone: "phone",
       profession: "profession",
       company: "company",
       university: "university",
+      university_short_name: "universityShortName",
       address: "address",
       bio: "bio",
       additional_info: "additionalInfo",
@@ -978,10 +1011,12 @@ router.put("/profile", requireAuth, profilePutMultipartMaybe, async (req, res) =
 
     const allowed = {
       name: "name",
+      nickname: "nickname",
       phone: "phone",
       profession: "profession",
       company: "company",
       university: "university",
+      universityShortName: "university_short_name",
       address: "address",
       bio: "bio",
       additionalInfo: "additional_info",
@@ -1018,6 +1053,25 @@ router.put("/profile", requireAuth, profilePutMultipartMaybe, async (req, res) =
         return res.status(400).json({ ok: false, error: "Invalid birthday. Use a calendar date on or before today." });
       }
       body.birthday = b;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, "universityShortName")) {
+      const t = String(body.universityShortName ?? "").trim();
+      if (!t) {
+        return res.status(400).json({ ok: false, error: "University short name cannot be empty." });
+      }
+      if (t.length > 100) {
+        return res.status(400).json({ ok: false, error: "University short name is too long (max 100 characters)." });
+      }
+      body.universityShortName = t;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, "nickname")) {
+      const t = String(body.nickname ?? "").trim();
+      if (t.length > 200) {
+        return res.status(400).json({ ok: false, error: "Nickname is too long (max 200 characters)." });
+      }
+      body.nickname = t || null;
     }
 
     if (Object.prototype.hasOwnProperty.call(body, "session")) {

@@ -11,6 +11,7 @@ const { winnerAboutFromProfileBio } = require("../utils/syncCommitteePhotoFromPr
 const {
   buildGoverningDefaultWishing,
   buildOtherSectionsDefaultWishing,
+  rolePhraseForDefaultWishing,
 } = require("../utils/committeeDefaultWishing");
 
 const router = express.Router();
@@ -561,6 +562,7 @@ router.put("/committee/posts-reorder", requireAuth, async (req, res) => {
 // ---------- Members (structured) ----------
 const MEMBER_FIELDS = [
   "name",
+  "name_short",
   "designation",
   "category",
   "batch",
@@ -570,6 +572,7 @@ const MEMBER_FIELDS = [
   "candidate_number",
   "college_name",
   "institution",
+  "institution_short",
   "job_status",
   "profession",
   "location",
@@ -587,7 +590,7 @@ const MEMBER_FIELDS = [
   "post_id",
 ];
 
-const FIXED_COLLEGE_NAME = "Hamdard Public Collage";
+const FIXED_COLLEGE_NAME = "Hamdard Public College";
 
 async function ensureCommitteeDropdownTables(pool) {
   // If the user hasn't applied `schema.sql` changes yet, these tables may be missing.
@@ -639,6 +642,8 @@ async function ensureCommitteeMemberColumns(pool) {
     "ALTER TABLE committee_members ADD COLUMN college_name TEXT NULL",
     "ALTER TABLE committee_members ADD COLUMN wishing_message TEXT NULL",
     "ALTER TABLE committee_members ADD COLUMN winner_about TEXT NULL",
+    "ALTER TABLE committee_members ADD COLUMN name_short TEXT NULL",
+    "ALTER TABLE committee_members ADD COLUMN institution_short VARCHAR(120) NULL",
   ];
 
   for (const stmt of additions) {
@@ -909,6 +914,13 @@ async function translatePostTitleToEnglishForWishing(postTitle) {
   return raw;
 }
 
+/** English role for auto congratulations; president is always "President" (translation often returns "Chair"). */
+async function resolveRolePhraseForImportWishing(designation) {
+  if (rolePhraseForDefaultWishing(designation) === "President") return "President";
+  const en = await translatePostTitleToEnglishForWishing(designation);
+  return rolePhraseForDefaultWishing(en) === "President" ? "President" : en;
+}
+
 function parseProfileSocialLinks(profile) {
   let fb = null;
   let ig = null;
@@ -984,15 +996,15 @@ router.post("/committee/posts/:postId/import-from-alumni", requireAuth, async (r
     const boardSection = normalizeBoardSection(post.board_section);
     let wishingMessage = null;
     if (boardSection === "governing_body") {
-      const postTitleEn = await translatePostTitleToEnglishForWishing(designation);
-      wishingMessage = buildGoverningDefaultWishing(name, postTitleEn);
+      const rolePhrase = await resolveRolePhraseForImportWishing(designation);
+      wishingMessage = buildGoverningDefaultWishing(name, rolePhrase);
     } else if (
       boardSection === "executive_committee" ||
       boardSection === "committee_heads" ||
       boardSection === "committee_members"
     ) {
-      const postTitleEn = await translatePostTitleToEnglishForWishing(designation);
-      wishingMessage = buildOtherSectionsDefaultWishing(name, postTitleEn);
+      const rolePhrase = await resolveRolePhraseForImportWishing(designation);
+      wishingMessage = buildOtherSectionsDefaultWishing(name, rolePhrase);
     }
 
     const row = {
@@ -1009,6 +1021,8 @@ router.post("/committee/posts/:postId/import-from-alumni", requireAuth, async (r
       profession: firstNonEmptyTrimmedString(profile.profession, profile.job_title),
       job_status: profile.job_status != null ? String(profile.job_status) : null,
       institution: profile.university != null ? String(profile.university) : null,
+      name_short: firstNonEmptyTrimmedString(profile.nickname),
+      institution_short: firstNonEmptyTrimmedString(profile.university_short_name),
       photo_url: profile.photo != null ? String(profile.photo) : null,
       facebook_url: social.fb || null,
       instagram_url: social.ig || null,

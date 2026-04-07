@@ -8,10 +8,12 @@ import { ArrowLeft, Award, Briefcase, Crown, Droplets, Facebook, GraduationCap, 
 import { API_BASE_URL } from "@/api-production/api.js";
 import { AlumniPhotoLightbox } from "@/components/alumni/AlumniPhotoLightbox";
 import { cn } from "@/lib/utils";
+import { displayCollegeNameOrNull } from "@/lib/collegeDisplay";
 
 interface AlumniProfile {
   id: string;
   name: string;
+  nickname?: string | null;
   photo: string | null;
   batch: string | null;
   roll: string | null;
@@ -20,6 +22,7 @@ interface AlumniProfile {
   department: string | null;
   faculty: string | null;
   university: string | null;
+  university_short_name?: string | null;
   job_status: string | null;
   job_title: string | null;
   company: string | null;
@@ -124,10 +127,12 @@ const DirectoryProfile = () => {
                 {selected.blood_group}
               </Badge>
             ) : null}
-            {selected.university ? (
+            {selected.university_short_name || selected.university ? (
               <Badge variant="secondary" className="max-w-full min-w-0 whitespace-normal py-1 text-sm font-normal text-left">
                 <GraduationCap className="mr-1 mt-0.5 h-3.5 w-3.5 shrink-0" />
-                <span className="[overflow-wrap:anywhere]">{selected.university}</span>
+                <span className="[overflow-wrap:anywhere]">
+                  {String(selected.university_short_name || "").trim() || selected.university}
+                </span>
               </Badge>
             ) : null}
             {(selected.profession?.trim() || selected.job_title?.trim()) ? (
@@ -142,17 +147,19 @@ const DirectoryProfile = () => {
             {Number(selected.is_site_admin) ? (
               <DetailRow label="Role" value="Site administrator (dashboard access)" />
             ) : null}
+            {selected.nickname?.trim() ? <DetailRow label="Nickname" value={selected.nickname.trim()} /> : null}
             <DetailRow label="Gender" value={selected.gender} />
             <DetailRow label="Blood Group" value={selected.blood_group} />
             <DetailRow label="Registration No." value={selected.registration_number} />
           </DetailSection>
           <DetailSection title="Academic">
-            <DetailRow label="College" value={selected.college_name} />
+            <DetailRow label="College" value={displayCollegeNameOrNull(selected.college_name)} />
             <DetailRow label="Department" value={selected.faculty} />
             <DetailRow label="Section (A–J)" value={selected.department} />
             <DetailRow label="Session" value={selected.session} />
             <DetailRow label="Passing Year" value={selected.passing_year} />
-            <DetailRow label="University" value={selected.university} />
+            <DetailRow label="University (short)" value={selected.university_short_name || null} />
+            <DetailRow label="University (full)" value={selected.university} />
           </DetailSection>
           <DetailSection title="Professional">
             <DetailRow

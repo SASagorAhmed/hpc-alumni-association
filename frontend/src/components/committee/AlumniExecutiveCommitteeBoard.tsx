@@ -19,8 +19,26 @@ import {
   resolveBoardSection,
 } from "@/components/committee/boardSections";
 import { cn } from "@/lib/utils";
+import { displayCollegeName } from "@/lib/collegeDisplay";
 import { isIosSafariViewport } from "@/lib/iosSafari";
-import { BREAKPOINT_MOBILE_MAX, BREAKPOINT_TABLET_MIN, layoutCanvasScale } from "@/lib/breakpoints";
+import { COMMITTEE_MOBILE_STACK_MAX, BREAKPOINT_MOBILE_MAX, layoutCanvasScale } from "@/lib/breakpoints";
+import {
+  fullInstitutionForCard,
+  fullNameForCard,
+  shortInstitutionForCard,
+  shortNameForCard,
+} from "@/components/committee/committeeCardDisplay";
+import {
+  useAdaptiveHeadingFitLine,
+  useAdaptiveHeadingFitLineEm,
+  useAdaptiveInlineFitLine,
+  useAdaptiveInstitutionBreakValue,
+} from "@/components/committee/committeeAdaptiveCardText";
+import {
+  FIT_WIDTH_SLOP_PX,
+  fitLargestFontSingleLine,
+  setOverflowSingleLineFit,
+} from "@/components/committee/committeeTextFit";
 import { API_BASE_URL } from "@/api-production/api.js";
 import { saveNavScrollRestore } from "@/lib/navScrollRestore";
 import {
@@ -42,6 +60,8 @@ import {
 export interface DBMember {
   id: string;
   name: string;
+  /** Optional shorter label for cards when full name is too long */
+  name_short?: string | null;
   designation: string;
   category: string;
   batch: string | null;
@@ -49,6 +69,8 @@ export interface DBMember {
   phone: string | null;
   email: string | null;
   institution: string | null;
+  /** Optional shorter label for cards when full university name is too long */
+  institution_short?: string | null;
   profession: string | null;
   college_name: string | null;
   job_status: string | null;
@@ -116,6 +138,7 @@ export function committeeRowToDBMember(m: CommitteeMemberRow): DBMember {
   return {
     id: m.id,
     name: m.name,
+    name_short: m.name_short ?? null,
     designation: m.designation,
     category: m.category || "executive",
     batch: m.batch,
@@ -123,6 +146,7 @@ export function committeeRowToDBMember(m: CommitteeMemberRow): DBMember {
     phone: m.phone ?? null,
     email: m.email ?? null,
     institution: m.institution,
+    institution_short: m.institution_short ?? null,
     profession: m.profession ?? null,
     college_name: m.college_name ?? null,
     job_status: m.job_status,
@@ -197,16 +221,10 @@ export function restMembersExceptPresident(data: StructuredCommitteePayload, exc
 /** Executive member cards (non-president): show up to this many words (matches admin max). */
 export const EXECUTIVE_WISHING_DISPLAY_WORDS = 50;
 
-/** Governing body DB default uses “elected …” — light mint box + “Wishing you” + normal weight. */
-const WISHING_BOX_GOVERNING = {
+/** Light mint box + “Wishing you” + normal weight (all committee sections use the same look). */
+const WISHING_BOX_STYLE = {
   backgroundColor: "#A6D9C7",
   borderColor: "rgba(6, 88, 76, 0.35)",
-} as const;
-
-/** Heads / members / executive defaults use “selected … by the governing body” — separate look + “Congratulations” + bold. */
-const WISHING_BOX_OTHER = {
-  backgroundColor: "#C5E8E0",
-  borderColor: "rgba(6, 88, 76, 0.55)",
 } as const;
 
 export function truncateToWordCount(text: string, maxWords: number): string {
@@ -227,22 +245,11 @@ function useFitSingleLineText(text: string, maxPx: number, minPx: number): RefOb
     if (!el) return;
 
     el.style.textOverflow = "";
-    el.style.overflow = "hidden";
+    setOverflowSingleLineFit(el);
 
-    let lo = minPx;
-    let hi = maxPx;
-    el.style.fontSize = `${hi}px`;
-    if (el.scrollWidth <= el.clientWidth + 1) return;
-
-    for (let i = 0; i < 22; i++) {
-      const mid = (lo + hi) / 2;
-      el.style.fontSize = `${mid}px`;
-      if (el.scrollWidth <= el.clientWidth + 1) hi = mid;
-      else lo = mid;
-    }
-
-    el.style.fontSize = `${Math.max(minPx, hi)}px`;
-    if (el.scrollWidth > el.clientWidth + 1) {
+    const px = fitLargestFontSingleLine(el, minPx, maxPx);
+    el.style.fontSize = `${px}px`;
+    if (el.scrollWidth > el.clientWidth + FIT_WIDTH_SLOP_PX) {
       el.style.textOverflow = "ellipsis";
     }
   }, [text, maxPx, minPx]);
@@ -261,15 +268,88 @@ function useFitSingleLineText(text: string, maxPx: number, minPx: number): RefOb
   return elRef;
 }
 
+/** Single-line fit for generic inline text; `maxEm`/`minEm` are relative to `[data-committee-mobile-card]` font size. */
+function useFitSingleLineInlineText(text: string, maxEm: number, minEm: number): RefObject<HTMLSpanElement | null> {
+  const elRef = useRef<HTMLSpanElement | null>(null);
+
+  const fit = useCallback(() => {
+    const el = elRef.current;
+    if (!el) return;
+
+    const root = el.closest("[data-committee-mobile-card]") as HTMLElement | null;
+    const basePx = root ? parseFloat(getComputedStyle(root).fontSize) || 16 : 16;
+    const maxPx = maxEm * basePx;
+    const minPx = minEm * basePx;
+
+    el.style.whiteSpace = "nowrap";
+    el.style.textOverflow = "";
+    setOverflowSingleLineFit(el);
+
+    const px = fitLargestFontSingleLine(el, minPx, maxPx);
+    el.style.fontSize = `${px}px`;
+    el.style.lineHeight = "1.3";
+  }, [text, maxEm, minEm]);
+
+  useLayoutEffect(() => {
+    const run = () => requestAnimationFrame(fit);
+    run();
+    const el = elRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(run);
+    ro.observe(el);
+    if (el.parentElement) ro.observe(el.parentElement);
+    const root = el.closest("[data-committee-mobile-card]") as HTMLElement | null;
+    if (root) ro.observe(root);
+    return () => ro.disconnect();
+  }, [fit]);
+
+  return elRef;
+}
+
+/** Single-line fit for member name (`h3`); `maxEm`/`minEm` relative to `[data-committee-mobile-card]`. */
+function useFitSingleLineHeadingText(text: string, maxEm: number, minEm: number): RefObject<HTMLHeadingElement | null> {
+  const elRef = useRef<HTMLHeadingElement | null>(null);
+
+  const fit = useCallback(() => {
+    const el = elRef.current;
+    if (!el) return;
+
+    const root = el.closest("[data-committee-mobile-card]") as HTMLElement | null;
+    const basePx = root ? parseFloat(getComputedStyle(root).fontSize) || 16 : 16;
+    const maxPx = maxEm * basePx;
+    const minPx = minEm * basePx;
+
+    el.style.whiteSpace = "nowrap";
+    el.style.textOverflow = "";
+    setOverflowSingleLineFit(el);
+
+    const px = fitLargestFontSingleLine(el, minPx, maxPx);
+    el.style.fontSize = `${px}px`;
+    el.style.lineHeight = "1.25";
+  }, [text, maxEm, minEm]);
+
+  useLayoutEffect(() => {
+    const run = () => requestAnimationFrame(fit);
+    run();
+    const el = elRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(run);
+    ro.observe(el);
+    if (el.parentElement) ro.observe(el.parentElement);
+    const root = el.closest("[data-committee-mobile-card]") as HTMLElement | null;
+    if (root) ro.observe(root);
+    return () => ro.disconnect();
+  }, [fit]);
+
+  return elRef;
+}
+
 export function PresidentHeroCard({
   member,
   roleLabel,
-  wishingGoverningTone = true,
 }: {
   member: DBMember;
   roleLabel?: string;
-  /** False when the featured president post is not under Governing Body (legacy layout defaults to true). */
-  wishingGoverningTone?: boolean;
 }) {
   const roleLine = roleLabel || member.designation || "President";
   const primary = "#FFFFFF";
@@ -278,9 +358,20 @@ export function PresidentHeroCard({
   const primaryBorder = "hsl(var(--primary) / 0.25)";
   const cardBg = "hsl(var(--card))";
 
-  const fallbackCollege = member.college_name || "N/A";
+  const fallbackCollege = displayCollegeName(member.college_name);
 
   const href = `/committee/member/${member.id}`;
+
+  const { ref: presidentNameRef, text: presidentNameDisplay } = useAdaptiveHeadingFitLine(
+    fullNameForCard(member),
+    shortNameForCard(member),
+    24,
+    15
+  );
+  const { ref: presidentUniRef, text: presidentUniDisplay } = useAdaptiveInstitutionBreakValue(
+    fullInstitutionForCard(member),
+    shortInstitutionForCard(member)
+  );
 
   return (
     <Link
@@ -323,16 +414,17 @@ export function PresidentHeroCard({
           </div>
 
           <h3
-            className="font-bold leading-tight text-foreground"
+            ref={presidentNameRef}
+            className="block w-full min-w-0 whitespace-nowrap font-bold leading-tight text-foreground"
+            title={member.name}
             style={{
               fontFamily: "'Cinzel', Georgia, serif",
-              fontSize: "23px",
               fontWeight: 900,
               letterSpacing: "0.03em",
               color: "#FFE566",
             }}
           >
-            {member.name}
+            {presidentNameDisplay}
           </h3>
 
           <div
@@ -348,26 +440,26 @@ export function PresidentHeroCard({
           </div>
 
           <div
-            className="mt-0.5 grid min-w-0 w-full max-w-full grid-cols-[auto_minmax(0,1fr)] items-start gap-x-1 gap-y-0 text-[11.1px]"
+            className="mt-0.5 grid min-w-0 w-full max-w-full grid-cols-[auto_minmax(0,1fr)] items-start gap-x-1 gap-y-0 text-[12.5px]"
             style={{ fontFamily: "Georgia, 'Times New Roman', serif", color: "#FFFFFF" }}
           >
             <div className="flex w-auto min-w-0 shrink-0 flex-col gap-y-0.5">
               <span className="inline-flex min-w-0 max-w-full items-start gap-1 break-words">
-                <Hash className="mt-0.5 h-[12.9px] w-[12.9px] shrink-0" style={{ color: primary }} />
+                <Hash className="mt-0.5 h-[13px] w-[13px] shrink-0" style={{ color: primary }} />
                 <span className="min-w-0">
                   <span className="font-bold" style={{ color: primary }}>Alumni Id: </span>
                   {member.alumni_id ?? "N/A"}
                 </span>
               </span>
               <span className="inline-flex min-w-0 max-w-full items-start gap-1 break-words">
-                <GraduationCap className="mt-0.5 h-[12.9px] w-[12.9px] shrink-0" style={{ color: primary }} />
+                <GraduationCap className="mt-0.5 h-[13px] w-[13px] shrink-0" style={{ color: primary }} />
                 <span className="min-w-0">
                   <span className="font-bold" style={{ color: primary }}>Batch: </span>
                   {member.batch ?? "N/A"}
                 </span>
               </span>
               <span className="inline-flex min-w-0 max-w-full items-start gap-1 break-words">
-                <Briefcase className="mt-0.5 h-[12.9px] w-[12.9px] shrink-0" style={{ color: primary }} />
+                <Briefcase className="mt-0.5 h-[13px] w-[13px] shrink-0" style={{ color: primary }} />
                 <span className="min-w-0">
                   <span className="font-bold" style={{ color: primary }}>Profession: </span>
                   {member.profession ?? "N/A"}
@@ -376,7 +468,7 @@ export function PresidentHeroCard({
             </div>
 
             <div className="flex min-w-0 flex-col gap-y-0.5">
-              <span className="inline-flex min-w-0 max-w-full items-start gap-1 break-words">
+              <span className="inline-flex min-w-0 max-w-full items-start gap-1 break-words text-[11.1px] leading-snug">
                 <GraduationCap className="mt-0.5 h-[12.9px] w-[12.9px] shrink-0" style={{ color: primary }} />
                 <span className="min-w-0">
                   <span className="font-bold" style={{ color: primary }}>College: </span>
@@ -384,10 +476,12 @@ export function PresidentHeroCard({
                 </span>
               </span>
               <span className="inline-flex min-w-0 max-w-full items-start gap-1 break-words">
-                <Building2 className="mt-0.5 h-[12.9px] w-[12.9px] shrink-0" style={{ color: primary }} />
+                <Building2 className="mt-0.5 h-[13px] w-[13px] shrink-0" style={{ color: primary }} />
                 <span className="min-w-0">
                   <span className="font-bold" style={{ color: primary }}>University: </span>
-                  {member.institution ?? "N/A"}
+                  <span ref={presidentUniRef} className="break-words">
+                    {presidentUniDisplay}
+                  </span>
                 </span>
               </span>
             </div>
@@ -396,16 +490,13 @@ export function PresidentHeroCard({
           {member.wishing_message ? (
             <div
               className="committee-member-wishing-box mt-0.5 w-full max-w-full rounded-md border p-2"
-              style={wishingGoverningTone ? WISHING_BOX_GOVERNING : WISHING_BOX_OTHER}
+              style={WISHING_BOX_STYLE}
             >
               <p className="font-semibold" style={{ color: "#000000", fontSize: "calc(8.75px * 1.15)" }}>
-                {wishingGoverningTone ? "Wishing you" : "Congratulations"}
+                Wishing you
               </p>
               <div
-                className={cn(
-                  "mt-0.5 max-h-[7.92rem] overflow-y-auto overscroll-contain pr-0.5 leading-[1.4] [scrollbar-gutter:stable]",
-                  !wishingGoverningTone && "font-bold",
-                )}
+                className="mt-0.5 max-h-[7.92rem] overflow-y-auto overscroll-contain pr-0.5 leading-[1.4] [scrollbar-gutter:stable]"
                 style={{ fontSize: "calc(9.25px * 1.15)", color: "#000000" }}
               >
                 {member.wishing_message}
@@ -466,8 +557,16 @@ export function ExecutiveMemberCard({
   postTitle?: string;
   governingBody?: boolean;
 }) {
-  // Other member cards need slightly tighter typography.
-  const nameRef = useFitSingleLineText(member.name, governingBody ? 22 : 20, governingBody ? 16 : 14);
+  const { ref: nameRef, text: nameDisplay } = useAdaptiveHeadingFitLine(
+    fullNameForCard(member),
+    shortNameForCard(member),
+    governingBody ? 22 : 20,
+    governingBody ? 16 : 14
+  );
+  const { ref: instRef, text: instDisplay } = useAdaptiveInstitutionBreakValue(
+    fullInstitutionForCard(member),
+    shortInstitutionForCard(member)
+  );
   const wishingYouText = member.wishing_message
     ? truncateToWordCount(member.wishing_message, EXECUTIVE_WISHING_DISPLAY_WORDS)
     : "";
@@ -478,7 +577,7 @@ export function ExecutiveMemberCard({
   const cardBg = "hsl(var(--card))";
   const badgeText = `#${String(serial).padStart(2, "0")}`;
 
-  const fallbackCollege = member.college_name || "N/A";
+  const fallbackCollege = displayCollegeName(member.college_name);
 
   const href = `/committee/member/${member.id}`;
   const photoSize = governingBody ? 180 : 151;
@@ -506,10 +605,10 @@ export function ExecutiveMemberCard({
       >
         <div className="flex h-full w-full flex-col">
         <div className={cn("p-3.5", !governingBody && "p-3")}>
-          <div className={cn("flex items-start", governingBody ? "gap-3.5" : "gap-2.5")}>
+          <div className={cn("flex items-stretch", governingBody ? "gap-3.5" : "gap-2.5")}>
             <div
               className="relative shrink-0 overflow-hidden rounded-md border border-border/45"
-              style={{ width: photoSize, height: photoSize }}
+              style={{ width: photoSize, minHeight: photoSize }}
             >
               <div
                 className="absolute inset-0"
@@ -547,13 +646,12 @@ export function ExecutiveMemberCard({
                 className="block w-full min-w-0 whitespace-nowrap font-bold leading-tight text-foreground"
                 style={{
                   fontFamily: "'Cinzel', Georgia, serif",
-                  fontSize: governingBody ? "23px" : "21px",
                   fontWeight: 900,
                   letterSpacing: "0.02em",
                   color: "#FFB347",
                 }}
               >
-                {member.name}
+                {nameDisplay}
               </h3>
 
               <div
@@ -600,7 +698,9 @@ export function ExecutiveMemberCard({
                       <Building2 className="mt-0.5 h-[12.9px] w-[12.9px] shrink-0" style={{ color: "#FFFFFF" }} />
                       <span className="min-w-0">
                         <span className="font-bold" style={{ color: "#FFFFFF" }}>University: </span>
-                        {member.institution ?? "N/A"}
+                        <span ref={instRef} className="break-words">
+                          {instDisplay}
+                        </span>
                       </span>
                     </span>
                     <span className="inline-flex min-w-0 max-w-full items-start gap-1.5 break-words">
@@ -626,7 +726,9 @@ export function ExecutiveMemberCard({
                 <Building2 className="mt-0.5 h-[12.9px] w-[12.9px] shrink-0" style={{ color: "#FFFFFF" }} />
                 <span className="min-w-0">
                   <span className="font-bold" style={{ color: "#FFFFFF" }}>University: </span>
-                  {member.institution ?? "N/A"}
+                  <span ref={instRef} className="break-words">
+                    {instDisplay}
+                  </span>
                 </span>
               </span>
               <span className="inline-flex min-w-0 max-w-full items-start gap-1.5 break-words">
@@ -643,18 +745,12 @@ export function ExecutiveMemberCard({
 
         {wishingYouText ? (
           <div className="mt-auto space-y-1 px-2.5 pb-2.5">
-            <div
-              className="committee-member-wishing-box w-full rounded-md border p-2"
-              style={governingBody ? WISHING_BOX_GOVERNING : WISHING_BOX_OTHER}
-            >
+            <div className="committee-member-wishing-box w-full rounded-md border p-2" style={WISHING_BOX_STYLE}>
               <p className="text-[8.75px] font-semibold" style={{ color: "#000000" }}>
-                {governingBody ? "Wishing you" : "Congratulations"}
+                Wishing you
               </p>
               <p
-                className={cn(
-                  "mt-0.5 max-h-[10.5rem] overflow-hidden text-[9.25px] leading-[1.4] break-words",
-                  governingBody ? "text-muted-foreground font-normal" : "font-bold",
-                )}
+                className="mt-0.5 max-h-[10.5rem] overflow-hidden text-[9.25px] leading-[1.4] break-words text-muted-foreground font-normal"
                 style={{ color: "#000000" }}
               >
                 {wishingYouText}
@@ -669,67 +765,130 @@ export function ExecutiveMemberCard({
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   MOBILE CARDS — phone-friendly (<631 px), full native readable font sizes
+   MOBILE CARDS — stacked below COMMITTEE_MOBILE_STACK_MAX (680px), fluid em scale
    ───────────────────────────────────────────────────────────────────────────── */
+
+/** Member `MobileMemberCard` uses `photoWidth * 0.093` where `photoWidth` is the left column (~0.42fr). President uses full-bleed photo = card width — slightly higher scale + floor so body text stays readable on phones. */
+const MOBILE_PRESIDENT_PHOTO_FONT_SCALE =
+  ((0.093 * 0.42) / (1 + 0.093 * 0.42 * 1.75)) * 1.18;
+const MOBILE_PRESIDENT_FONT_MIN_PX = 12.5;
+const MOBILE_PRESIDENT_FONT_MAX_PX = 17.5;
 
 export function MobilePresidentCard({
   member,
   roleLabel,
-  wishingGoverningTone = true,
 }: {
   member: DBMember;
   roleLabel?: string;
-  wishingGoverningTone?: boolean;
 }) {
   const roleLine = roleLabel || member.designation || "President";
   const primary = "#FFFFFF";
   const presidentBadgeYellow = "#FFE566";
   const primaryTint = "hsl(var(--primary) / 0.12)";
   const primaryBorder = "hsl(var(--primary) / 0.25)";
+  const fullUniversityLine = `University: ${fullInstitutionForCard(member)}`;
+  const shortUni = shortInstitutionForCard(member);
+  const shortUniversityLine = shortUni ? `University: ${shortUni}` : fullUniversityLine;
+
+  const { ref: nameHeadingRef, text: presidentNameDisplay } = useAdaptiveHeadingFitLineEm(
+    fullNameForCard(member),
+    shortNameForCard(member),
+    1.52,
+    0.85
+  );
+  const { ref: universityRowRef, text: universityLineDisplay } = useAdaptiveInlineFitLine(
+    fullUniversityLine,
+    shortUniversityLine,
+    0.88,
+    0.56
+  );
+  /** College line: previous em range (smaller than name/univ) so full “College: …” fits on one line when possible. */
+  const collegeDisplay = displayCollegeName(member.college_name);
+  const collegeRowRef = useFitSingleLineInlineText(`College: ${collegeDisplay}`, 0.76, 0.5);
+  /** Alumni Id only: slightly smaller than Batch/Profession so a clear gap shows between columns on narrow screens. */
+  const alumniRowRef = useFitSingleLineInlineText(`Alumni Id: ${member.alumni_id ?? "N/A"}`, 0.68, 0.48);
+  const batchRowRef = useFitSingleLineInlineText(`Batch: ${member.batch ?? "N/A"}`, 0.8, 0.54);
+  const professionRowRef = useFitSingleLineInlineText(`Profession: ${member.profession ?? "N/A"}`, 0.78, 0.52);
+
+  const photoBoxRef = useRef<HTMLDivElement | null>(null);
+  const [photoDrivenFontPx, setPhotoDrivenFontPx] = useState<number | null>(null);
 
   const href = `/committee/member/${member.id}`;
+
+  /** Same idea as MobileMemberCard: one base size from photo width — slightly higher clamp when root font not yet measured. */
+  const mobilePresidentRoot: CSSProperties = {
+    fontSize: photoDrivenFontPx
+      ? `${photoDrivenFontPx}px`
+      : `clamp(${MOBILE_PRESIDENT_FONT_MIN_PX}px, 0.5rem + 1.85vw, ${MOBILE_PRESIDENT_FONT_MAX_PX}px)`,
+  };
+
+  useLayoutEffect(() => {
+    const el = photoBoxRef.current;
+    if (!el) return;
+    const update = () => {
+      const w = el.getBoundingClientRect().width;
+      if (!w) return;
+      const next = Math.max(
+        MOBILE_PRESIDENT_FONT_MIN_PX,
+        Math.min(MOBILE_PRESIDENT_FONT_MAX_PX, w * MOBILE_PRESIDENT_PHOTO_FONT_SCALE)
+      );
+      setPhotoDrivenFontPx((prev) => (prev !== null && Math.abs(prev - next) < 0.05 ? prev : next));
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   return (
     <Link
       to={href}
       aria-label={`Open profile: ${member.name}`}
-      className="block"
+      className="block w-full min-w-0"
       onClick={() => saveNavScrollRestore()}
     >
       <motion.div
+        data-committee-mobile-card
         initial={{ opacity: 0, y: 16 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
         transition={{ duration: 0.6 }}
-        className="cursor-pointer overflow-hidden rounded-[13px] border border-border/55 shadow-card"
-        style={{ background: "linear-gradient(135deg, #0a6f62 0%, #075f54 48%, #045248 100%)" }}
+        className="cursor-pointer overflow-hidden rounded-[13px] border border-border/55 shadow-card pb-[0.35em]"
+        style={{
+          background: "linear-gradient(135deg, #0a6f62 0%, #075f54 48%, #045248 100%)",
+          ...mobilePresidentRoot,
+        }}
       >
-        {/* Photo */}
-        <div className="relative w-full overflow-hidden bg-muted" style={{ aspectRatio: "1/1" }}>
+        {/* Photo — width drives card `em` scale so image, badges, and info scale together */}
+        <div
+          ref={photoBoxRef}
+          className="relative w-full overflow-hidden bg-muted"
+          style={{ aspectRatio: "1/1" }}
+        >
           <CommitteePhoto
             photoUrl={member.photo_url}
             name={member.name}
             imgClassName="absolute inset-0 h-full w-full object-cover object-center"
-            cameraClassName="h-12 w-12"
+            cameraClassName="h-[2.75em] w-[2.75em]"
             primary={primary}
             primaryTint={primaryTint}
           />
           {/* Mobile president: KING badge on image; hide serial number */}
-          <div className="absolute left-3 top-3 z-[7]">
+          <div className="absolute left-[0.75em] top-[0.75em] z-[7]">
             <span
-              className="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-bold"
+              className="inline-flex items-center gap-[0.25em] rounded-full border px-[0.55em] py-[0.2em] text-[0.72em] font-bold leading-none"
               style={{
                 backgroundColor: primaryTint,
                 borderColor: primaryBorder,
                 color: presidentBadgeYellow,
               }}
             >
-              <Crown className="h-3.5 w-3.5" /> KING
+              <Crown className="h-[1em] w-[1em] shrink-0" /> KING
             </span>
           </div>
-          <div className="pointer-events-none absolute inset-x-0 bottom-2 z-[8] flex justify-center px-2">
+          <div className="pointer-events-none absolute inset-x-0 bottom-[0.5em] z-[8] flex justify-center px-[0.5em]">
             <span
-              className="inline-flex rounded-full border px-5 py-2 text-[16px] font-extrabold tracking-[0.18em]"
+              className="inline-flex rounded-full border px-[1em] py-[0.45em] text-[0.95em] font-extrabold tracking-[0.12em]"
               style={{
                 color: "#FFE566",
                 borderColor: "rgba(253,224,71,0.65)",
@@ -744,22 +903,24 @@ export function MobilePresidentCard({
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/60 to-transparent" />
         </div>
 
-        {/* Info */}
-        <div className="flex min-w-0 flex-col gap-3 p-4">
+        {/* Info — most rows single-line; university may wrap for readability */}
+        <div className="flex min-w-0 flex-col gap-[0.75em] p-[1em]">
           <h3
-            className="break-words text-xl font-bold leading-tight [overflow-wrap:anywhere]"
+            ref={nameHeadingRef}
+            title={member.name}
+            className="block w-full min-w-0 whitespace-nowrap font-bold"
             style={{
               fontFamily: "'Cinzel', Georgia, serif",
               fontWeight: 900,
-              letterSpacing: "0.03em",
+              letterSpacing: "0.02em",
               color: "#FFE566",
             }}
           >
-            {member.name}
+            {presidentNameDisplay}
           </h3>
 
           <span
-            className="inline-flex w-fit max-w-full min-w-0 shrink-0 self-start items-center break-words rounded-full border px-3 py-1 text-base font-semibold [overflow-wrap:anywhere]"
+            className="inline-flex w-fit max-w-full min-w-0 shrink-0 self-start items-center rounded-full border px-[0.65em] py-[0.25em] text-[0.95em] font-semibold leading-snug"
             style={{
               backgroundColor: "rgba(251, 146, 60, 0.25)",
               borderColor: "rgba(253, 224, 71, 0.65)",
@@ -770,66 +931,59 @@ export function MobilePresidentCard({
             {roleLine}
           </span>
 
-          {/* Two-column info grid (public fields only) */}
           <div
-            className="flex w-full min-w-0 items-start justify-between gap-2 text-sm"
+            className="grid w-full min-w-0 grid-cols-[minmax(0,0.4fr)_minmax(0,0.6fr)] items-start gap-x-[min(0.55em,3.5vw)] gap-y-0 text-[0.9em] leading-[1.35]"
             style={{ fontFamily: "Georgia, 'Times New Roman', serif", color: "#FFFFFF" }}
           >
-            {/* Left column: Alumni Id · Batch · Profession */}
-            <div className="flex min-w-0 flex-1 flex-col gap-y-1">
-              <span className="inline-flex min-w-0 items-start gap-1">
-                <Hash className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color: primary }} />
-                <span className="min-w-0 break-words [overflow-wrap:anywhere]">
+            <div className="flex min-w-0 flex-col gap-y-[0.3em] pr-[0.25em]">
+              <span className="inline-flex min-w-0 items-center gap-[0.28em] whitespace-nowrap">
+                <Hash className="h-[0.88em] w-[0.88em] shrink-0" style={{ color: primary }} />
+                <span ref={alumniRowRef} className="block min-w-0 flex-1 whitespace-nowrap">
                   <span className="font-semibold" style={{ color: primary }}>Alumni Id: </span>
                   {member.alumni_id ?? "N/A"}
                 </span>
               </span>
-              <span className="inline-flex min-w-0 items-start gap-1">
-                <GraduationCap className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color: primary }} />
-                <span className="min-w-0 break-words [overflow-wrap:anywhere]">
+              <span className="inline-flex min-w-0 items-center gap-[0.3em] whitespace-nowrap">
+                <GraduationCap className="h-[0.95em] w-[0.95em] shrink-0" style={{ color: primary }} />
+                <span ref={batchRowRef} className="block min-w-0 flex-1 whitespace-nowrap">
                   <span className="font-semibold" style={{ color: primary }}>Batch: </span>
                   {member.batch ?? "N/A"}
                 </span>
               </span>
-              <span className="inline-flex min-w-0 items-start gap-1">
-                <Briefcase className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color: primary }} />
-                <span className="min-w-0 break-words [overflow-wrap:anywhere]">
+              <span className="inline-flex min-w-0 items-center gap-[0.3em] whitespace-nowrap">
+                <Briefcase className="h-[0.95em] w-[0.95em] shrink-0" style={{ color: primary }} />
+                <span ref={professionRowRef} className="block min-w-0 flex-1 whitespace-nowrap">
                   <span className="font-semibold" style={{ color: primary }}>Profession: </span>
                   {member.profession ?? "N/A"}
                 </span>
               </span>
             </div>
-            {/* Right column: College · University */}
-            <div className="flex min-w-0 flex-1 flex-col gap-y-1">
-              <span className="inline-flex min-w-0 items-start gap-1">
-                <GraduationCap className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color: primary }} />
-                <span className="min-w-0 break-words [overflow-wrap:anywhere]">
+            <div className="flex min-w-0 flex-col gap-y-[0.3em] pr-[0.35em]">
+              <span className="inline-flex min-w-0 max-w-full items-center gap-[0.3em] whitespace-nowrap leading-[1.35]">
+                <GraduationCap className="h-[0.95em] w-[0.95em] shrink-0" style={{ color: primary }} />
+                <span ref={collegeRowRef} className="block min-w-0 flex-1 whitespace-nowrap">
                   <span className="font-semibold" style={{ color: primary }}>College: </span>
-                  {member.college_name || "N/A"}
+                  {collegeDisplay}
                 </span>
               </span>
-              <span className="inline-flex min-w-0 items-start gap-1">
-                <Building2 className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color: primary }} />
-                <span className="min-w-0 break-words [overflow-wrap:anywhere]">
-                  <span className="font-semibold" style={{ color: primary }}>University: </span>
-                  {member.institution ?? "N/A"}
-                </span>
-              </span>
+              <div className="flex min-w-0 items-start gap-[0.3em] leading-[1.3]">
+                <Building2 className="mt-[0.12em] h-[0.95em] w-[0.95em] shrink-0" style={{ color: primary }} />
+                <p className="m-0 min-w-0 flex-1 min-w-0">
+                  <span ref={universityRowRef} className="block break-words [overflow-wrap:anywhere] font-semibold" style={{ color: primary }}>
+                    {universityLineDisplay}
+                  </span>
+                </p>
+              </div>
             </div>
           </div>
 
           {member.wishing_message && (
-            <div className="rounded-md border p-3" style={wishingGoverningTone ? WISHING_BOX_GOVERNING : WISHING_BOX_OTHER}>
-              <p className="text-xs font-semibold" style={{ color: "#000000" }}>
-                {wishingGoverningTone ? "Wishing you" : "Congratulations"}
+            <div className="rounded-md border px-[0.65em] pb-[0.65em] pt-[0.55em]" style={WISHING_BOX_STYLE}>
+              <p className="text-[0.82em] font-semibold leading-snug" style={{ color: "#000000" }}>
+                Wishing you
               </p>
-              <p
-                className={cn(
-                  "mt-1 break-words text-sm leading-relaxed text-justify hyphens-auto text-black [overflow-wrap:anywhere]",
-                  wishingGoverningTone ? "italic font-normal" : "font-bold not-italic",
-                )}
-              >
-                {wishingGoverningTone ? `"${member.wishing_message}"` : member.wishing_message}
+              <p className="mt-[0.35em] break-words text-[0.9em] font-normal italic leading-relaxed text-justify text-black [overflow-wrap:anywhere] hyphens-auto pb-px">
+                &ldquo;{member.wishing_message}&rdquo;
               </p>
             </div>
           )}
@@ -855,11 +1009,54 @@ export function MobileMemberCard({
   const primaryTint = "hsl(var(--primary) / 0.12)";
   const primaryBorder = "hsl(var(--primary) / 0.25)";
   const badgeText = `#${String(serial).padStart(2, "0")}`;
+  const fullUniversityLine = `University: ${fullInstitutionForCard(member)}`;
+  const shortUni = shortInstitutionForCard(member);
+  const shortUniversityLine = shortUni ? `University: ${shortUni}` : fullUniversityLine;
   const wishingText = member.wishing_message
     ? truncateToWordCount(member.wishing_message, EXECUTIVE_WISHING_DISPLAY_WORDS)
     : "";
+  const alumniRowRef = useFitSingleLineInlineText(`Alumni Id: ${member.alumni_id ?? "N/A"}`, 0.9, 0.56);
+  const batchRowRef = useFitSingleLineInlineText(`Batch: ${member.batch ?? "N/A"}`, 0.9, 0.56);
+  const professionRowRef = useFitSingleLineInlineText(`Profession: ${member.profession ?? "N/A"}`, 0.88, 0.54);
+  const { ref: universityRowRef, text: universityLineDisplay } = useAdaptiveInlineFitLine(
+    fullUniversityLine,
+    shortUniversityLine,
+    0.82,
+    0.5
+  );
+  const collegeDisplayMember = displayCollegeName(member.college_name);
+  const collegeRowRef = useFitSingleLineInlineText(`College: ${collegeDisplayMember}`, 0.82, 0.5);
+  const { ref: nameHeadingRef, text: memberNameDisplay } = useAdaptiveHeadingFitLineEm(
+    fullNameForCard(member),
+    shortNameForCard(member),
+    1.45,
+    0.78
+  );
+  const photoBoxRef = useRef<HTMLDivElement | null>(null);
+  const [photoDrivenFontPx, setPhotoDrivenFontPx] = useState<number | null>(null);
 
   const href = `/committee/member/${member.id}`;
+
+  /** Fluid root (≤680px band): scales with viewport; `em` children + photo column stay proportional. */
+  const mobileCardUnit: CSSProperties = {
+    fontSize: photoDrivenFontPx ? `${photoDrivenFontPx}px` : "clamp(11px, 0.5rem + 1.65vw, 16px)",
+  };
+
+  useLayoutEffect(() => {
+    const el = photoBoxRef.current;
+    if (!el) return;
+    const update = () => {
+      const w = el.getBoundingClientRect().width;
+      if (!w) return;
+      // Tie full card typography to photo size so both scale together.
+      const next = Math.max(10.5, Math.min(16, w * 0.093));
+      setPhotoDrivenFontPx((prev) => (prev !== null && Math.abs(prev - next) < 0.05 ? prev : next));
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   return (
     <Link
@@ -869,50 +1066,58 @@ export function MobileMemberCard({
       onClick={() => saveNavScrollRestore()}
     >
       <motion.div
+        data-committee-mobile-card
         initial={{ opacity: 0, y: 10 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
         transition={{ duration: 0.5 }}
-        className="flex w-full min-w-0 cursor-pointer flex-col overflow-hidden rounded-[13px] border border-border/55 shadow-card"
-        style={{ background: "linear-gradient(135deg, #0a6f62 0%, #075f54 48%, #045248 100%)" }}
+        className="flex w-full min-w-0 cursor-pointer flex-col overflow-hidden rounded-[0.85em] border border-border/55 shadow-card pb-[0.35em]"
+        style={{
+          background: "linear-gradient(135deg, #0a6f62 0%, #075f54 48%, #045248 100%)",
+          ...mobileCardUnit,
+        }}
       >
-        {/* Top row: desktop-like proportions (photo left, details right) */}
-        <div className="grid min-w-0 grid-cols-[34%_66%] gap-2 p-2.5 max-[360px]:grid-cols-[31%_69%] max-[360px]:gap-1.5 max-[360px]:p-2 sm:gap-2.5 sm:p-3">
-          <div className="relative aspect-[3/4] w-full min-w-0 max-w-full overflow-hidden rounded-md border border-border/45">
+        {/* Photo-led row: image covers the left cell (matches text column height; no letterboxing). */}
+        <div className="grid min-w-0 grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)] items-stretch gap-[0.45em] p-[0.65em] max-[360px]:grid-cols-[minmax(0,0.43fr)_minmax(0,0.57fr)]">
+          <div
+            ref={photoBoxRef}
+            className="relative min-h-0 w-full min-w-0 overflow-hidden rounded-[0.35em] border border-border/45"
+          >
             <div className="absolute inset-0" style={{ background: "linear-gradient(135deg, hsl(var(--primary) / 0.12) 0%, transparent 60%)" }} />
             <CommitteePhoto
               photoUrl={member.photo_url}
               name={member.name}
               imgClassName="absolute inset-0 z-10 h-full w-full object-cover object-center"
-              cameraClassName="h-9 w-9"
+              cameraClassName="h-[2.25em] w-[2.25em]"
               primary={primary}
               primaryTint={primaryTint}
             />
           </div>
 
-          <div className="min-w-0">
+          <div className="flex min-h-full min-w-0 flex-col justify-between space-y-[0.2em] pr-[0.45em]">
             <span
-              className="inline-flex w-fit items-center rounded-full border px-2 py-0.5 text-[10px] font-bold max-[360px]:px-1.5 max-[360px]:text-[9px]"
+              className="inline-flex w-fit items-center rounded-full border px-[0.45em] py-[0.15em] text-[0.78em] font-bold leading-none"
               style={{ backgroundColor: primaryTint, borderColor: primaryBorder, color: primary }}
             >
               {badgeText}
             </span>
 
             <h3
-              className="mt-1 break-words font-bold leading-tight [overflow-wrap:anywhere] max-[360px]:mt-0.5"
+              ref={nameHeadingRef}
+              title={member.name}
+              className="block w-full min-w-0 whitespace-nowrap font-bold"
               style={{
                 fontFamily: "'Cinzel', Georgia, serif",
-                fontSize: "clamp(0.875rem, 2.5vw, 1.1rem)",
                 fontWeight: 900,
                 letterSpacing: "0.02em",
                 color: "#FFB347",
               }}
             >
-              {member.name}
+              {memberNameDisplay}
             </h3>
 
             <span
-              className="mt-1 inline-flex w-fit max-w-full min-w-0 shrink-0 self-start items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold max-[360px]:mt-0.5 max-[360px]:px-2 max-[360px]:text-[10px]"
+              className="inline-flex w-fit max-w-full min-w-0 shrink-0 self-start items-center rounded-full border px-[0.5em] py-[0.15em] text-[0.86em] font-semibold leading-snug"
               style={{
                 backgroundColor: "rgba(251, 146, 60, 0.25)",
                 borderColor: "rgba(253, 224, 71, 0.65)",
@@ -924,28 +1129,30 @@ export function MobileMemberCard({
             </span>
 
             <div
-              className="mt-1.5 flex min-w-0 flex-col gap-y-0.5 text-[12.5px] leading-snug max-[360px]:mt-1 max-[360px]:text-[11px]"
+              className="mt-[0.15em] flex min-w-0 flex-col gap-y-[0.16em] text-[0.84em] leading-[1.3]"
               style={{ fontFamily: "Georgia, 'Times New Roman', serif", color: "#FFFFFF" }}
             >
-              <span className="inline-flex min-w-0 items-start gap-1.5">
-                <Hash className="mt-0.5 h-4 w-4 shrink-0 max-[360px]:h-3.5 max-[360px]:w-3.5" style={{ color: "#FFFFFF" }} />
-                <span className="min-w-0 break-words [overflow-wrap:break-word]"><span className="font-semibold">Alumni Id: </span>{member.alumni_id ?? "N/A"}</span>
+              <span className="inline-flex min-w-0 items-center gap-[0.35em] whitespace-nowrap">
+                <Hash className="h-[1em] w-[1em] shrink-0" style={{ color: "#FFFFFF" }} />
+                <span ref={alumniRowRef} className="block min-w-0 flex-1 whitespace-nowrap"><span className="font-semibold">Alumni Id: </span>{member.alumni_id ?? "N/A"}</span>
               </span>
-              <span className="inline-flex min-w-0 items-start gap-1.5">
-                <GraduationCap className="mt-0.5 h-4 w-4 shrink-0 max-[360px]:h-3.5 max-[360px]:w-3.5" style={{ color: "#FFFFFF" }} />
-                <span className="min-w-0 break-words [overflow-wrap:break-word]"><span className="font-semibold">Batch: </span>{member.batch ?? "N/A"}</span>
+              <span className="inline-flex min-w-0 items-center gap-[0.35em] whitespace-nowrap">
+                <GraduationCap className="h-[1em] w-[1em] shrink-0" style={{ color: "#FFFFFF" }} />
+                <span ref={batchRowRef} className="block min-w-0 flex-1 whitespace-nowrap"><span className="font-semibold">Batch: </span>{member.batch ?? "N/A"}</span>
               </span>
-              <span className="inline-flex min-w-0 items-start gap-1.5">
-                <Briefcase className="mt-0.5 h-4 w-4 shrink-0 max-[360px]:h-3.5 max-[360px]:w-3.5" style={{ color: "#FFFFFF" }} />
-                <span className="min-w-0 break-words [overflow-wrap:break-word]"><span className="font-semibold">Profession: </span>{member.profession ?? "N/A"}</span>
+              <span className="inline-flex min-w-0 items-center gap-[0.35em] whitespace-nowrap">
+                <Briefcase className="h-[1em] w-[1em] shrink-0" style={{ color: "#FFFFFF" }} />
+                <span ref={professionRowRef} className="block min-w-0 flex-1 whitespace-nowrap"><span className="font-semibold">Profession: </span>{member.profession ?? "N/A"}</span>
               </span>
-              <span className="inline-flex min-w-0 items-start gap-1.5">
-                <Building2 className="mt-0.5 h-4 w-4 shrink-0 max-[360px]:h-3.5 max-[360px]:w-3.5" style={{ color: "#FFFFFF" }} />
-                <span className="min-w-0 break-words [overflow-wrap:break-word]"><span className="font-semibold">University: </span>{member.institution ?? "N/A"}</span>
+              <span className="inline-flex min-w-0 items-center gap-[0.3em] whitespace-nowrap text-[0.88em] leading-[1.25]">
+                <Building2 className="h-[0.92em] w-[0.92em] shrink-0" style={{ color: "#FFFFFF" }} />
+                <span ref={universityRowRef} className="block min-w-0 flex-1 whitespace-nowrap font-semibold">
+                  {universityLineDisplay}
+                </span>
               </span>
-              <span className="inline-flex min-w-0 items-start gap-1.5">
-                <GraduationCap className="mt-0.5 h-4 w-4 shrink-0 max-[360px]:h-3.5 max-[360px]:w-3.5" style={{ color: "#FFFFFF" }} />
-                <span className="min-w-0 break-words [overflow-wrap:break-word]"><span className="font-semibold">College: </span>{member.college_name || "N/A"}</span>
+              <span className="inline-flex min-w-0 items-center gap-[0.3em] whitespace-nowrap text-[0.88em] leading-[1.25]">
+                <GraduationCap className="h-[0.92em] w-[0.92em] shrink-0" style={{ color: "#FFFFFF" }} />
+                <span ref={collegeRowRef} className="block min-w-0 flex-1 whitespace-nowrap"><span className="font-semibold">College: </span>{collegeDisplayMember}</span>
               </span>
             </div>
           </div>
@@ -953,25 +1160,22 @@ export function MobileMemberCard({
 
       {wishingText && (
         <div
-          className="mx-3 mb-2 mt-0 min-w-0 rounded-md border p-2.5"
-          style={governingBody ? WISHING_BOX_GOVERNING : WISHING_BOX_OTHER}
+          className="mx-[0.55em] mb-[0.5em] mt-0 min-w-0 rounded-[0.35em] border px-[0.55em] pb-[0.65em] pt-[0.55em]"
+          style={WISHING_BOX_STYLE}
         >
-          <p className="text-[10px] font-semibold" style={{ color: "#000000" }}>
-            {governingBody ? "Wishing you" : "Congratulations"}
+          <p className="text-[0.82em] font-semibold leading-snug" style={{ color: "#000000" }}>
+            Wishing you
           </p>
           <p
-            className={cn(
-              "mt-0.5 break-words text-xs leading-relaxed [overflow-wrap:anywhere] max-[360px]:text-[11px]",
-              governingBody ? "text-muted-foreground italic font-normal" : "font-bold not-italic",
-            )}
+            className="mt-[0.35em] break-words text-[0.9em] font-normal italic leading-relaxed text-muted-foreground [overflow-wrap:anywhere] pb-px"
             style={{ color: "#000000" }}
           >
-            {governingBody ? `"${wishingText}"` : wishingText}
+            &ldquo;{wishingText}&rdquo;
           </p>
         </div>
       )}
 
-      <div className="pb-2" />
+      <div className="pb-[0.6em]" />
     </motion.div>
     </Link>
   );
@@ -1186,7 +1390,7 @@ export function AlumniExecutiveCommitteeBoard({
     else setOpenMembers((v) => !v);
   };
 
-  const isMobile = boardW < BREAKPOINT_TABLET_MIN;
+  const isMobile = boardW < COMMITTEE_MOBILE_STACK_MAX;
   // Mobile readability: always render single-column cards.
   const twoColMobile = false;
   // Do NOT zoom-shrink mobile cards; it makes text unreadable.
@@ -1235,15 +1439,13 @@ export function AlumniExecutiveCommitteeBoard({
     return (
       <Fragment key="governing">
         <div className={twoColMobile ? "col-span-2" : undefined}>
-          <h3 className="mt-1 text-sm font-bold tracking-wide text-foreground/80">{meta.title}</h3>
+          <h3 className="mt-1">
+            <span className="committee-governing-heading text-balance">{meta.title}</span>
+          </h3>
         </div>
         {showPresidentHere ? (
           <div className={twoColMobile ? "col-span-2" : undefined}>
-            <MobilePresidentCard
-              member={presidentDb}
-              roleLabel={presidentPick.postTitle}
-              wishingGoverningTone={presidentInGoverning}
-            />
+            <MobilePresidentCard member={presidentDb} roleLabel={presidentPick.postTitle} />
           </div>
         ) : null}
         {items.map((item) => (
@@ -1331,15 +1533,13 @@ export function AlumniExecutiveCommitteeBoard({
     return (
       <div key="governing" className="space-y-4">
         <div className="pt-0">
-          <h3 className="text-lg font-bold text-foreground">{meta.title}</h3>
+          <h3>
+            <span className="committee-governing-heading text-balance">{meta.title}</span>
+          </h3>
         </div>
         {showPresidentHere ? (
           <div className="mx-auto flex w-full min-w-0 justify-center px-0">
-            <PresidentHeroCard
-              member={presidentDb}
-              roleLabel={presidentPick.postTitle}
-              wishingGoverningTone={presidentInGoverning}
-            />
+            <PresidentHeroCard member={presidentDb} roleLabel={presidentPick.postTitle} />
           </div>
         ) : null}
         {items.length > 0 ? (
@@ -1431,7 +1631,7 @@ export function AlumniExecutiveCommitteeBoard({
 
       <div ref={outerRef} className="w-full min-w-0">
         {isMobile ? (
-          /* ── MOBILE layout (<631 px): 4 sections + 2-col cards ── */
+          /* ── MOBILE layout (<680px): stacked proportional cards ── */
           <div
             ref={innerRef}
             className={cn(
@@ -1442,11 +1642,7 @@ export function AlumniExecutiveCommitteeBoard({
           >
             {presidentPick && !presidentInGoverning ? (
               <div className={twoColMobile ? "col-span-2" : undefined}>
-                <MobilePresidentCard
-                  member={presidentDb}
-                  roleLabel={presidentPick.postTitle}
-                  wishingGoverningTone={presidentInGoverning}
-                />
+                <MobilePresidentCard member={presidentDb} roleLabel={presidentPick.postTitle} />
               </div>
             ) : null}
             {renderMobileGoverning()}
@@ -1468,11 +1664,7 @@ export function AlumniExecutiveCommitteeBoard({
             >
               {presidentPick && !presidentInGoverning ? (
                 <div className="mx-auto flex w-full min-w-0 justify-center px-0">
-                  <PresidentHeroCard
-                    member={presidentDb}
-                    roleLabel={presidentPick.postTitle}
-                    wishingGoverningTone={presidentInGoverning}
-                  />
+                  <PresidentHeroCard member={presidentDb} roleLabel={presidentPick.postTitle} />
                 </div>
               ) : null}
               {renderDesktopGoverning()}

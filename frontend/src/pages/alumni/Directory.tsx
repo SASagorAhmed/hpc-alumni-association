@@ -28,6 +28,7 @@ const SORT_VALUES = new Set<string>(SORT_OPTIONS.map((o) => o.value));
 interface AlumniProfile {
   id: string;
   name: string;
+  nickname?: string | null;
   photo: string | null;
   batch: string | null;
   roll: string | null;
@@ -36,6 +37,7 @@ interface AlumniProfile {
   department: string | null;
   faculty: string | null;
   university: string | null;
+  university_short_name?: string | null;
   job_status: string | null;
   job_title: string | null;
   company: string | null;
@@ -87,7 +89,14 @@ const Directory = () => {
 
   // Derive unique filter options
   const batches = useMemo(() => [...new Set(alumni.map((a) => a.batch).filter(Boolean))].sort(), [alumni]);
-  const universities = useMemo(() => [...new Set(alumni.map((a) => a.university).filter(Boolean))].sort(), [alumni]);
+  const universities = useMemo(() => {
+    const set = new Set<string>();
+    for (const a of alumni) {
+      const u = String(a.university ?? "").trim();
+      if (u) set.add(u);
+    }
+    return [...set].sort();
+  }, [alumni]);
   const professions = useMemo(() => {
     const set = new Set<string>();
     for (const a of alumni) {
@@ -141,10 +150,12 @@ const Directory = () => {
       list = list.filter((a) =>
         [
           a.name,
+          a.nickname,
           a.batch,
           a.roll,
           a.phone,
           a.university,
+          a.university_short_name,
           a.company,
           a.job_title,
           a.blood_group,
@@ -347,13 +358,15 @@ const Directory = () => {
                   ) : null}
                   {a.faculty && <Badge variant="outline" className="text-[10px] px-1.5 py-0">{a.faculty}</Badge>}
                   {a.blood_group && <Badge variant="outline" className="text-[10px] px-1.5 py-0"><Droplets className="w-2.5 h-2.5 mr-0.5" />{a.blood_group}</Badge>}
-                  {a.university && (
+                  {(a.university_short_name || a.university) && (
                     <Badge
                       variant="secondary"
                       className="max-w-full min-w-0 h-auto items-start gap-1 rounded-md px-1.5 py-1 text-[10px] font-normal whitespace-normal text-left"
                     >
                       <GraduationCap className="w-2.5 h-2.5 shrink-0 mt-0.5" aria-hidden />
-                      <span className="min-w-0 break-words leading-snug [overflow-wrap:anywhere]">{a.university}</span>
+                      <span className="min-w-0 break-words leading-snug [overflow-wrap:anywhere]">
+                        {String(a.university_short_name || "").trim() || a.university}
+                      </span>
                     </Badge>
                   )}
                   {(a.profession?.trim() || a.job_title?.trim()) ? (

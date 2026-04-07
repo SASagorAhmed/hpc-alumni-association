@@ -1151,6 +1151,35 @@
     animation: gold-shine 3s linear infinite;
   }
 
+  /** Committee “Governing Body of HPCAA” — ~25% larger than section peers + multicolor shine */
+  .committee-governing-heading {
+    display: inline-block;
+    max-width: 100%;
+    font-size: 1.3125rem; /* prior governing title × 1.2 */
+    line-height: 1.25;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    background: linear-gradient(
+      92deg,
+      hsl(38 92% 52%),
+      hsl(152 62% 42%),
+      hsl(192 100% 48%),
+      hsl(270 72% 58%),
+      hsl(38 92% 52%)
+    );
+    background-size: 220% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: gold-shine 3.8s linear infinite;
+  }
+  @media (min-width: 1024px) {
+    .committee-governing-heading {
+      font-size: 1.6875rem; /* prior governing title × 1.2 */
+      line-height: 1.2;
+    }
+  }
+
   @keyframes hpcMottoShine {
     0% {
       transform: translateX(-120%);

@@ -164,6 +164,7 @@ async function main() {
           \`term_id\` CHAR(36) NULL,
           \`post_id\` CHAR(36) NULL,
           \`name\` TEXT NOT NULL,
+          \`name_short\` TEXT NULL,
           \`designation\` TEXT NOT NULL,
           \`category\` VARCHAR(50) NOT NULL,
           \`batch\` TEXT NULL,
@@ -172,6 +173,7 @@ async function main() {
           \`email\` VARCHAR(255) NULL,
           \`candidate_number\` VARCHAR(100) NULL,
           \`institution\` TEXT NULL,
+          \`institution_short\` VARCHAR(120) NULL,
           \`job_status\` TEXT NULL,
           \`profession\` TEXT NULL,
           \`location\` TEXT NULL,
@@ -206,6 +208,8 @@ async function main() {
         "VARCHAR(100) NULL AFTER `email`"
       );
       await addColumn(conn, "committee_members", "profession", "TEXT NULL AFTER `job_status`");
+      await addColumn(conn, "committee_members", "name_short", "TEXT NULL AFTER `name`");
+      await addColumn(conn, "committee_members", "institution_short", "VARCHAR(120) NULL AFTER `institution`");
 
       await addKey(conn, "committee_members", "committee_members_term_idx", "`term_id`");
       await addKey(conn, "committee_members", "committee_members_post_idx", "`post_id`");

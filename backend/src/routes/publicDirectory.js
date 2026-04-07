@@ -1,6 +1,7 @@
 const express = require("express");
 const { getOrCreatePool } = require("../db/pool");
 const { ensureAdminCommitteeDesignationColumn } = require("../utils/ensureAdminCommitteeDesignation");
+const { ensureProfileNicknameUniShortColumns } = require("../utils/ensureProfileNicknameUniShortColumns");
 
 const router = express.Router();
 
@@ -36,11 +37,13 @@ router.get("/directory/alumni", async (req, res) => {
     if (!pool) return res.status(503).json({ ok: false, error: "MySQL not configured" });
     await ensureProfileFacultyColumn(pool);
     await ensureAdminCommitteeDesignationColumn(pool);
+    await ensureProfileNicknameUniShortColumns(pool);
 
     const [rows] = await pool.query(
       `SELECT
         p.id,
         p.name,
+        p.nickname,
         p.photo,
         p.batch,
         p.roll,
@@ -49,6 +52,7 @@ router.get("/directory/alumni", async (req, res) => {
         p.department,
         p.faculty,
         p.university,
+        p.university_short_name,
         p.job_status,
         p.job_title,
         p.company,

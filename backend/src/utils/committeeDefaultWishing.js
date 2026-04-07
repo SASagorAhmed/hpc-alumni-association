@@ -3,7 +3,10 @@
  * Governing body vs other sections use different sentences (aligned with admin import-from-alumni).
  */
 
-const { inferBoardSectionFromTitle } = require("./inferCommitteeBoardSection");
+const { inferBoardSectionFromTitle, normalizeTitle } = require("./inferCommitteeBoardSection");
+
+/** Bangla title for president (committee default post). */
+const PRESIDENT_TITLE_BN = "সভাপতি";
 
 const ALLOWED_BOARD_SECTIONS = new Set([
   "governing_body",
@@ -31,6 +34,35 @@ function heuristicPostTitleEnglish(postTitle) {
   return raw;
 }
 
+/**
+ * Role wording for auto-generated wishing text. President is always "President"
+ * (English "Chair"/"Chair:" is a common mistranslation of সভাপতি).
+ */
+function rolePhraseForDefaultWishing(postTitle) {
+  const normalized = normalizeTitle(postTitle);
+  if (normalized === PRESIDENT_TITLE_BN) return "President";
+
+  const raw = String(postTitle || "").trim();
+  const hasBengali = /[\u0980-\u09FF]/.test(raw);
+  if (hasBengali) return heuristicPostTitleEnglish(postTitle);
+
+  const head = raw.split(":")[0].trim();
+  const low = head.toLowerCase();
+  const isVice = /^vice[-\s]?/i.test(head);
+  if (
+    !isVice &&
+    (low === "chair" ||
+      low === "chairman" ||
+      low === "chairwoman" ||
+      low === "president" ||
+      /^chair\b/i.test(head))
+  ) {
+    return "President";
+  }
+
+  return heuristicPostTitleEnglish(postTitle);
+}
+
 function buildGoverningDefaultWishing(alumnusName, postTitleEnglish) {
   const n = String(alumnusName || "").trim() || "Alumni";
   const p = String(postTitleEnglish || "").trim() || "Member";
@@ -54,16 +86,17 @@ function ensurePublicWishingMessage(member, postTitle, postBoardSection) {
 
   const name = member?.name;
   const section = resolveBoardSection(postBoardSection, postTitle);
-  const postEn = heuristicPostTitleEnglish(postTitle);
+  const rolePhrase = rolePhraseForDefaultWishing(postTitle);
   if (section === "governing_body") {
-    return buildGoverningDefaultWishing(name, postEn);
+    return buildGoverningDefaultWishing(name, rolePhrase);
   }
-  return buildOtherSectionsDefaultWishing(name, postEn);
+  return buildOtherSectionsDefaultWishing(name, rolePhrase);
 }
 
 module.exports = {
   ensurePublicWishingMessage,
   heuristicPostTitleEnglish,
+  rolePhraseForDefaultWishing,
   buildGoverningDefaultWishing,
   buildOtherSectionsDefaultWishing,
   resolveBoardSection,

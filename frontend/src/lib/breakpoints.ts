@@ -13,6 +13,9 @@ export const BREAKPOINT_MOBILE_MAX = 630;
 export const BREAKPOINT_TABLET_MIN = 631;
 export const BREAKPOINT_TABLET_MAX = 1024;
 
+/** Committee page: stack mobile member cards below this width (fluid proportional layout). */
+export const COMMITTEE_MOBILE_STACK_MAX = 680;
+
 export const BREAKPOINT_DESKTOP_MIN = 1025;
 export const BREAKPOINT_DESKTOP_MAX = 1440;
 

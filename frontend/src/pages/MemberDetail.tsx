@@ -4,6 +4,7 @@ import { ArrowLeft, GraduationCap, Briefcase, BadgeCheck, Phone, Mail, Hash, Fac
 import { useQuery } from "@tanstack/react-query";
 import { getInitials } from "@/data/members";
 import { API_BASE_URL } from "@/api-production/api.js";
+import { displayCollegeName } from "@/lib/collegeDisplay";
 
 const MemberDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -99,7 +100,7 @@ const MemberDetail = () => {
               <InfoItem icon={<BadgeCheck size={20} className="text-primary" />} label="University name" value={member.institution ?? "N/A"} />
               <InfoItem icon={<Briefcase size={20} className="text-primary" />} label="Profession" value={(member as { profession?: string }).profession ?? "N/A"} />
               <InfoItem icon={<Briefcase size={20} className="text-primary" />} label="Job Status" value={member.job_status ?? "N/A"} />
-              <InfoItem icon={<GraduationCap size={20} className="text-primary" />} label="College name" value={(member as { college_name?: string }).college_name ?? "N/A"} />
+              <InfoItem icon={<GraduationCap size={20} className="text-primary" />} label="College name" value={displayCollegeName((member as { college_name?: string }).college_name)} />
               <InfoItem icon={<Phone size={20} className="text-primary" />} label="Phone" value={(member as { phone?: string }).phone ?? "N/A"} />
               <InfoItem
                 icon={<Mail size={20} className="text-primary" />}
