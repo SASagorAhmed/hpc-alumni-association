@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback, useMemo, type MouseEvent } from "react";
+import { useState, useEffect, useCallback, useMemo, useId, type MouseEvent } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, LogOut } from "lucide-react";
+import { ChevronDown, Menu, X, LogOut } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
@@ -28,17 +28,18 @@ const navLinks = [
 
 type NavDropItem = { key: string; label: string; to: string; external?: boolean };
 
-/** Rows for nav: one per assigned member; label is post title (plus name if multiple holders). */
+/** Rows for nav: one per assigned member; label is always post title + member name (when name exists). */
 function committeeAssignedNavItems(structured: StructuredCommitteePayload | null | undefined) {
   if (!structured?.posts?.length) return [] as NavDropItem[];
   const out: NavDropItem[] = [];
   for (const post of structured.posts) {
     const members = post.members ?? [];
     if (members.length === 0) continue;
+    const postTitle = String(post.title || "").trim();
     for (const member of members) {
       if (!member?.id) continue;
-      const label =
-        members.length > 1 ? `${post.title} — ${member.name}` : post.title;
+      const name = String(member.name || "").trim();
+      const label = name && postTitle ? `${postTitle} — ${name}` : postTitle || name || "Member";
       out.push({
         key: `${post.id}-${member.id}`,
         label,
@@ -215,45 +216,80 @@ function MobileNavDropSection({
   onLandingClick: (e: MouseEvent<HTMLAnchorElement>, href: string) => void;
   onItemNavigate: () => void;
 }) {
+  const [subOpen, setSubOpen] = useState(false);
+  const subMenuId = useId();
+  const toggleBtnId = `${subMenuId}-toggle`;
+
   return (
     <div className="flex flex-col gap-0.5">
-      <Link
-        to={link.href === "#" ? "/" : `/${link.href}`}
-        onClick={(e) => onLandingClick(e, link.href)}
-        className={cn(
-          "fs-ui topnav-btn-text inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 font-semibold transition-colors",
-          activeSection === link.href
-            ? "bg-primary/10 text-primary"
-            : "text-muted-foreground hover:bg-muted/60 hover:text-primary"
-        )}
-      >
-        {link.label}
-      </Link>
-      <div className="ml-2 flex flex-col gap-0.5 border-l border-border/40 pl-2.5">
-        {items.map((item) =>
-          item.external ? (
-            <a
-              key={item.key}
-              href={item.to}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={onItemNavigate}
-              className="fs-ui topnav-btn-text block w-full whitespace-normal break-words rounded-md px-2 py-1.5 text-left font-medium leading-snug text-muted-foreground transition-colors hover:bg-muted/60 hover:text-primary [overflow-wrap:anywhere]"
-            >
-              {item.label}
-            </a>
-          ) : (
-            <Link
-              key={item.key}
-              to={item.to}
-              onClick={onItemNavigate}
-              className="fs-ui topnav-btn-text block w-full whitespace-normal break-words rounded-md px-2 py-1.5 text-left font-medium leading-snug text-muted-foreground transition-colors hover:bg-muted/60 hover:text-primary [overflow-wrap:anywhere]"
-            >
-              {item.label}
-            </Link>
-          )
-        )}
+      <div className="flex min-w-0 items-stretch gap-1">
+        <Link
+          to={link.href === "#" ? "/" : `/${link.href}`}
+          onClick={(e) => onLandingClick(e, link.href)}
+          className={cn(
+            "fs-ui topnav-btn-text inline-flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-2.5 py-1.5 font-semibold transition-colors",
+            activeSection === link.href
+              ? "bg-primary/10 text-primary"
+              : "text-muted-foreground hover:bg-muted/60 hover:text-primary"
+          )}
+        >
+          {link.label}
+        </Link>
+        <button
+          type="button"
+          id={toggleBtnId}
+          aria-expanded={subOpen}
+          aria-controls={subMenuId}
+          aria-label={subOpen ? `Hide ${link.label} links` : `Show ${link.label} links`}
+          onClick={() => setSubOpen((v) => !v)}
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+        >
+          <ChevronDown
+            className={cn("h-4 w-4 shrink-0 transition-transform duration-200", subOpen && "rotate-180")}
+            aria-hidden
+          />
+        </button>
       </div>
+      <AnimatePresence initial={false}>
+        {subOpen && (
+          <motion.div
+            id={subMenuId}
+            role="region"
+            aria-labelledby={toggleBtnId}
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: "easeInOut" }}
+            className="overflow-hidden"
+          >
+            <div className="ml-2 flex flex-col gap-0.5 border-l border-border/40 pl-2.5 pt-0.5">
+              {items.map((item) =>
+                item.external ? (
+                  <a
+                    key={item.key}
+                    href={item.to}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={onItemNavigate}
+                    className="fs-ui topnav-btn-text block w-full whitespace-normal break-words rounded-md px-2 py-1.5 text-left font-medium leading-snug text-muted-foreground transition-colors hover:bg-muted/60 hover:text-primary [overflow-wrap:anywhere]"
+                  >
+                    {item.label}
+                  </a>
+                ) : (
+                  <Link
+                    key={item.key}
+                    to={item.to}
+                    onClick={onItemNavigate}
+                    className="fs-ui topnav-btn-text block w-full whitespace-normal break-words rounded-md px-2 py-1.5 text-left font-medium leading-snug text-muted-foreground transition-colors hover:bg-muted/60 hover:text-primary [overflow-wrap:anywhere]"
+                  >
+                    {item.label}
+                  </Link>
+                )
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
