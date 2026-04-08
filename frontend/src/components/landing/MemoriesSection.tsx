@@ -62,7 +62,7 @@ function MemoryGridCard({ memory, i }: { memory: MemoryItem; i: number }) {
           )}
           {memory.description && (
             <div className="absolute inset-0 flex min-w-0 items-end bg-foreground/70 p-3 opacity-0 transition-opacity duration-300 group-hover:opacity-100 sm:p-4">
-              <p className="line-clamp-4 break-words text-sm text-primary-foreground [overflow-wrap:anywhere]">
+              <p className="line-clamp-4 break-words fs-ui text-primary-foreground [overflow-wrap:anywhere]">
                 {memory.description}
               </p>
             </div>
@@ -71,11 +71,11 @@ function MemoryGridCard({ memory, i }: { memory: MemoryItem; i: number }) {
 
         <div className="min-w-0 p-3 sm:p-4">
           <div className="mb-2 flex min-w-0 items-center justify-between gap-2">
-            <Badge variant="secondary" className="min-w-0 max-w-[55%] shrink break-words text-[0.65rem] sm:max-w-none sm:text-xs [overflow-wrap:anywhere]">
+            <Badge variant="secondary" className="min-w-0 max-w-[55%] shrink break-words text-xs sm:max-w-none [overflow-wrap:anywhere]">
               {memory.category}
             </Badge>
             {memory.event_date && (
-              <span className="flex shrink-0 items-center gap-1 text-[0.65rem] text-muted-foreground sm:text-xs">
+              <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
                 <Calendar className="h-3 w-3 shrink-0" />
                 {new Date(memory.event_date).toLocaleDateString("en-US", {
                   year: "numeric",

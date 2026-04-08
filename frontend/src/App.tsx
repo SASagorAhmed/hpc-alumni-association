@@ -1,4 +1,3 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   createBrowserRouter,
   createRoutesFromElements,
@@ -16,6 +15,7 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { ThemeToggleFixedFallback } from "@/components/ThemeToggleFixedFallback";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { ScrollToTopOnRouteChange } from "@/components/ScrollToTopOnRouteChange";
+import { SplashGate } from "@/components/splash/SplashGate";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import Index from "./pages/Index.tsx";
 import CoreFeatures from "./pages/CoreFeatures.tsx";
@@ -65,8 +65,6 @@ import AdminLandingEditor from "./pages/admin/AdminLandingEditor.tsx";
 import AdminMemories from "./pages/admin/AdminMemories.tsx";
 import AdminUserProfile from "./pages/admin/AdminUserProfile.tsx";
 
-const queryClient = new QueryClient();
-
 /** Layout: scroll restoration + custom landing/detail scroll helpers; all routes render in `<Outlet />`. */
 function AppShell() {
   return (
@@ -76,7 +74,9 @@ function AppShell() {
       <AuthProvider>
         <AdminViewAsAlumniProvider>
           <ThemeToggleFixedFallback />
-          <Outlet />
+          <SplashGate>
+            <Outlet />
+          </SplashGate>
         </AdminViewAsAlumniProvider>
       </AuthProvider>
     </>
@@ -157,15 +157,13 @@ const router = createBrowserRouter(
 );
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <ThemeProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <RouterProvider router={router} future={{ v7_startTransition: true }} />
-      </TooltipProvider>
-    </ThemeProvider>
-  </QueryClientProvider>
+  <ThemeProvider>
+    <TooltipProvider>
+      <Toaster />
+      <Sonner />
+      <RouterProvider router={router} future={{ v7_startTransition: true }} />
+    </TooltipProvider>
+  </ThemeProvider>
 );
 
 export default App;

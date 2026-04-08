@@ -44,19 +44,16 @@ function AchievementGridCard({ a, i }: { a: Achievement; i: number }) {
         </div>
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col items-stretch gap-2 p-3 text-center">
-          <span className="text-[0.68rem] font-semibold uppercase tracking-wider text-amber-600">
+          <span className="fs-caption font-semibold uppercase tracking-wider text-amber-600">
             #{String(i + 1).padStart(2, "0")} Achievement
           </span>
 
-          <h3
-            className="break-words text-sm font-bold leading-snug text-foreground [overflow-wrap:anywhere]"
-            style={{ fontFamily: "'Outfit', sans-serif" }}
-          >
+          <h3 className="font-outfit-section fs-card-title-lg break-words font-bold leading-snug text-foreground [overflow-wrap:anywhere]">
             {a.name}
           </h3>
 
           {a.achievement_title && (
-            <span className="inline-flex max-w-full items-center justify-center break-words rounded-full bg-primary px-2.5 py-0.5 text-xs font-semibold text-primary-foreground [overflow-wrap:anywhere]">
+            <span className="inline-flex max-w-full items-center justify-center break-words rounded-full bg-primary px-2.5 py-0.5 fs-caption font-semibold text-primary-foreground [overflow-wrap:anywhere]">
               {a.achievement_title}
             </span>
           )}
@@ -87,7 +84,7 @@ function AchievementGridCard({ a, i }: { a: Achievement; i: number }) {
               <div className="rounded-lg border border-primary/20 bg-primary/5 p-2.5 text-left">
                 <div className="mb-1 flex items-center gap-1.5">
                   <PartyPopper className="h-3 w-3 shrink-0 text-primary" aria-hidden />
-                  <span className="text-[0.6rem] font-semibold uppercase tracking-wider text-primary">Congratulations</span>
+                  <span className="fs-caption font-semibold uppercase tracking-wider text-primary">Congratulations</span>
                 </div>
                 <p className="line-clamp-4 break-words text-xs leading-relaxed text-foreground/85 [overflow-wrap:anywhere]">
                   {a.message.trim()}
@@ -219,7 +216,7 @@ const AchievementsSection = () => {
         <Award className="h-4 w-4" />
         HPC Alumni Achievements
       </div>
-      <h2 className="fs-title font-bold text-foreground" style={{ fontFamily: "'Outfit', sans-serif" }}>
+      <h2 className="fs-title font-bold text-foreground font-outfit-section">
         Achievements of HPC Alumni
       </h2>
       <p className="fs-body mt-3 w-full max-w-none text-muted-foreground text-justify hyphens-auto">

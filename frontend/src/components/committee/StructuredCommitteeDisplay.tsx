@@ -103,7 +103,7 @@ const MemberRow = ({
           </div>
         )}
         {highlighted && (
-          <span className="absolute top-2 left-2 inline-flex items-center gap-1 rounded-full bg-amber-500/95 px-2 py-0.5 text-[10px] font-bold text-white shadow">
+          <span className="absolute top-2 left-2 inline-flex items-center gap-1 rounded-full bg-amber-500/95 px-2 py-0.5 fs-caption font-bold text-white shadow">
             <Crown className="h-3 w-3" /> Highlight
           </span>
         )}
@@ -112,22 +112,21 @@ const MemberRow = ({
         <Link to={`/member/${member.id}`} className="group" onClick={() => saveNavScrollRestore()}>
           <h3
             ref={nameTitleRef}
-            className="text-lg font-bold text-foreground transition-colors group-hover:text-primary"
-            style={{ fontFamily: "'Outfit', sans-serif" }}
+            className="fs-card-title-lg font-bold text-foreground transition-colors group-hover:text-primary font-outfit-section"
             title={member.name}
           >
             {nameTitleDisplay}
           </h3>
         </Link>
         {postTitle ? (
-          <p className="text-base font-semibold text-primary leading-snug">{postTitle}</p>
+          <p className="fs-ui font-semibold text-primary leading-snug">{postTitle}</p>
         ) : (
-          <p className="text-sm font-semibold text-primary/90">{member.designation}</p>
+          <p className="fs-ui font-semibold text-primary/90">{member.designation}</p>
         )}
         {postTitle && member.designation && member.designation.trim() !== postTitle.trim() ? (
-          <p className="text-sm text-muted-foreground">{member.designation}</p>
+          <p className="fs-ui text-muted-foreground">{member.designation}</p>
         ) : null}
-        <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+        <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 fs-ui text-muted-foreground">
           {member.batch && (
             <span className="inline-flex items-center gap-1.5">
               <GraduationCap className="h-4 w-4 shrink-0 text-emerald-600" />
@@ -145,7 +144,7 @@ const MemberRow = ({
           )}
         </div>
         {(member.phone || member.email) && (
-          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 fs-caption text-muted-foreground">
             {member.phone && (
               <span className="inline-flex items-center gap-1">
                 <Phone className="h-3.5 w-3.5" /> {member.phone}
@@ -182,13 +181,15 @@ export function StructuredCommitteeDisplay({
     <div className="space-y-10">
       {showIntro && (
         <div className="text-center">
-          <p className="mb-2 text-[13px] font-semibold tracking-wider text-amber-600" style={{ fontFamily: "'Outfit', sans-serif" }}>
+          <p className="fs-eyebrow mb-2 font-semibold tracking-wider text-amber-600 font-outfit-section">
             EXECUTIVE COMMITTEE
           </p>
-          <h2 className="text-3xl font-bold tracking-tight text-foreground md:text-4xl" style={{ fontFamily: "'Outfit', sans-serif" }}>
+          <h2 className="fs-title font-bold tracking-tight text-foreground font-outfit-section">
             {term.name}
           </h2>
-          {term.description && <p className="mt-3 w-full max-w-none text-[15px] text-muted-foreground">{term.description}</p>}
+          {term.description && (
+            <p className="fs-body mt-3 w-full max-w-none text-muted-foreground">{term.description}</p>
+          )}
         </div>
       )}
 
@@ -199,11 +200,11 @@ export function StructuredCommitteeDisplay({
           return (
             <section key={post.id} className="space-y-4">
               <div className="border-b border-border pb-2">
-                <h3 className="text-xl font-bold text-foreground leading-snug" style={{ fontFamily: "'Outfit', sans-serif" }}>
+                <h3 className="fs-card-title font-bold text-foreground leading-snug font-outfit-section">
                   {post.title}
                 </h3>
                 {!bool(post.allows_multiple) && (
-                  <p className="text-xs text-muted-foreground">Single seat</p>
+                  <p className="fs-caption text-muted-foreground">Single seat</p>
                 )}
               </div>
               {members.length === 0 ? (

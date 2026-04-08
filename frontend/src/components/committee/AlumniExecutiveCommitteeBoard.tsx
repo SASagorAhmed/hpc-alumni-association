@@ -395,7 +395,7 @@ export function PresidentHeroCard({
           <div className="flex min-w-0 w-full max-w-[28rem] flex-col justify-start gap-2 text-left">
           <div className="flex items-center gap-1">
             <div
-              className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9.25px] font-bold tracking-wide"
+              className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 fs-caption font-bold tracking-wide"
               style={{
                 backgroundColor: primaryTint,
                 borderColor: primaryBorder,
@@ -406,7 +406,7 @@ export function PresidentHeroCard({
               KING
             </div>
             <div
-              className="inline-flex items-center rounded-full border px-2 py-0.5 text-[9.25px] font-bold tracking-wide"
+              className="inline-flex items-center rounded-full border px-2 py-0.5 fs-caption font-bold tracking-wide"
               style={{ backgroundColor: primaryTint, borderColor: primaryBorder, color: primary }}
             >
               #01
@@ -428,7 +428,7 @@ export function PresidentHeroCard({
           </h3>
 
           <div
-            className="inline-flex w-fit items-center rounded-full border px-2.5 py-0.5 text-[10.75px] font-semibold"
+            className="inline-flex w-fit items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold"
             style={{
               backgroundColor: "rgba(251, 146, 60, 0.25)",
               borderColor: "rgba(253, 224, 71, 0.65)",
@@ -440,7 +440,7 @@ export function PresidentHeroCard({
           </div>
 
           <div
-            className="mt-0.5 grid min-w-0 w-full max-w-full grid-cols-[auto_minmax(0,1fr)] items-start gap-x-1 gap-y-0 text-[12.5px]"
+            className="mt-0.5 grid min-w-0 w-full max-w-full grid-cols-[auto_minmax(0,1fr)] items-start gap-x-1 gap-y-0 text-sm"
             style={{ fontFamily: "Georgia, 'Times New Roman', serif", color: "#FFFFFF" }}
           >
             <div className="flex w-auto min-w-0 shrink-0 flex-col gap-y-0.5">
@@ -468,7 +468,7 @@ export function PresidentHeroCard({
             </div>
 
             <div className="flex min-w-0 flex-col gap-y-0.5">
-              <span className="inline-flex min-w-0 max-w-full items-start gap-1 break-words text-[11.1px] leading-snug">
+              <span className="inline-flex min-w-0 max-w-full items-start gap-1 break-words text-xs leading-snug">
                 <GraduationCap className="mt-0.5 h-[12.9px] w-[12.9px] shrink-0" style={{ color: primary }} />
                 <span className="min-w-0">
                   <span className="font-bold" style={{ color: primary }}>College: </span>
@@ -492,12 +492,11 @@ export function PresidentHeroCard({
               className="committee-member-wishing-box mt-0.5 w-full max-w-full rounded-md border p-2"
               style={WISHING_BOX_STYLE}
             >
-              <p className="font-semibold" style={{ color: "#000000", fontSize: "calc(8.75px * 1.15)" }}>
+              <p className="fs-caption font-semibold text-black">
                 Wishing you
               </p>
               <div
-                className="mt-0.5 max-h-[7.92rem] overflow-y-auto overscroll-contain pr-0.5 leading-[1.4] [scrollbar-gutter:stable]"
-                style={{ fontSize: "calc(9.25px * 1.15)", color: "#000000" }}
+                className="fs-caption mt-0.5 max-h-[7.92rem] overflow-y-auto overscroll-contain pr-0.5 leading-[1.4] [scrollbar-gutter:stable] text-black"
               >
                 {member.wishing_message}
               </div>
@@ -526,7 +525,7 @@ export function PresidentHeroCard({
             />
             <div className="pointer-events-none absolute inset-x-0 bottom-2 z-[12] flex justify-center px-2">
               <span
-                className="inline-flex rounded-full border px-4 py-1.5 text-[14px] font-extrabold tracking-[0.16em]"
+                className="inline-flex rounded-full border px-4 py-1.5 fs-button-text font-extrabold tracking-[0.16em]"
                 style={{
                   color: "#FFE566",
                   borderColor: "rgba(253,224,71,0.65)",
@@ -634,7 +633,7 @@ export function ExecutiveMemberCard({
               )}
             >
               <div
-                className="inline-flex w-fit items-center rounded-full border border-primary/20 px-2 py-0.5 text-[9.25px] font-bold tracking-wide"
+                className="inline-flex w-fit items-center rounded-full border border-primary/20 px-2 py-0.5 fs-caption font-bold tracking-wide"
                 style={{ backgroundColor: primaryTint, color: primary }}
               >
                 {badgeText}
@@ -655,7 +654,7 @@ export function ExecutiveMemberCard({
               </h3>
 
               <div
-                className="inline-flex w-fit max-w-full items-center rounded-full border border-primary/20 px-2.5 py-0.5 text-[10.75px] font-semibold"
+                className="inline-flex w-fit max-w-full items-center rounded-full border border-primary/20 px-2.5 py-0.5 text-xs font-semibold"
                 style={{
                   backgroundColor: "rgba(251, 146, 60, 0.25)",
                   borderColor: "rgba(253, 224, 71, 0.65)",
@@ -668,7 +667,7 @@ export function ExecutiveMemberCard({
 
               {/* After post: Alumni ID → Batch → Profession (other member card only) */}
               <div
-                className="mt-1 flex flex-col gap-y-0.5 text-[11.1px]"
+                className="mt-1 flex flex-col gap-y-0.5 text-xs"
                 style={{ fontFamily: "Georgia, 'Times New Roman', serif", color: "#FFFFFF" }}
               >
                 <span className="inline-flex min-w-0 max-w-full items-center gap-1.5">
@@ -719,7 +718,7 @@ export function ExecutiveMemberCard({
           {/* Bottom: education removed for governing_body (moved to right column). */}
           {!governingBody ? (
             <div
-              className="mt-2 flex flex-col gap-y-1 text-[11.1px]"
+              className="mt-2 flex flex-col gap-y-1 text-xs"
               style={{ fontFamily: "Georgia, 'Times New Roman', serif", color: "#FFFFFF" }}
             >
               <span className="inline-flex min-w-0 max-w-full items-start gap-1.5 break-words">
@@ -746,11 +745,11 @@ export function ExecutiveMemberCard({
         {wishingYouText ? (
           <div className="mt-auto space-y-1 px-2.5 pb-2.5">
             <div className="committee-member-wishing-box w-full rounded-md border p-2" style={WISHING_BOX_STYLE}>
-              <p className="text-[8.75px] font-semibold" style={{ color: "#000000" }}>
+              <p className="fs-caption font-semibold" style={{ color: "#000000" }}>
                 Wishing you
               </p>
               <p
-                className="mt-0.5 max-h-[10.5rem] overflow-hidden text-[9.25px] leading-[1.4] break-words text-muted-foreground font-normal"
+                className="mt-0.5 max-h-[10.5rem] overflow-hidden fs-caption leading-[1.4] break-words text-muted-foreground font-normal"
                 style={{ color: "#000000" }}
               >
                 {wishingYouText}
@@ -876,7 +875,7 @@ export function MobilePresidentCard({
           {/* Mobile president: KING badge on image; hide serial number */}
           <div className="absolute left-[0.75em] top-[0.75em] z-[7]">
             <span
-              className="inline-flex items-center gap-[0.25em] rounded-full border px-[0.55em] py-[0.2em] text-[0.72em] font-bold leading-none"
+              className="inline-flex items-center gap-[0.25em] rounded-full border px-[0.55em] py-[0.2em] fs-caption font-bold leading-none"
               style={{
                 backgroundColor: primaryTint,
                 borderColor: primaryBorder,
@@ -888,7 +887,7 @@ export function MobilePresidentCard({
           </div>
           <div className="pointer-events-none absolute inset-x-0 bottom-[0.5em] z-[8] flex justify-center px-[0.5em]">
             <span
-              className="inline-flex rounded-full border px-[1em] py-[0.45em] text-[0.95em] font-extrabold tracking-[0.12em]"
+              className="inline-flex rounded-full border px-[1em] py-[0.45em] fs-ui font-extrabold tracking-[0.12em]"
               style={{
                 color: "#FFE566",
                 borderColor: "rgba(253,224,71,0.65)",
@@ -920,7 +919,7 @@ export function MobilePresidentCard({
           </h3>
 
           <span
-            className="inline-flex w-fit max-w-full min-w-0 shrink-0 self-start items-center rounded-full border px-[0.65em] py-[0.25em] text-[0.95em] font-semibold leading-snug"
+            className="inline-flex w-fit max-w-full min-w-0 shrink-0 self-start items-center rounded-full border px-[0.65em] py-[0.25em] fs-ui font-semibold leading-snug"
             style={{
               backgroundColor: "rgba(251, 146, 60, 0.25)",
               borderColor: "rgba(253, 224, 71, 0.65)",
@@ -932,7 +931,7 @@ export function MobilePresidentCard({
           </span>
 
           <div
-            className="grid w-full min-w-0 grid-cols-[minmax(0,0.4fr)_minmax(0,0.6fr)] items-start gap-x-[min(0.55em,3.5vw)] gap-y-0 text-[0.9em] leading-[1.35]"
+            className="grid w-full min-w-0 grid-cols-[minmax(0,0.4fr)_minmax(0,0.6fr)] items-start gap-x-[min(0.55em,3.5vw)] gap-y-0 fs-ui leading-[1.35]"
             style={{ fontFamily: "Georgia, 'Times New Roman', serif", color: "#FFFFFF" }}
           >
             <div className="flex min-w-0 flex-col gap-y-[0.3em] pr-[0.25em]">
@@ -979,10 +978,10 @@ export function MobilePresidentCard({
 
           {member.wishing_message && (
             <div className="rounded-md border px-[0.65em] pb-[0.65em] pt-[0.55em]" style={WISHING_BOX_STYLE}>
-              <p className="text-[0.82em] font-semibold leading-snug" style={{ color: "#000000" }}>
+              <p className="fs-caption font-semibold leading-snug" style={{ color: "#000000" }}>
                 Wishing you
               </p>
-              <p className="mt-[0.35em] break-words text-[0.9em] font-normal italic leading-relaxed text-justify text-black [overflow-wrap:anywhere] hyphens-auto pb-px">
+              <p className="mt-[0.35em] break-words fs-ui font-normal italic leading-relaxed text-justify text-black [overflow-wrap:anywhere] hyphens-auto pb-px">
                 &ldquo;{member.wishing_message}&rdquo;
               </p>
             </div>
@@ -1096,7 +1095,7 @@ export function MobileMemberCard({
 
           <div className="flex min-h-full min-w-0 flex-col justify-between space-y-[0.2em] pr-[0.45em]">
             <span
-              className="inline-flex w-fit items-center rounded-full border px-[0.45em] py-[0.15em] text-[0.78em] font-bold leading-none"
+              className="inline-flex w-fit items-center rounded-full border px-[0.45em] py-[0.15em] fs-caption font-bold leading-none"
               style={{ backgroundColor: primaryTint, borderColor: primaryBorder, color: primary }}
             >
               {badgeText}
@@ -1117,7 +1116,7 @@ export function MobileMemberCard({
             </h3>
 
             <span
-              className="inline-flex w-fit max-w-full min-w-0 shrink-0 self-start items-center rounded-full border px-[0.5em] py-[0.15em] text-[0.86em] font-semibold leading-snug"
+              className="inline-flex w-fit max-w-full min-w-0 shrink-0 self-start items-center rounded-full border px-[0.5em] py-[0.15em] fs-ui font-semibold leading-snug"
               style={{
                 backgroundColor: "rgba(251, 146, 60, 0.25)",
                 borderColor: "rgba(253, 224, 71, 0.65)",
@@ -1129,7 +1128,7 @@ export function MobileMemberCard({
             </span>
 
             <div
-              className="mt-[0.15em] flex min-w-0 flex-col gap-y-[0.16em] text-[0.84em] leading-[1.3]"
+              className="mt-[0.15em] flex min-w-0 flex-col gap-y-[0.16em] text-xs leading-[1.3]"
               style={{ fontFamily: "Georgia, 'Times New Roman', serif", color: "#FFFFFF" }}
             >
               <span className="inline-flex min-w-0 items-center gap-[0.35em] whitespace-nowrap">
@@ -1144,13 +1143,13 @@ export function MobileMemberCard({
                 <Briefcase className="h-[1em] w-[1em] shrink-0" style={{ color: "#FFFFFF" }} />
                 <span ref={professionRowRef} className="block min-w-0 flex-1 whitespace-nowrap"><span className="font-semibold">Profession: </span>{member.profession ?? "N/A"}</span>
               </span>
-              <span className="inline-flex min-w-0 items-center gap-[0.3em] whitespace-nowrap text-[0.88em] leading-[1.25]">
+              <span className="inline-flex min-w-0 items-center gap-[0.3em] whitespace-nowrap fs-ui leading-[1.25]">
                 <Building2 className="h-[0.92em] w-[0.92em] shrink-0" style={{ color: "#FFFFFF" }} />
                 <span ref={universityRowRef} className="block min-w-0 flex-1 whitespace-nowrap font-semibold">
                   {universityLineDisplay}
                 </span>
               </span>
-              <span className="inline-flex min-w-0 items-center gap-[0.3em] whitespace-nowrap text-[0.88em] leading-[1.25]">
+              <span className="inline-flex min-w-0 items-center gap-[0.3em] whitespace-nowrap fs-ui leading-[1.25]">
                 <GraduationCap className="h-[0.92em] w-[0.92em] shrink-0" style={{ color: "#FFFFFF" }} />
                 <span ref={collegeRowRef} className="block min-w-0 flex-1 whitespace-nowrap"><span className="font-semibold">College: </span>{collegeDisplayMember}</span>
               </span>
@@ -1163,11 +1162,11 @@ export function MobileMemberCard({
           className="mx-[0.55em] mb-[0.5em] mt-0 min-w-0 rounded-[0.35em] border px-[0.55em] pb-[0.65em] pt-[0.55em]"
           style={WISHING_BOX_STYLE}
         >
-          <p className="text-[0.82em] font-semibold leading-snug" style={{ color: "#000000" }}>
+          <p className="fs-caption font-semibold leading-snug" style={{ color: "#000000" }}>
             Wishing you
           </p>
           <p
-            className="mt-[0.35em] break-words text-[0.9em] font-normal italic leading-relaxed text-muted-foreground [overflow-wrap:anywhere] pb-px"
+            className="mt-[0.35em] break-words fs-ui font-normal italic leading-relaxed text-muted-foreground [overflow-wrap:anywhere] pb-px"
             style={{ color: "#000000" }}
           >
             &ldquo;{wishingText}&rdquo;
@@ -1198,20 +1197,14 @@ export function AlumniExecutiveCommitteeIntro({
       transition={{ duration: 0.5 }}
       className={compact ? "mb-8 text-center" : "mb-12 text-center"}
     >
-      <p
-        className="mb-2 text-[13px] font-semibold tracking-wider"
-        style={{ fontFamily: "'Outfit', sans-serif", color: "var(--committee-intro-eyebrow)" }}
-      >
+      <p className="mb-2 fs-eyebrow font-semibold tracking-wider font-outfit-section" style={{ color: "var(--committee-intro-eyebrow)" }}>
         HPC Alumni Executive Committee
       </p>
-      <h2
-        className="text-3xl font-bold tracking-tight text-foreground md:text-4xl"
-        style={{ fontFamily: "'Outfit', sans-serif" }}
-      >
+      <h2 className="fs-title font-bold tracking-tight text-foreground font-outfit-section">
         Alumni Executive Committee 2025–2027
       </h2>
 
-      <p className="mt-3 w-full max-w-none text-[15px] text-muted-foreground leading-relaxed text-justify hyphens-auto">
+      <p className="mt-3 w-full max-w-none fs-body text-muted-foreground leading-relaxed text-justify hyphens-auto">
         The Alumni Executive Committee represents the elected and appointed leadership of the Hamdard Public
         College Alumni Association. These members are responsible for guiding the alumni network, organizing
         activities, and supporting the growth of the HPC alumni community.
@@ -1420,7 +1413,7 @@ export function AlumniExecutiveCommitteeBoard({
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-2">
-              <span className="rounded-full bg-muted/90 px-2.5 py-0.5 text-[11px] font-semibold tabular-nums text-muted-foreground">
+              <span className="rounded-full bg-muted/90 px-2.5 py-0.5 fs-caption font-semibold tabular-nums text-muted-foreground">
                 {count} {count === 1 ? "member" : "members"}
               </span>
               <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground transition-transform duration-200 group-hover:text-primary" />

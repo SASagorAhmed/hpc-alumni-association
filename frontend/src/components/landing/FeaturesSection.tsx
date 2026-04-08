@@ -88,14 +88,11 @@ const FeaturesSection = ({ content }: FeaturesProps) => {
     <section id="features" className="bg-background py-16 md:py-20">
       <div className="layout-container">
         <motion.div initial={{ opacity: 0, y: 8 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-50px" }} transition={{ duration: 0.5 }} className="mb-16 text-center">
-          <p className="fs-eyebrow mb-2 font-semibold tracking-[0.2em] text-red-700" style={{ fontFamily: "'Outfit', sans-serif" }}>{sectionLabel}</p>
-          <h2 className="fs-title font-extrabold tracking-tight text-foreground" style={{ fontFamily: "'Outfit', sans-serif" }}>
+          <p className="fs-eyebrow mb-2 font-semibold tracking-[0.2em] text-red-700 font-outfit-section">{sectionLabel}</p>
+          <h2 className="fs-title font-extrabold tracking-tight text-foreground font-outfit-section">
             {heading}
           </h2>
-          <p
-            className="fs-body mx-auto mt-4 max-w-2xl text-muted-foreground text-justify hyphens-auto"
-            style={{ fontFamily: "'Outfit', sans-serif" }}
-          >
+          <p className="fs-body mx-auto mt-4 max-w-2xl text-muted-foreground text-justify hyphens-auto">
             {subtitle}
           </p>
         </motion.div>
@@ -108,7 +105,7 @@ const FeaturesSection = ({ content }: FeaturesProps) => {
                   <category.icon size={26} className="text-white" />
                 </div>
                 <div className="flex flex-1 items-center gap-4">
-                  <h3 className="fs-card-title-lg font-bold tracking-wide text-foreground" style={{ fontFamily: "'Outfit', sans-serif" }}>{category.name}</h3>
+                  <h3 className="fs-card-title-lg font-bold tracking-wide text-foreground font-outfit-section">{category.name}</h3>
                   <div className="h-px flex-1 bg-gradient-to-r from-gray-300 via-gray-200 to-transparent" />
                 </div>
               </div>
@@ -120,11 +117,8 @@ const FeaturesSection = ({ content }: FeaturesProps) => {
                       <div className={`mb-4 flex h-12 w-12 items-center justify-center rounded-xl ${category.iconBg} transition-transform duration-300 group-hover:scale-110`}>
                         <mod.icon size={22} />
                       </div>
-                      <h4 className="fs-card-title mb-2 font-bold text-foreground" style={{ fontFamily: "'Outfit', sans-serif" }}>{mod.title}</h4>
-                      <p
-                        className="fs-ui text-muted-foreground text-justify hyphens-auto"
-                        style={{ fontFamily: "'Outfit', sans-serif" }}
-                      >
+                      <h4 className="fs-card-title mb-2 font-bold text-foreground font-outfit-section">{mod.title}</h4>
+                      <p className="fs-ui text-muted-foreground text-justify hyphens-auto">
                         {mod.description}
                       </p>
                     </div>
@@ -137,8 +131,8 @@ const FeaturesSection = ({ content }: FeaturesProps) => {
 
         <motion.div initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.5 }} className="mt-16 flex justify-center">
           <div className="inline-flex items-center gap-3 rounded-full px-8 py-4 shadow-lg text-white" style={{ background: "linear-gradient(135deg, #065F46, #059669, #B91C1C, #D4A017)" }}>
-            <span className="fs-stat-xl font-extrabold text-white" style={{ fontFamily: "'Outfit', sans-serif" }}>{summaryNumber}</span>
-            <span className="fs-ui font-semibold text-white/90" style={{ fontFamily: "'Outfit', sans-serif" }}>{summaryText}</span>
+            <span className="fs-stat-xl font-extrabold text-white">{summaryNumber}</span>
+            <span className="fs-ui font-semibold text-white/90">{summaryText}</span>
           </div>
         </motion.div>
       </div>

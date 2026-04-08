@@ -20,6 +20,8 @@ import { ACHIEVEMENT_BANNER_ASPECT_STYLE } from "@/lib/achievementCrop";
 import { BANNER_MAX_WORDS, BANNER_MESSAGE_MAX_WORDS, clampToWordLimit, countWords } from "@/lib/bannerWordLimit";
 import { API_BASE_URL } from "@/api-production/api.js";
 import { getAuthToken } from "@/lib/authToken";
+import { queryClient } from "@/lib/queryClient";
+import { ACHIEVEMENT_BANNER_QUERY_KEY } from "@/hooks/useAchievementBannerData";
 
 interface Achievement {
   id: string;
@@ -263,6 +265,7 @@ const AdminAchievements = () => {
         ),
       });
     }
+    void queryClient.invalidateQueries({ queryKey: ACHIEVEMENT_BANNER_QUERY_KEY });
   };
 
   useEffect(() => { fetchData(); }, []);
@@ -539,10 +542,14 @@ const AdminAchievements = () => {
         });
       } else {
         toast({ title: "Settings saved" });
+        void queryClient.invalidateQueries({ queryKey: ACHIEVEMENT_BANNER_QUERY_KEY });
       }
     } catch {
       if (!res.ok) toast({ title: "Could not save banner settings", variant: "destructive" });
-      else toast({ title: "Settings saved" });
+      else {
+        toast({ title: "Settings saved" });
+        void queryClient.invalidateQueries({ queryKey: ACHIEVEMENT_BANNER_QUERY_KEY });
+      }
     }
   };
 

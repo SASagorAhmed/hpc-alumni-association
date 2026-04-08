@@ -28,11 +28,11 @@ const FeaturesTeaserSection = ({ content }: Props) => {
           transition={{ duration: 0.45 }}
           className="rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8"
         >
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-primary">
+          <div className="fs-eyebrow mb-4 inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-3 py-1 font-semibold uppercase tracking-wider text-primary">
             <LayoutGrid className="h-3.5 w-3.5" aria-hidden />
             Platform
           </div>
-          <h2 className="fs-title mb-3 font-bold tracking-tight text-foreground" style={{ fontFamily: "'Outfit', sans-serif" }}>
+          <h2 className="fs-title mb-3 font-bold tracking-tight text-foreground font-outfit-section">
             {teaserHeading}
           </h2>
           <p className="fs-body mb-6 text-muted-foreground text-justify hyphens-auto leading-relaxed">{teaserBody}</p>

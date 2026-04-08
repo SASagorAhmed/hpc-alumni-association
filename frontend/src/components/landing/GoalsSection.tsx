@@ -66,8 +66,8 @@ const GoalsSection = ({ content }: GoalsProps) => {
     <section id="goals" className="border-t border-border/60 bg-background py-14 md:py-16">
       <div className="layout-container">
         <motion.div initial={{ opacity: 0, y: 8 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-50px" }} transition={{ duration: 0.5 }} className="mb-12 text-center">
-          <p className="fs-eyebrow mb-2 font-semibold tracking-wider text-primary" style={{ fontFamily: "'Outfit', sans-serif" }}>{sectionLabel}</p>
-          <h2 className="fs-title font-bold tracking-tight text-foreground" style={{ fontFamily: "'Outfit', sans-serif" }}>
+          <p className="font-outfit-section fs-eyebrow mb-2 font-semibold tracking-wider text-primary">{sectionLabel}</p>
+          <h2 className="font-outfit-section fs-title font-bold tracking-tight text-foreground">
             {heading}
           </h2>
         </motion.div>

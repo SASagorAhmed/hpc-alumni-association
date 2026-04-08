@@ -2,7 +2,8 @@ import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef, typ
 import { Award, ChevronLeft, ChevronRight, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BANNER_DEFAULT_PHOTO_TAGLINE } from "@/constants/bannerCopy";
-import { API_BASE_URL } from "@/api-production/api.js";
+import type { Achievement } from "@/hooks/useAchievementBannerData";
+import { useAchievementBannerData } from "@/hooks/useAchievementBannerData";
 import { ACHIEVEMENT_BANNER_CROP_ASPECT } from "@/lib/achievementCrop";
 import { BREAKPOINT_MOBILE_MAX, mqDesktopMin, mqTabletRange } from "@/lib/breakpoints";
 import hpcLogo from "@/assets/hpc-logo.png";
@@ -210,22 +211,6 @@ function BannerAlumniLogoBadge({ variant = "panel" }: { variant?: BannerAlumniLo
       </div>
     </div>
   );
-}
-
-interface Achievement {
-  id: string;
-  name: string;
-  batch: string | null;
-  photo_url: string | null;
-  achievement_title: string;
-  institution: string | null;
-  message: string | null;
-  tag: string | null;
-  is_pinned: boolean;
-  banner_photo_batch_text?: string | null;
-  banner_photo_tagline?: string | null;
-  banner_congratulations_text?: string | null;
-  banner_theme?: "default" | "theme2" | "theme3" | null;
 }
 
 function bannerPhotoBatchLine(item: Achievement): string | null {
@@ -465,9 +450,8 @@ function CongratulationsBurstReveal({
   }, [messageWithBreaks]);
 
   const messageBodyClass = cn(
-    "min-h-0 w-full max-w-full whitespace-pre-line",
+    "fs-banner-message-body min-h-0 w-full max-w-full whitespace-pre-line",
     "text-justify [text-align-last:left] hyphens-none break-words text-pretty",
-    "text-[clamp(0.84rem,3.1cqw+0.28rem,1.02rem)] lg:text-[clamp(0.7rem,2.3cqw+0.2rem,0.86rem)]",
     messagePanelLikeTheme3 ? "not-italic" : "italic leading-snug text-white/85"
   );
 
@@ -524,7 +508,7 @@ function CongratulationsBurstReveal({
         <div className="flex w-full justify-center px-0.5 pt-0.5">
           <span
             className={cn(
-              "hpc-celebrate-title hpc-celebrate-pauseable inline-block text-center text-[clamp(0.72rem,4.5cqw+0.28rem,1.08rem)]",
+              "hpc-celebrate-title hpc-celebrate-pauseable inline-block text-center fs-banner-celebrate-heading",
               theme3Celebrate
                 ? "uppercase tracking-[0.04em] sm:tracking-[0.05em]"
                 : "font-extrabold uppercase tracking-[0.12em] sm:tracking-[0.14em] bg-gradient-to-r from-amber-100 via-white to-amber-200/95 bg-clip-text text-transparent"
@@ -561,7 +545,7 @@ function CongratulationsBurstReveal({
         )}
         <p
           className={cn(
-            "mt-1.5 shrink-0 border-t border-white/10 pt-1.5 text-right text-[0.68rem] sm:text-[0.72rem] lg:text-[0.62rem]",
+            "fs-banner-association-line mt-1.5 shrink-0 border-t border-white/10 pt-1.5 text-right",
             messagePanelLikeTheme3
               ? "normal-case tracking-normal font-normal opacity-100"
               : "font-semibold uppercase tracking-[0.08em] opacity-90"
@@ -820,45 +804,6 @@ function BannerPhotoPanel({
   );
 }
 
-interface Settings {
-  banner_enabled: boolean;
-  slide_duration: number;
-  max_display_count: number | null;
-  banner_theme?: "default" | "theme2" | "theme3";
-}
-
-/** MySQL / JSON may send 0/1; ignore error-shaped bodies */
-function normalizeAchievementSettings(raw: unknown): Settings | null {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
-  const o = raw as Record<string, unknown>;
-  if ("ok" in o && (o as { ok?: boolean }).ok === false) return null;
-  if (!("banner_enabled" in o)) return null;
-  const be = o.banner_enabled;
-  const banner_enabled = be === true || be === 1 || be === "1";
-  const sd = Number(o.slide_duration);
-  const slide_duration = Number.isFinite(sd) && sd > 0 ? sd : 4;
-  const mdc = o.max_display_count;
-  let max_display_count: number | null = null;
-  if (mdc !== null && mdc !== undefined && mdc !== "") {
-    const n = Number(mdc);
-    if (Number.isFinite(n)) max_display_count = n;
-  }
-  const rawBt = (o as { banner_theme?: unknown }).banner_theme;
-  const themeRaw =
-    typeof rawBt === "string"
-      ? rawBt.trim().toLowerCase()
-      : rawBt != null && rawBt !== ""
-        ? String(rawBt).trim().toLowerCase()
-        : "";
-  const banner_theme: "default" | "theme2" | "theme3" =
-    themeRaw === "theme2" || themeRaw === "tomato"
-      ? "theme2"
-      : themeRaw === "theme3"
-        ? "theme3"
-        : "default";
-  return { banner_enabled, slide_duration, max_display_count, banner_theme };
-}
-
 /** Per-slide or global setting; item wins, then fallback (same rules as before). */
 function resolveAchievementBannerTheme(itemThemeRaw: string, fallbackThemeRaw: string): "default" | "theme2" | "theme3" {
   const item = itemThemeRaw.trim().toLowerCase();
@@ -918,8 +863,9 @@ const DESIGN_W = 960;
 const NARROW_ZOOM_DESIGN_W = 330;
 
 const AchievementBanner = () => {
-  const [achievements, setAchievements] = useState<Achievement[]>([]);
-  const [settings, setSettings] = useState<Settings | null>(null);
+  const { data: bannerData } = useAchievementBannerData();
+  const settings = bannerData?.settings ?? null;
+  const achievements = bannerData?.achievements ?? [];
   const [current, setCurrent] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
@@ -991,40 +937,6 @@ const AchievementBanner = () => {
       ro.disconnect();
     };
   }, [bannerReady, isNarrowViewport, current]);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      const [settingsRes, achRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/public/achievement-settings`),
-        fetch(`${API_BASE_URL}/api/public/achievements?active=true`),
-      ]);
-      const settingsRaw = settingsRes.ok ? await settingsRes.json().catch(() => null) : null;
-      const normalized = normalizeAchievementSettings(settingsRaw);
-      const fallbackSettings: Settings = {
-        banner_enabled: true,
-        slide_duration: 4,
-        max_display_count: null,
-      };
-      setSettings(normalized ?? fallbackSettings);
-
-      const achData = achRes.ok ? await achRes.json().catch(() => []) : [];
-      if (Array.isArray(achData)) {
-        const now = new Date().toISOString();
-        const filtered = (achData as unknown as (Achievement & { start_date: string | null; end_date: string | null })[]).filter((a) => {
-          if (a.start_date && a.start_date > now) return false;
-          if (a.end_date && a.end_date < now) return false;
-          return true;
-        });
-        const eff = normalized ?? fallbackSettings;
-        const limited =
-          eff.max_display_count != null && eff.max_display_count > 0
-            ? filtered.slice(0, eff.max_display_count)
-            : filtered;
-        setAchievements(limited);
-      }
-    };
-    fetchData();
-  }, []);
 
   // Stacked vs two-column: separate tablet band and desktop-min MQs (same layout for both; listeners not shared).
   useEffect(() => {
@@ -1173,7 +1085,7 @@ const AchievementBanner = () => {
                   <p
                     className={cn(
                       "leading-tight",
-                      isTheme3 ? "font-extrabold" : "text-sm font-bold text-white drop-shadow-[0_1px_6px_rgba(0,0,0,0.9)]"
+                      isTheme3 ? "font-extrabold" : "fs-card-title font-bold text-white drop-shadow-[0_1px_6px_rgba(0,0,0,0.9)]"
                     )}
                     style={isTheme3 ? THEME3_NAME_ON_PHOTO_STYLE : undefined}
                   >
@@ -1182,7 +1094,7 @@ const AchievementBanner = () => {
                   {bannerPhotoBatchLine(item) && (
                     <span
                       className={cn(
-                        "inline-flex rounded-md border px-1.5 py-0.5 text-[0.7rem] font-bold tracking-wide",
+                        "fs-caption inline-flex rounded-md border px-1.5 py-0.5 font-bold tracking-wide",
                         !isDefaultBannerTheme && "uppercase"
                       )}
                       style={
@@ -1205,7 +1117,7 @@ const AchievementBanner = () => {
                     </span>
                   )}
                   <p
-                    className={cn("text-[0.7rem] leading-snug font-bold")}
+                    className={cn("fs-caption leading-snug font-bold")}
                     style={isTheme3 ? THEME3_TAGLINE_ON_PHOTO_STYLE : { color: "var(--achievement-banner-line)" }}
                   >
                     {bannerPhotoTagline(item)}
@@ -1277,7 +1189,7 @@ const AchievementBanner = () => {
               <div
                 key={`${item.id}-pill-mob`}
                 className={cn(
-                  "inline-flex w-fit max-w-full shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[0.65rem] uppercase tracking-[0.13em]",
+                  "fs-banner-pill inline-flex w-fit max-w-full shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 uppercase tracking-[0.13em]",
                   "font-semibold"
                 )}
                 style={{
@@ -1335,7 +1247,7 @@ const AchievementBanner = () => {
                 >
                   <p
                     className={cn(
-                      "text-[0.6rem] uppercase",
+                      "fs-banner-pill uppercase",
                       isTheme3 ? "tracking-[0.14em]" : isDefaultBannerTheme ? "tracking-[0.12em]" : "font-semibold tracking-widest"
                     )}
                     style={
@@ -1352,7 +1264,7 @@ const AchievementBanner = () => {
                     text={item.achievement_title.trim()}
                     maxRem={isTheme3 ? 1.15 : isDefaultBannerTheme ? 1.38 : 0.95}
                     className={cn(
-                      "mt-0.5 w-full min-w-0 leading-snug text-sm text-left",
+                      "mt-0.5 w-full min-w-0 fs-ui leading-snug text-left",
                       isDefaultBannerTheme && "uppercase",
                       !isTheme3 && !isDefaultBannerTheme && "font-semibold"
                     )}
@@ -1493,7 +1405,7 @@ const AchievementBanner = () => {
                     <div
                       key={`${item.id}-pill`}
                       className={cn(
-                        "inline-flex w-fit max-w-full shrink-0 items-center justify-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[0.65rem] uppercase tracking-[0.13em]",
+                        "fs-banner-pill inline-flex w-fit max-w-full shrink-0 items-center justify-center gap-1.5 rounded-full border px-2.5 py-0.5 uppercase tracking-[0.13em]",
                         "font-semibold"
                       )}
                       style={{
@@ -1530,7 +1442,7 @@ const AchievementBanner = () => {
                       >
                         <p
                           className={cn(
-                            "text-[0.58rem] uppercase",
+                            "fs-banner-pill uppercase",
                             isTheme3 ? "tracking-[0.14em]" : isDefaultBannerTheme ? "tracking-[0.12em]" : "font-semibold tracking-widest"
                           )}
                           style={
@@ -1547,7 +1459,7 @@ const AchievementBanner = () => {
                           className={cn(
                             "mt-0.5 w-full min-w-0 break-words text-wrap leading-snug text-left hyphens-none",
                             isDefaultBannerTheme && "uppercase",
-                            !isTheme3 && !isDefaultBannerTheme && "text-[clamp(0.68rem,2.6cqw+0.18rem,0.8125rem)] font-semibold"
+                            !isTheme3 && !isDefaultBannerTheme && "fs-banner-ach-title-cqw font-semibold"
                           )}
                           style={
                             isTheme3

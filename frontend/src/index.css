@@ -169,6 +169,11 @@
   /* Join section mood */
   --landing-join-bg: #065F46;
 
+  /* Chrome (navbar + top notice): same clamp philosophy as fs-ui; nav one step below UI */
+  --fs-chrome-ui: clamp(0.8125rem, 0.76rem + 0.2vw, 0.9375rem);
+  --fs-chrome-nav: clamp(0.6875rem, 0.64rem + 0.22vw, 0.8125rem);
+  --fs-chrome-caption: clamp(0.6875rem, 0.64rem + 0.14vw, 0.75rem);
+
   /* ──────────────────────────────────────────────
      Role-name token aliases (from your token sheet)
      These map to the existing CSS variable tokens so
@@ -754,6 +759,26 @@
     }
   }
 
+  /**
+   * Landing typography ladder — prefer these over ad-hoc text-[px]:
+   * fs-display (hero), fs-title (section), fs-eyebrow (label), fs-body (paragraph),
+   * fs-card-title / fs-card-title-lg, fs-ui (meta), fs-caption (badges/dates),
+   * fs-button-text, fs-nav (header links), fs-notice-bar / fs-notice-bar-secondary (top strip).
+   * Main column copy: .landing-copy-scale applies --fs-landing-mult to fs-* and text-xs…2xl.
+   * Optional display font for section headings: .font-outfit-section (body stays Public Sans).
+   */
+  .font-outfit-section {
+    font-family: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  }
+  .fs-notice-bar {
+    font-size: var(--fs-chrome-ui);
+    line-height: 1.45;
+  }
+  .fs-notice-bar-secondary {
+    font-size: var(--fs-chrome-caption);
+    line-height: 1.4;
+  }
+
   /* Responsive landing typography (fluid with viewport; caps on large screens) */
   .fs-display {
     font-size: clamp(1.625rem, 1.2rem + 1.75vw, 2.5rem);
@@ -780,7 +805,7 @@
     line-height: 1.28;
   }
   .fs-ui {
-    font-size: clamp(0.8125rem, 0.76rem + 0.2vw, 0.9375rem);
+    font-size: var(--fs-chrome-ui);
     line-height: 1.55;
   }
   .fs-button-text {
@@ -788,7 +813,7 @@
     line-height: 1.25;
   }
   .fs-caption {
-    font-size: clamp(0.6875rem, 0.64rem + 0.14vw, 0.75rem);
+    font-size: var(--fs-chrome-caption);
     line-height: 1.4;
   }
   .fs-mono-stat {
@@ -816,8 +841,42 @@
     font-size: clamp(0.5625rem, 0.5rem + 0.28vw, 0.875rem);
     line-height: 1.2;
   }
+
+  /* Achievement banner (outside .landing-copy-scale): cqw helpers centralized */
+  .fs-banner-message-body {
+    font-size: clamp(0.84rem, 3.1cqw + 0.28rem, 1.02rem);
+    line-height: 1.45;
+  }
+  @media (min-width: 1024px) {
+    .fs-banner-message-body {
+      font-size: clamp(0.7rem, 2.3cqw + 0.2rem, 0.86rem);
+    }
+  }
+  .fs-banner-celebrate-heading {
+    font-size: clamp(0.72rem, 4.5cqw + 0.28rem, 1.08rem);
+    line-height: 1.2;
+  }
+  .fs-banner-association-line {
+    font-size: clamp(0.62rem, 0.58rem + 0.2vw, 0.72rem);
+    line-height: 1.35;
+  }
+  @media (min-width: 640px) {
+    .fs-banner-association-line {
+      font-size: clamp(0.65rem, 0.6rem + 0.22vw, 0.74rem);
+    }
+  }
+  @media (min-width: 1024px) {
+    .fs-banner-association-line {
+      font-size: clamp(0.58rem, 0.54rem + 0.18vw, 0.68rem);
+    }
+  }
+  .fs-banner-ach-title-cqw {
+    font-size: clamp(0.68rem, 2.6cqw + 0.18rem, 0.8125rem);
+    line-height: 1.35;
+  }
+
   .fs-nav {
-    font-size: clamp(0.625rem, 0.55rem + 0.22vw, 0.75rem);
+    font-size: var(--fs-chrome-nav);
     line-height: 1.2;
   }
 
@@ -827,20 +886,53 @@
    */
   [data-navbar-text-scale="1.1"] .fs-nav,
   [data-navbar-text-scale="1.1"] .fs-ui {
-    font-size: clamp(0.6875rem, 0.605rem + 0.242vw, 0.825rem);
+    font-size: clamp(0.75rem, 0.68rem + 0.25vw, 0.9rem);
     line-height: 1.2;
   }
   [data-navbar-text-scale="1.1"] .nav-brand-title {
-    font-size: clamp(0.625rem, 0.58rem + 0.12vw, 0.6875rem);
+    font-size: clamp(0.6875rem, 0.62rem + 0.14vw, 0.75rem);
     line-height: 1.15;
     letter-spacing: -0.02em;
   }
   [data-navbar-text-scale="1.1"] .nav-brand-subtitle {
-    font-size: clamp(0.4375rem, 0.4rem + 0.08vw, 0.5rem);
+    font-size: clamp(0.5rem, 0.45rem + 0.1vw, 0.5625rem);
     line-height: 1.2;
     letter-spacing: 0.08em;
   }
   /* Auth / CTA: same type size as section links (`.fs-nav`); do not shrink `.topnav-btn-text` — was too small */
+
+  /*
+   * Project-wide readability floor (admin + alumni + dashboards):
+   * Tailwind `text-xs` / `text-sm` and tiny arbitrary px classes stay consistent and legible.
+   */
+  .text-xs {
+    font-size: clamp(0.78rem, 0.75rem + 0.1vw, 0.875rem);
+    line-height: 1.35;
+  }
+  .text-sm {
+    font-size: clamp(0.9rem, 0.86rem + 0.14vw, 1rem);
+    line-height: 1.45;
+  }
+  .text-\[8px\] {
+    font-size: 0.7rem;
+    line-height: 1.25;
+  }
+  .text-\[9px\] {
+    font-size: 0.74rem;
+    line-height: 1.3;
+  }
+  .text-\[10px\] {
+    font-size: 0.78rem;
+    line-height: 1.35;
+  }
+  .text-\[11px\] {
+    font-size: 0.82rem;
+    line-height: 1.35;
+  }
+  .text-\[12px\] {
+    font-size: 0.875rem;
+    line-height: 1.4;
+  }
 
   /* Card typography +10% globally (cards only) */
   .card-text-scale .text-xs { font-size: calc(0.75rem * 1.1); }
@@ -860,6 +952,13 @@
    */
   .landing-copy-scale {
     --fs-landing-mult: 0.935; /* +10% from previous 0.85 */
+  }
+
+  /* Large desktops: slightly lift type so sections don’t feel undersized next to chrome */
+  @media (min-width: 1440px) {
+    .landing-copy-scale {
+      --fs-landing-mult: 0.98;
+    }
   }
 
   /* Lucide / SVG icons inside scaled landing content */

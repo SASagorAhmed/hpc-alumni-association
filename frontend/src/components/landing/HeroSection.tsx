@@ -146,7 +146,7 @@ const HeroSection = ({ content }: HeroProps) => {
               <stat.icon size={20} className="text-primary shrink-0 max-sm:h-[18px] max-sm:w-[18px]" />
               <div className="max-lg:min-w-0">
                 <p className="fs-caption font-medium uppercase tracking-wider text-muted-foreground">{stat.label}</p>
-                <p className="fs-mono-stat font-mono font-bold leading-snug text-foreground max-lg:break-words max-sm:text-[0.8125rem]">
+                <p className="fs-mono-stat font-mono font-bold leading-snug text-foreground max-lg:break-words">
                   {stat.value}
                 </p>
               </div>

@@ -155,14 +155,14 @@ const CommitteeSection = ({ showAll = false }: { showAll?: boolean }) => {
                         <button
                           type="button"
                           onClick={() => setVisibleCount((prev) => prev + 6)}
-                          className="px-5 py-2 rounded-full border border-primary text-primary text-sm font-medium hover:bg-primary/10 transition-colors"
+                          className="px-5 py-2 rounded-full border border-primary text-primary fs-ui font-medium hover:bg-primary/10 transition-colors"
                         >
                           See More ({otherMembers.length - visibleCount} remaining)
                         </button>
                         <button
                           type="button"
                           onClick={() => setVisibleCount(otherMembers.length)}
-                          className="text-sm font-medium text-primary underline underline-offset-4 hover:text-primary/80 transition-colors"
+                          className="fs-ui font-medium text-primary underline underline-offset-4 hover:text-primary/80 transition-colors"
                         >
                           See All
                         </button>
@@ -172,7 +172,7 @@ const CommitteeSection = ({ showAll = false }: { showAll?: boolean }) => {
                       <button
                         type="button"
                         onClick={() => setVisibleCount(6)}
-                        className="px-5 py-2 rounded-full border border-muted-foreground/30 text-muted-foreground text-sm font-medium hover:bg-muted transition-colors"
+                        className="px-5 py-2 rounded-full border border-muted-foreground/30 text-muted-foreground fs-ui font-medium hover:bg-muted transition-colors"
                       >
                         Show Less
                       </button>
@@ -213,18 +213,18 @@ const CommitteeSection = ({ showAll = false }: { showAll?: boolean }) => {
                     {visibleCount < otherMembers.length && (
                       <>
                         <button type="button" onClick={() => setVisibleCount((prev) => prev + 6)}
-                          className="px-5 py-2 rounded-full border border-primary text-primary text-sm font-medium hover:bg-primary/10 transition-colors">
+                          className="fs-button-text px-5 py-2 rounded-full border border-primary text-primary font-medium hover:bg-primary/10 transition-colors">
                           See More ({otherMembers.length - visibleCount} remaining)
                         </button>
                         <button type="button" onClick={() => setVisibleCount(otherMembers.length)}
-                          className="text-sm font-medium text-primary underline underline-offset-4 hover:text-primary/80 transition-colors">
+                          className="fs-ui font-medium text-primary underline underline-offset-4 hover:text-primary/80 transition-colors">
                           See All
                         </button>
                       </>
                     )}
                     {visibleCount > 6 && (
                       <button type="button" onClick={() => setVisibleCount(6)}
-                        className="px-5 py-2 rounded-full border border-muted-foreground/30 text-muted-foreground text-sm font-medium hover:bg-muted transition-colors">
+                        className="px-5 py-2 rounded-full border border-muted-foreground/30 text-muted-foreground fs-ui font-medium hover:bg-muted transition-colors">
                         Show Less
                       </button>
                     )}

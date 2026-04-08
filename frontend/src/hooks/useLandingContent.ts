@@ -5,17 +5,22 @@ import { getAuthToken } from "@/lib/authToken";
 
 export type LandingContent = Record<string, Record<string, any>>;
 
-export const useLandingContent = () => {
+export const LANDING_CONTENT_QUERY_KEY = ["landing-content"] as const;
+
+export async function fetchLandingContent(): Promise<LandingContent> {
+  const res = await fetch(`${API_BASE_URL}/api/public/landing-content`, { method: "GET" });
+  if (!res.ok) {
+    throw new Error(`Failed to load landing content (${res.status})`);
+  }
+  return (await res.json()) as LandingContent;
+}
+
+export const useLandingContent = (options?: { enabled?: boolean }) => {
   return useQuery({
-    queryKey: ["landing-content"],
-    queryFn: async () => {
-      const res = await fetch(`${API_BASE_URL}/api/public/landing-content`, { method: "GET" });
-      if (!res.ok) {
-        throw new Error(`Failed to load landing content (${res.status})`);
-      }
-      return (await res.json()) as LandingContent;
-    },
+    queryKey: LANDING_CONTENT_QUERY_KEY,
+    queryFn: fetchLandingContent,
     staleTime: 1000 * 60 * 5,
+    enabled: options?.enabled !== false,
   });
 };
 
@@ -37,7 +42,7 @@ export const useSaveLandingContent = () => {
       if (!res.ok) throw new Error("Failed to save landing content");
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["landing-content"] });
+      queryClient.invalidateQueries({ queryKey: LANDING_CONTENT_QUERY_KEY });
       toast({ title: "Saved", description: "Landing page content updated successfully." });
     },
     onError: (err: any) => {
@@ -60,7 +65,7 @@ export const useDeleteLandingContent = () => {
       if (!res.ok) throw new Error("Failed to delete landing section");
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["landing-content"] });
+      queryClient.invalidateQueries({ queryKey: LANDING_CONTENT_QUERY_KEY });
       toast({ title: "Reset", description: "Section reset to defaults." });
     },
     onError: (err: any) => {

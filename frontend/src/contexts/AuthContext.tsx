@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { API_BASE_URL } from "@/api-production/api.js";
 import { getAuthToken, setAuthToken, clearAuthToken } from "@/lib/authToken";
+import { clearUserDisplayCache, saveUserDisplayCache } from "@/lib/userDisplayCache";
 
 export type UserRole = "alumni" | "admin";
 
@@ -111,6 +112,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const token = getAuthToken();
         if (!token) {
           setUser(null);
+          clearUserDisplayCache();
           return;
         }
 
@@ -124,15 +126,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (!res.ok) {
           clearAuthToken();
           setUser(null);
+          clearUserDisplayCache();
           return;
         }
 
         const data = await res.json();
         const u = data?.user as User | undefined;
         setUser(u || null);
+        if (u) saveUserDisplayCache(u);
       } catch (_e) {
         clearAuthToken();
         setUser(null);
+        clearUserDisplayCache();
       } finally {
         setIsLoading(false);
       }
@@ -213,6 +218,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     setAuthToken(token, rememberMe);
     setUser(u);
+    saveUserDisplayCache(u);
     return { success: true, message: "Login successful!" };
   };
 
@@ -233,17 +239,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (u.role !== "admin") {
       clearAuthToken();
       setUser(null);
+      clearUserDisplayCache();
       return { success: false, message: "You do not have admin access." };
     }
 
     setAuthToken(token, rememberMe);
     setUser(u);
+    saveUserDisplayCache(u);
     return { success: true, message: "Admin login successful!" };
   };
 
   const logout = async () => {
     setUser(null);
     clearAuthToken();
+    clearUserDisplayCache();
   };
 
   const updateProfile = async (data: Partial<User> & { photoFile?: File }) => {
@@ -285,7 +294,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const body = await res.json().catch(() => ({}));
     if (!res.ok) return { success: false, message: body?.error || "Failed to update profile." };
-    if (body?.user) setUser(body.user as User);
+    if (body?.user) {
+      const next = body.user as User;
+      setUser(next);
+      saveUserDisplayCache(next);
+    }
     return { success: true, message: "Profile updated successfully." };
   };
 

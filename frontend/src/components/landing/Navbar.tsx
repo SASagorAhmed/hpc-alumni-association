@@ -181,7 +181,7 @@ function DesktopNavDropdown({
                 href={item.to}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block w-full whitespace-normal break-words px-3 py-2 text-left text-sm font-medium leading-snug text-foreground transition-colors hover:bg-muted/70 hover:text-primary [overflow-wrap:anywhere]"
+                className="fs-ui block w-full whitespace-normal break-words px-3 py-2 text-left font-medium leading-snug text-foreground transition-colors hover:bg-muted/70 hover:text-primary [overflow-wrap:anywhere]"
               >
                 {item.label}
               </a>
@@ -190,7 +190,7 @@ function DesktopNavDropdown({
                 key={item.key}
                 role="menuitem"
                 to={item.to}
-                className="block w-full whitespace-normal break-words px-3 py-2 text-left text-sm font-medium leading-snug text-foreground transition-colors hover:bg-muted/70 hover:text-primary [overflow-wrap:anywhere]"
+                className="fs-ui block w-full whitespace-normal break-words px-3 py-2 text-left font-medium leading-snug text-foreground transition-colors hover:bg-muted/70 hover:text-primary [overflow-wrap:anywhere]"
               >
                 {item.label}
               </Link>
@@ -238,7 +238,7 @@ function MobileNavDropSection({
               target="_blank"
               rel="noopener noreferrer"
               onClick={onItemNavigate}
-              className="fs-ui topnav-btn-text block w-full whitespace-normal break-words rounded-md px-2 py-1.5 text-left text-sm font-medium leading-snug text-muted-foreground transition-colors hover:bg-muted/60 hover:text-primary [overflow-wrap:anywhere]"
+              className="fs-ui topnav-btn-text block w-full whitespace-normal break-words rounded-md px-2 py-1.5 text-left font-medium leading-snug text-muted-foreground transition-colors hover:bg-muted/60 hover:text-primary [overflow-wrap:anywhere]"
             >
               {item.label}
             </a>
@@ -247,7 +247,7 @@ function MobileNavDropSection({
               key={item.key}
               to={item.to}
               onClick={onItemNavigate}
-              className="fs-ui topnav-btn-text block w-full whitespace-normal break-words rounded-md px-2 py-1.5 text-left text-sm font-medium leading-snug text-muted-foreground transition-colors hover:bg-muted/60 hover:text-primary [overflow-wrap:anywhere]"
+              className="fs-ui topnav-btn-text block w-full whitespace-normal break-words rounded-md px-2 py-1.5 text-left font-medium leading-snug text-muted-foreground transition-colors hover:bg-muted/60 hover:text-primary [overflow-wrap:anywhere]"
             >
               {item.label}
             </Link>

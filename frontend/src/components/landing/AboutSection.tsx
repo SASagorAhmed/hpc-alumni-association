@@ -40,8 +40,8 @@ const AboutSection = ({ content }: AboutProps) => {
       <div className="layout-container">
         <motion.div variants={stagger} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-50px" }} className="grid gap-12 lg:grid-cols-2">
           <motion.div variants={fadeUp}>
-            <p className="fs-eyebrow mb-2 font-semibold tracking-wider text-primary" style={{ fontFamily: "'Outfit', sans-serif" }}>{sectionLabel}</p>
-            <h2 className="mb-5 fs-title font-bold tracking-tight text-foreground" style={{ fontFamily: "'Outfit', sans-serif" }}>
+            <p className="font-outfit-section fs-eyebrow mb-2 font-semibold tracking-wider text-primary">{sectionLabel}</p>
+            <h2 className="font-outfit-section mb-5 fs-title font-bold tracking-tight text-foreground">
               {heading.includes("Legacy") ? <>Building a <span className="text-primary">Legacy</span> Together</> : heading}
             </h2>
             <div className="space-y-3.5 fs-body text-muted-foreground text-pretty [&_p]:text-justify [&_p]:hyphens-auto">

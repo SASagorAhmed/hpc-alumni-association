@@ -73,7 +73,7 @@ const Footer = ({ content }: FooterProps) => {
           </div>
         </div>
         <div className="mt-8 border-t border-white/25 pt-6 text-center">
-          <p className="fs-caption text-white/75">© {new Date().getFullYear()} {copyright}</p>
+          <p className="landing-footer-legal fs-caption text-white/75">© {new Date().getFullYear()} {copyright}</p>
         </div>
       </div>
     </footer>

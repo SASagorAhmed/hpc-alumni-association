@@ -86,8 +86,8 @@ const NoticesSection = ({ content }: Props) => {
         ) : items.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border bg-card/50 p-8 text-center">
             <Megaphone className="mx-auto mb-3 h-10 w-10 text-muted-foreground" aria-hidden />
-            <p className="text-sm font-medium text-foreground">No public notices yet</p>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="fs-ui font-medium text-foreground">No public notices yet</p>
+            <p className="mt-1 fs-ui text-muted-foreground">
               When administrators publish a notice with audience <span className="font-medium text-foreground">Public</span>, it will
               show here. Alumni-only updates stay in the dashboard after you log in.
             </p>
@@ -126,17 +126,17 @@ const NoticesSection = ({ content }: Props) => {
                   <div className="flex flex-1 flex-col p-4">
                     <div className="mb-2 flex flex-wrap items-center gap-1.5">
                       {isPinned(n) ? (
-                        <span className="inline-flex items-center gap-0.5 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                        <span className="inline-flex items-center gap-0.5 rounded-full bg-muted px-2 py-0.5 fs-caption font-medium uppercase tracking-wide text-muted-foreground">
                           <Pin className="h-3 w-3" /> Pinned
                         </span>
                       ) : null}
                       {isUrgent(n) ? (
-                        <span className="inline-flex items-center gap-0.5 rounded-full bg-destructive/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-destructive">
+                        <span className="inline-flex items-center gap-0.5 rounded-full bg-destructive/15 px-2 py-0.5 fs-caption font-semibold uppercase tracking-wide text-destructive">
                           <AlertTriangle className="h-3 w-3" /> Urgent
                         </span>
                       ) : null}
                       {n.notice_type ? (
-                        <span className="rounded-full border border-border px-2 py-0.5 text-[10px] capitalize text-muted-foreground">
+                        <span className="rounded-full border border-border px-2 py-0.5 fs-caption capitalize text-muted-foreground">
                           {n.notice_type}
                         </span>
                       ) : null}
@@ -146,7 +146,7 @@ const NoticesSection = ({ content }: Props) => {
                       <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">{n.summary || n.content}</p>
                     )}
                     {n.created_at ? (
-                      <p className="mt-auto flex items-center gap-1 pt-3 text-[11px] text-muted-foreground">
+                      <p className="mt-auto flex items-center gap-1 pt-3 fs-caption text-muted-foreground">
                         <Calendar className="h-3 w-3 shrink-0" />
                         {format(new Date(n.created_at), "d MMM yyyy")}
                       </p>

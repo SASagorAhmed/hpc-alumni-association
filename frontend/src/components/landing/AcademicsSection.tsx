@@ -33,8 +33,8 @@ const AcademicsSection = ({ content }: AcademicsProps) => {
     <section id="academics" className="border-t border-border/60 bg-background py-14 md:py-16">
       <div className="layout-container">
         <motion.div initial={{ opacity: 0, y: 8 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-50px" }} transition={{ duration: 0.5 }} className="mb-12">
-          <p className="fs-eyebrow mb-2 font-semibold tracking-wider text-primary" style={{ fontFamily: "'Outfit', sans-serif" }}>{sectionLabel}</p>
-          <h2 className="fs-title font-bold tracking-tight text-foreground" style={{ fontFamily: "'Outfit', sans-serif" }}>{heading}</h2>
+          <p className="fs-eyebrow mb-2 font-semibold tracking-wider text-primary font-outfit-section">{sectionLabel}</p>
+          <h2 className="fs-title font-bold tracking-tight text-foreground font-outfit-section">{heading}</h2>
         </motion.div>
 
         <div className="mb-16 grid gap-4 md:grid-cols-3">

@@ -34,7 +34,7 @@ export default function TopNoticeBar() {
         initial={{ height: 0, opacity: 0 }}
         animate={{ height: "auto", opacity: 1 }}
         exit={{ height: 0, opacity: 0 }}
-        className={`w-full text-sm ${
+        className={`w-full fs-notice-bar ${
           notice.urgent
             ? "bg-destructive text-destructive-foreground"
             : "bg-primary text-primary-foreground"
@@ -53,7 +53,7 @@ export default function TopNoticeBar() {
             )}
             <span className="font-medium truncate">{notice.title}</span>
             {notice.summary && (
-              <span className="hidden sm:inline text-xs opacity-80 truncate">
+              <span className="hidden sm:inline fs-notice-bar-secondary opacity-80 truncate">
                 — {notice.summary}
               </span>
             )}
