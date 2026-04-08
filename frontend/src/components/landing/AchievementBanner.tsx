@@ -225,7 +225,7 @@ interface Achievement {
   banner_photo_batch_text?: string | null;
   banner_photo_tagline?: string | null;
   banner_congratulations_text?: string | null;
-  banner_theme?: "default" | "theme2" | null;
+  banner_theme?: "default" | "theme2" | "theme3" | null;
 }
 
 function bannerPhotoBatchLine(item: Achievement): string | null {
@@ -281,34 +281,209 @@ function celebrateParticlesFor(slideKey: string): { dx: number; dy: number; dela
   });
 }
 
+/** Theme 3 only — luxury editorial palette + typography (fonts in loadFonts.ts). */
+const THEME3_NAVY = "#001F3F";
+const THEME3_GOLD = "#D4AF37";
+const THEME3_WHITE = "#FFFFFF";
+const THEME3_GREY = "#F0F0F0";
+
+const THEME3_MESSAGE_BODY_STYLE: CSSProperties = {
+  fontFamily: "'Lato', sans-serif",
+  color: THEME3_WHITE,
+  fontWeight: 300,
+  lineHeight: 1.6,
+};
+const THEME3_CONGRATS_TITLE_STYLE: CSSProperties = {
+  fontFamily: "'Bodoni Moda', serif",
+  color: THEME3_GOLD,
+  fontWeight: 600,
+};
+const THEME3_ASSOCIATION_LINE_STYLE: CSSProperties = {
+  fontFamily: "'Lato', sans-serif",
+  color: THEME3_GOLD,
+  fontWeight: 400,
+};
+const THEME3_ACH_LABEL_STYLE: CSSProperties = {
+  fontFamily: "'Oswald', sans-serif",
+  color: THEME3_GOLD,
+  fontWeight: 600,
+  letterSpacing: "0.14em",
+};
+const THEME3_ACH_TITLE_STYLE: CSSProperties = {
+  fontFamily: "'Playfair Display', serif",
+  color: THEME3_WHITE,
+  fontWeight: 600,
+};
+const THEME3_SPOTLIGHT_PILL_STYLE: CSSProperties = {
+  fontFamily: "'Montserrat', sans-serif",
+  fontWeight: 600,
+};
+/** Stacked shadows + highlight for a 3D extruded bold look (Theme 3 name on photo). */
+const THEME3_NAME_3D_SHADOW =
+  "0 1px 0 rgba(255,255,255,0.42), 0 2px 0 rgba(0,0,0,0.28), 0 3px 0 rgba(0,0,0,0.22), 0 4px 0 rgba(0,0,0,0.18), 0 5px 0 rgba(0,0,0,0.14), 0 6px 2px rgba(0,0,0,0.35), 0 10px 20px rgba(0,0,0,0.45)";
+/** 3D name on grey placeholder (no photo). */
+const THEME3_NAME_3D_SHADOW_NAVY =
+  "0 1px 0 rgba(255,255,255,0.55), 0 2px 0 #003366, 0 3px 0 #002747, 0 4px 0 #001f3a, 0 5px 0 #001832, 0 6px 10px rgba(0,0,0,0.28)";
+
+/** Photo overlay: no solid bar — text uses alpha so the image stays visible. */
+const THEME3_NAME_ON_PHOTO_STYLE: CSSProperties = {
+  fontFamily: "'Poppins', sans-serif",
+  color: "rgba(255, 255, 255, 0.98)",
+  fontWeight: 800,
+  fontSize: "clamp(1.05rem, 6.5cqw + 0.4rem, 1.45rem)",
+  lineHeight: 1.2,
+  letterSpacing: "0.02em",
+  WebkitFontSmoothing: "antialiased",
+  textShadow: THEME3_NAME_3D_SHADOW,
+};
+const THEME3_TAGLINE_ON_PHOTO_STYLE: CSSProperties = {
+  fontFamily: "'Lato', sans-serif",
+  color: "rgba(212, 175, 55, 0.88)",
+  fontWeight: 700,
+  fontSize: "clamp(0.85rem, 4.5cqw + 0.28rem, 1.05rem)",
+  lineHeight: 1.45,
+  textShadow: "0 1px 3px rgba(0,0,0,0.8)",
+};
+
+const DEFAULT_ACH_LABEL_STYLE_LIKE_T3: CSSProperties = {
+  fontFamily: "'Oswald', sans-serif",
+  fontWeight: 600,
+  letterSpacing: "0.12em",
+  color: "#FFFFFF",
+};
+const DEFAULT_ACH_TITLE_STYLE_LIKE_T3: CSSProperties = {
+  fontFamily: "'Playfair Display', serif",
+  fontWeight: 600,
+  color: "var(--achievement-banner-line)",
+};
+/** Default theme: achievement title 20% larger than base Theme-3–matched clamps. */
+const DEFAULT_ACH_TITLE_FONT_SIZE_MOBILE =
+  "clamp(1.14rem, calc((4cqw + 0.35rem) * 1.2), 1.38rem)";
+const DEFAULT_ACH_TITLE_FONT_SIZE_DESKTOP =
+  "clamp(0.9rem, calc((2.8cqw + 0.2rem) * 1.2), 1.14rem)";
+
+/** Mobile achievement title: one line only; scale font between min and max to fit the card width. */
+const MOBILE_ACH_TITLE_FIT_MIN_REM = 0.55;
+
+function MobileAchievementTitleOneLine({
+  text,
+  maxRem,
+  className,
+  style,
+}: {
+  text: string;
+  maxRem: number;
+  className?: string;
+  style?: CSSProperties;
+}) {
+  const ref = useRef<HTMLParagraphElement>(null);
+  const [fontPx, setFontPx] = useState<number | null>(null);
+
+  const fit = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    const root = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+    const lo = MOBILE_ACH_TITLE_FIT_MIN_REM * root;
+    const hi = maxRem * root;
+    el.style.whiteSpace = "nowrap";
+    el.style.overflow = "hidden";
+    for (let px = hi; px >= lo; px -= 0.25) {
+      el.style.fontSize = `${px}px`;
+      if (el.scrollWidth <= el.clientWidth + 0.5) {
+        setFontPx(px);
+        return;
+      }
+    }
+    setFontPx(lo);
+  }, [maxRem]);
+
+  useLayoutEffect(() => {
+    const raf = () => requestAnimationFrame(() => fit());
+    raf();
+    const el = ref.current;
+    const parent = el?.parentElement;
+    if (!parent) return;
+    const ro = new ResizeObserver(raf);
+    ro.observe(parent);
+    void document.fonts.ready.then(raf);
+    return () => ro.disconnect();
+  }, [text, fit]);
+
+  const root = typeof document !== "undefined" ? parseFloat(getComputedStyle(document.documentElement).fontSize) || 16 : 16;
+  const displayPx = fontPx ?? maxRem * root;
+
+  return (
+    <p
+      ref={ref}
+      className={className}
+      style={{
+        ...style,
+        fontSize: `${displayPx}px`,
+        whiteSpace: "nowrap",
+        overflow: "hidden",
+      }}
+    >
+      {text}
+    </p>
+  );
+}
+
 /** Premium “Congratulations” reveal: radial burst + particles; right column only. */
 function CongratulationsBurstReveal({
   message,
   heading,
   slideKey,
   isPaused,
-  theme2Style,
+  presetBannerTokens,
+  bannerTheme = "default",
 }: {
   message: string;
   heading?: string | null;
   slideKey: string;
   isPaused: boolean;
-  theme2Style?: boolean;
+  /** Theme 2 / 3 inline token sets (achievement card + congratulations panel). */
+  presetBannerTokens?: boolean;
+  bannerTheme?: "default" | "theme2" | "theme3";
 }) {
+  const theme3Celebrate = bannerTheme === "theme3";
+  /** Default theme message panel matches Theme 3 box (spacing, fonts, backdrop); themes stay separate elsewhere. */
+  const messagePanelLikeTheme3 = theme3Celebrate || bannerTheme === "default";
   const particles = useMemo(() => celebrateParticlesFor(slideKey), [slideKey]);
+  const messageWithBreaks = useMemo(
+    () => message.replace(/\r\n/g, "\n").replace(/\r/g, "\n"),
+    [message]
+  );
+  /** One block per paragraph so `text-align-last: left` applies to each para’s last line under `justify`. */
+  const messageParagraphs = useMemo(() => {
+    const paras = messageWithBreaks
+      .split(/\n\n+/)
+      .map((p) => p.trim())
+      .filter((p) => p.length > 0);
+    if (paras.length > 0) return paras;
+    const t = messageWithBreaks.trim();
+    return t ? [t] : [];
+  }, [messageWithBreaks]);
+
+  const messageBodyClass = cn(
+    "min-h-0 w-full max-w-full whitespace-pre-line",
+    "text-justify [text-align-last:left] hyphens-none break-words text-pretty",
+    "text-[clamp(0.84rem,3.1cqw+0.28rem,1.02rem)] lg:text-[clamp(0.7rem,2.3cqw+0.2rem,0.86rem)]",
+    messagePanelLikeTheme3 ? "not-italic" : "italic leading-snug text-white/85"
+  );
 
   return (
     <div
       className={cn(
-        "hpc-celebrate-root relative w-full min-w-0 max-w-full overflow-hidden rounded-md border bg-gradient-to-b from-white/[0.1] to-white/[0.04] px-2 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-[2px] sm:rounded-lg sm:px-3 sm:py-2.5",
+        "hpc-celebrate-root relative w-full min-w-0 max-w-full overflow-hidden rounded-md border bg-gradient-to-b from-white/[0.1] to-white/[0.04] px-2 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] sm:rounded-lg sm:px-3 sm:py-2.5",
+        !(messagePanelLikeTheme3 && presetBannerTokens) && "backdrop-blur-[2px]",
         isPaused && "achievement-winner-paused"
       )}
       style={
-        theme2Style
+        presetBannerTokens
           ? {
               borderColor: "var(--achievement-banner-congrats-border)",
               background: "var(--achievement-banner-congrats-bg)",
-              backdropFilter: "blur(6px)",
+              ...(messagePanelLikeTheme3 ? { backdropFilter: "none" } : { backdropFilter: "blur(6px)" }),
             }
           : { borderColor: "var(--achievement-banner-tag-border)" }
       }
@@ -349,19 +524,51 @@ function CongratulationsBurstReveal({
         <div className="flex w-full justify-center px-0.5 pt-0.5">
           <span
             className={cn(
-              "hpc-celebrate-title hpc-celebrate-pauseable inline-block text-center text-[clamp(0.72rem,4.5cqw+0.28rem,1.08rem)] font-extrabold uppercase tracking-[0.12em] sm:tracking-[0.14em]",
-              "bg-gradient-to-r from-amber-100 via-white to-amber-200/95 bg-clip-text text-transparent"
+              "hpc-celebrate-title hpc-celebrate-pauseable inline-block text-center text-[clamp(0.72rem,4.5cqw+0.28rem,1.08rem)]",
+              theme3Celebrate
+                ? "normal-case tracking-[0.04em] sm:tracking-[0.05em]"
+                : bannerTheme === "default"
+                  ? "font-extrabold normal-case tracking-[0.12em] sm:tracking-[0.14em] bg-gradient-to-r from-amber-100 via-white to-amber-200/95 bg-clip-text text-transparent"
+                  : "font-extrabold uppercase tracking-[0.12em] sm:tracking-[0.14em] bg-gradient-to-r from-amber-100 via-white to-amber-200/95 bg-clip-text text-transparent"
             )}
+            style={theme3Celebrate ? THEME3_CONGRATS_TITLE_STYLE : undefined}
           >
             {heading?.trim() || "Congratulations"}
           </span>
         </div>
-        <p className="mt-1 min-h-0 w-full max-w-full break-words text-pretty text-[clamp(0.7rem,2.3cqw+0.2rem,0.86rem)] italic leading-snug text-white/85 line-clamp-[10] max-lg:line-clamp-none text-justify hyphens-auto">
-          &ldquo;{message}&rdquo;
-        </p>
+        {messageParagraphs.length === 1 ? (
+          <p
+            className={cn(
+              messageBodyClass,
+              "mt-1 line-clamp-[10] max-lg:line-clamp-none"
+            )}
+            style={messagePanelLikeTheme3 ? THEME3_MESSAGE_BODY_STYLE : undefined}
+          >
+            &ldquo;{messageParagraphs[0]}&rdquo;
+          </p>
+        ) : (
+          <div className="mt-1 min-h-0 w-full max-w-full space-y-2">
+            {messageParagraphs.map((para, i) => (
+              <p
+                key={`${slideKey}-msg-p-${i}`}
+                className={messageBodyClass}
+                style={messagePanelLikeTheme3 ? THEME3_MESSAGE_BODY_STYLE : undefined}
+              >
+                {i === 0 ? "\u201C" : null}
+                {para}
+                {i === messageParagraphs.length - 1 ? "\u201D" : null}
+              </p>
+            ))}
+          </div>
+        )}
         <p
-          className="mt-1.5 shrink-0 border-t border-white/10 pt-1.5 text-right text-[0.58rem] font-semibold uppercase tracking-[0.08em] opacity-90 sm:text-[0.62rem]"
-          style={{ color: "var(--achievement-banner-line)" }}
+          className={cn(
+            "mt-1.5 shrink-0 border-t border-white/10 pt-1.5 text-right text-[0.68rem] sm:text-[0.72rem] lg:text-[0.62rem]",
+            messagePanelLikeTheme3
+              ? "normal-case tracking-normal font-normal opacity-100"
+              : "font-semibold uppercase tracking-[0.08em] opacity-90"
+          )}
+          style={messagePanelLikeTheme3 ? THEME3_ASSOCIATION_LINE_STYLE : { color: "var(--achievement-banner-line)" }}
         >
           HPC Alumni Association
         </p>
@@ -431,62 +638,102 @@ function BannerPhotoPanel({
   item,
   isTransitioning,
   awardClassName,
+  bannerTheme = "default",
 }: {
   item: Achievement;
   isTransitioning: boolean;
   awardClassName: string;
+  bannerTheme?: "default" | "theme2" | "theme3";
 }) {
   const tagline = bannerPhotoTagline(item);
   const batchLine = bannerPhotoBatchLine(item);
   const textShadow = "0 1px 8px rgba(0,0,0,0.95), 0 2px 16px rgba(0,0,0,0.65)";
+  const theme3Photo = bannerTheme === "theme3";
 
   return (
     <div
       className={cn(
-        "relative h-full w-full overflow-hidden bg-neutral-950 transition-all duration-700 ease-out",
+        "relative h-full w-full overflow-hidden transition-all duration-700 ease-out",
+        "bg-neutral-950",
         isTransitioning ? "scale-[1.02] opacity-0" : "scale-100 opacity-100"
       )}
     >
       {item.photo_url ? (
         <>
-          {/*
-            Natural-ratio layout: the img is block-level with auto height so it
-            stretches to its intrinsic aspect ratio. No letterboxing, no cropping.
-            The photo column (parent) is also auto-height; the right column
-            stretches to match via flex's default align-items:stretch.
-          */}
           <img
             src={item.photo_url}
             alt={item.name}
-            className="absolute inset-0 h-full w-full object-cover object-center"
+            className="absolute inset-0 z-0 h-full w-full object-cover object-center"
             decoding="async"
           />
-          {/* Light bottom fade — keeps overlay text readable */}
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] h-[min(42%,11rem)] bg-gradient-to-t from-black/70 via-black/25 to-transparent" />
-          {/* Name / batch / tagline pinned to the bottom of the photo */}
-          <div className="absolute inset-x-0 bottom-0 z-[2] flex flex-col items-start gap-1 px-2 pb-2 pt-8 text-left sm:gap-1.5 sm:px-2.5 sm:pb-2.5 sm:pt-10 md:px-3 md:pb-3 md:pt-12">
+          {/* Bottom fade — theme 3: none (full photo visible); default: dark fade for white text */}
+          {!theme3Photo ? (
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] h-[min(42%,11rem)] bg-gradient-to-t from-black/70 via-black/25 to-transparent" />
+          ) : null}
+          {/* Name / batch / tagline — theme 3: transparent text, no solid strip */}
+          <div
+            className={cn(
+              "absolute inset-x-0 bottom-0 z-[2] flex flex-col items-start gap-1 text-left sm:gap-1.5",
+              theme3Photo
+                ? "px-2.5 pb-2.5 pt-6 sm:px-3 sm:pb-3 sm:pt-8 md:px-3.5 md:pb-3.5 md:pt-10"
+                : "px-2 pb-2 pt-8 sm:px-2.5 sm:pb-2.5 sm:pt-10 md:px-3 md:pb-3 md:pt-12"
+            )}
+          >
             <p
-              className="max-w-full break-words font-bold leading-tight text-white [font-size:clamp(0.78rem,5.5cqw+0.32rem,1.12rem)]"
-              style={{ textShadow }}
+              className={cn(
+                "max-w-full break-words leading-tight",
+                theme3Photo
+                  ? "font-extrabold max-lg:[font-size:clamp(1.14rem,7.2cqw+0.44rem,1.45rem)] lg:[font-size:clamp(1.05rem,6.5cqw+0.4rem,1.45rem)]"
+                  : "font-bold text-white max-lg:[font-size:clamp(0.98rem,6.4cqw+0.4rem,1.2rem)] lg:[font-size:clamp(0.78rem,5.5cqw+0.32rem,1.12rem)]"
+              )}
+              style={
+                theme3Photo
+                  ? ({ ...THEME3_NAME_ON_PHOTO_STYLE, fontSize: undefined } as CSSProperties)
+                  : { textShadow }
+              }
             >
               {item.name}
             </p>
             {batchLine ? (
               <span
-                className="inline-flex max-w-full break-words rounded-md border px-1.5 py-0.5 font-bold uppercase tracking-wide shadow-md sm:px-2 sm:py-0.5 [font-size:clamp(0.58rem,2.8cqw+0.2rem,0.75rem)]"
-                style={{
-                  borderColor: "var(--achievement-banner-tag-border)",
-                  backgroundColor: "var(--achievement-banner-tag-bg)",
-                  color: "var(--achievement-banner-eyebrow)",
-                  textShadow,
-                }}
+                className={cn(
+                  "inline-flex max-w-full break-words rounded-md border px-1.5 py-0.5 tracking-wide sm:px-2 sm:py-0.5",
+                  bannerTheme !== "default" && "uppercase",
+                  "max-lg:[font-size:clamp(0.8rem,3.8cqw+0.3rem,0.92rem)] lg:[font-size:clamp(0.65rem,3cqw+0.24rem,0.82rem)]",
+                  theme3Photo ? "font-bold shadow-none" : "font-bold shadow-md"
+                )}
+                style={
+                  theme3Photo
+                    ? {
+                        fontFamily: "'Lato', sans-serif",
+                        fontWeight: 700,
+                        borderColor: "rgba(212, 175, 55, 0.45)",
+                        backgroundColor: "rgba(255, 255, 255, 0.12)",
+                        color: "rgba(253, 230, 138, 0.92)",
+                      }
+                    : {
+                        borderColor: "var(--achievement-banner-tag-border)",
+                        backgroundColor: "var(--achievement-banner-tag-bg)",
+                        color: "var(--achievement-banner-eyebrow)",
+                        textShadow,
+                      }
+                }
               >
                 {batchLine}
               </span>
             ) : null}
             <p
-              className="max-w-full break-words font-bold leading-snug [font-size:clamp(0.62rem,3.4cqw+0.22rem,0.82rem)]"
-              style={{ color: "var(--achievement-banner-line)", textShadow }}
+              className={cn(
+                "max-w-full break-words leading-snug",
+                theme3Photo
+                  ? "font-bold max-lg:[font-size:clamp(0.98rem,5cqw+0.34rem,1.08rem)] lg:[font-size:clamp(0.85rem,4.5cqw+0.28rem,1.05rem)]"
+                  : "font-bold max-lg:[font-size:clamp(0.8rem,4cqw+0.28rem,0.9rem)] lg:[font-size:clamp(0.62rem,3.4cqw+0.22rem,0.82rem)]"
+              )}
+              style={
+                theme3Photo
+                  ? ({ ...THEME3_TAGLINE_ON_PHOTO_STYLE, fontSize: undefined } as CSSProperties)
+                  : { color: "var(--achievement-banner-line)", textShadow }
+              }
             >
               {tagline}
             </p>
@@ -496,34 +743,75 @@ function BannerPhotoPanel({
         /* No-photo fallback: fixed minimum height so the banner isn't a sliver */
         <div
           className="relative flex min-h-[220px] w-full flex-col justify-end sm:min-h-[280px] lg:min-h-[340px]"
-          style={{ background: "var(--achievement-banner-side-bg)" }}
+          style={{
+            background: theme3Photo ? THEME3_GREY : "var(--achievement-banner-side-bg)",
+          }}
         >
           <Award
-            className={cn(awardClassName, "pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 opacity-25")}
+            className={cn(
+              awardClassName,
+              "pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 opacity-25",
+              theme3Photo && "text-[#001F3F]/40"
+            )}
             aria-hidden
           />
           <div className="relative z-[1] flex flex-col items-start gap-1 px-2 pb-2 pt-4 text-left sm:gap-1.5 sm:px-3 sm:pb-3 sm:pt-6">
             <p
-              className="max-w-full break-words font-bold text-white/90 [font-size:clamp(0.78rem,5.5cqw+0.32rem,1.12rem)]"
-              style={{ textShadow }}
+              className={cn(
+                "max-w-full break-words",
+                theme3Photo
+                  ? "font-extrabold max-lg:[font-size:clamp(1.14rem,7.2cqw+0.44rem,1.45rem)] lg:[font-size:clamp(1.05rem,6.5cqw+0.4rem,1.45rem)]"
+                  : "font-bold text-white/90 max-lg:[font-size:clamp(0.98rem,6.4cqw+0.4rem,1.2rem)] lg:[font-size:clamp(0.78rem,5.5cqw+0.32rem,1.12rem)]"
+              )}
+              style={
+                theme3Photo
+                  ? ({
+                      ...THEME3_NAME_ON_PHOTO_STYLE,
+                      color: THEME3_NAVY,
+                      textShadow: THEME3_NAME_3D_SHADOW_NAVY,
+                      fontSize: undefined,
+                    } as CSSProperties)
+                  : { textShadow }
+              }
             >
               {item.name}
             </p>
             {batchLine ? (
               <span
-                className="inline-flex max-w-full rounded-md border px-1.5 py-0.5 font-bold uppercase tracking-wide [font-size:clamp(0.58rem,2.8cqw+0.2rem,0.75rem)]"
-                style={{
-                  borderColor: "var(--achievement-banner-tag-border)",
-                  backgroundColor: "var(--achievement-banner-tag-bg)",
-                  color: "var(--achievement-banner-eyebrow)",
-                }}
+                className={cn(
+                  "inline-flex max-w-full rounded-md border px-1.5 py-0.5 font-bold tracking-wide max-lg:[font-size:clamp(0.76rem,3.4cqw+0.26rem,0.85rem)] lg:[font-size:clamp(0.58rem,2.8cqw+0.2rem,0.75rem)]",
+                  bannerTheme !== "default" && "uppercase"
+                )}
+                style={
+                  theme3Photo
+                    ? {
+                        fontFamily: "'Lato', sans-serif",
+                        borderColor: "rgba(212, 175, 55, 0.45)",
+                        backgroundColor: "rgba(255, 255, 255, 0.12)",
+                        color: "rgba(212, 175, 55, 0.95)",
+                      }
+                    : {
+                        borderColor: "var(--achievement-banner-tag-border)",
+                        backgroundColor: "var(--achievement-banner-tag-bg)",
+                        color: "var(--achievement-banner-eyebrow)",
+                      }
+                }
               >
                 {batchLine}
               </span>
             ) : null}
             <p
-              className="max-w-full break-words font-bold [font-size:clamp(0.62rem,3.4cqw+0.22rem,0.82rem)]"
-              style={{ color: "var(--achievement-banner-line)" }}
+              className={cn(
+                "max-w-full break-words",
+                theme3Photo
+                  ? "font-bold max-lg:[font-size:clamp(0.98rem,5cqw+0.34rem,1.08rem)] lg:[font-size:clamp(0.85rem,4.5cqw+0.28rem,1.05rem)]"
+                  : "font-bold max-lg:[font-size:clamp(0.8rem,4cqw+0.28rem,0.9rem)] lg:[font-size:clamp(0.62rem,3.4cqw+0.22rem,0.82rem)]"
+              )}
+              style={
+                theme3Photo
+                  ? ({ ...THEME3_TAGLINE_ON_PHOTO_STYLE, fontSize: undefined } as CSSProperties)
+                  : { color: "var(--achievement-banner-line)" }
+              }
             >
               {tagline}
             </p>
@@ -538,7 +826,7 @@ interface Settings {
   banner_enabled: boolean;
   slide_duration: number;
   max_display_count: number | null;
-  banner_theme?: "default" | "theme2";
+  banner_theme?: "default" | "theme2" | "theme3";
 }
 
 /** MySQL / JSON may send 0/1; ignore error-shaped bodies */
@@ -557,11 +845,73 @@ function normalizeAchievementSettings(raw: unknown): Settings | null {
     const n = Number(mdc);
     if (Number.isFinite(n)) max_display_count = n;
   }
-  const themeRaw = typeof o.banner_theme === "string" ? o.banner_theme.trim().toLowerCase() : "";
-  const banner_theme: "default" | "theme2" =
-    themeRaw === "theme2" || themeRaw === "tomato" ? "theme2" : "default";
+  const rawBt = (o as { banner_theme?: unknown }).banner_theme;
+  const themeRaw =
+    typeof rawBt === "string"
+      ? rawBt.trim().toLowerCase()
+      : rawBt != null && rawBt !== ""
+        ? String(rawBt).trim().toLowerCase()
+        : "";
+  const banner_theme: "default" | "theme2" | "theme3" =
+    themeRaw === "theme2" || themeRaw === "tomato"
+      ? "theme2"
+      : themeRaw === "theme3"
+        ? "theme3"
+        : "default";
   return { banner_enabled, slide_duration, max_display_count, banner_theme };
 }
+
+/** Per-slide or global setting; item wins, then fallback (same rules as before). */
+function resolveAchievementBannerTheme(itemThemeRaw: string, fallbackThemeRaw: string): "default" | "theme2" | "theme3" {
+  const item = itemThemeRaw.trim().toLowerCase();
+  const fallback = fallbackThemeRaw.trim().toLowerCase();
+  if (item === "theme2" || item === "tomato") return "theme2";
+  if (item === "theme3") return "theme3";
+  if (fallback === "theme2" || fallback === "tomato") return "theme2";
+  if (fallback === "theme3") return "theme3";
+  return "default";
+}
+
+/** Theme 2 — teal / tomato palette (inline tokens). */
+const THEME2_BANNER_CSS_VARS: CSSProperties = {
+  ["--achievement-banner-side-bg" as string]:
+    "linear-gradient(135deg, #0a6f62 0%, #075f54 48%, #045248 100%)",
+  ["--achievement-banner-side-overlay" as string]: "linear-gradient(to left, #14303d, transparent)",
+  ["--achievement-banner-eyebrow" as string]: "#fcd34d",
+  ["--achievement-banner-line" as string]: "#fbbf24",
+  ["--achievement-banner-progress" as string]: "#3fb8af",
+  ["--achievement-banner-tag-fg" as string]: "#fde68a",
+  ["--achievement-banner-tag-bg" as string]: "rgba(251, 191, 36, 0.20)",
+  ["--achievement-banner-tag-border" as string]: "rgba(251, 191, 36, 0.40)",
+  ["--achievement-banner-ach-bg" as string]: "rgba(255, 255, 255, 0.12)",
+  ["--achievement-banner-ach-border" as string]: "rgba(255, 149, 89, 0.62)",
+  ["--achievement-banner-ach-title" as string]: "#FFF0EA",
+  ["--achievement-banner-congrats-bg" as string]: "rgba(255, 255, 255, 0.18)",
+  ["--achievement-banner-congrats-border" as string]: "rgba(255, 149, 89, 0.72)",
+  ["--achievement-banner-congrats-heading" as string]: "#FFF7D6",
+  ["--achievement-banner-icon-accent" as string]: "#3fb8af",
+};
+
+/**
+ * Theme 3 — deep navy spotlight + metallic gold accents (photo column uses THEME3_GREY via BannerPhotoPanel).
+ */
+const THEME3_BANNER_CSS_VARS: CSSProperties = {
+  ["--achievement-banner-side-bg" as string]: THEME3_NAVY,
+  ["--achievement-banner-side-overlay" as string]: "linear-gradient(to left, #001F3F, transparent)",
+  ["--achievement-banner-eyebrow" as string]: THEME3_GOLD,
+  ["--achievement-banner-line" as string]: THEME3_GOLD,
+  ["--achievement-banner-progress" as string]: THEME3_GOLD,
+  ["--achievement-banner-tag-fg" as string]: THEME3_GOLD,
+  ["--achievement-banner-tag-bg" as string]: "rgba(212, 175, 55, 0.14)",
+  ["--achievement-banner-tag-border" as string]: "rgba(212, 175, 55, 0.45)",
+  ["--achievement-banner-ach-bg" as string]: "rgba(255, 255, 255, 0.08)",
+  ["--achievement-banner-ach-border" as string]: "rgba(212, 175, 55, 0.42)",
+  ["--achievement-banner-ach-title" as string]: THEME3_WHITE,
+  ["--achievement-banner-congrats-bg" as string]: "rgba(255, 255, 255, 0.10)",
+  ["--achievement-banner-congrats-border" as string]: "rgba(212, 175, 55, 0.42)",
+  ["--achievement-banner-congrats-heading" as string]: THEME3_GOLD,
+  ["--achievement-banner-icon-accent" as string]: THEME3_GOLD,
+};
 
 
 /** Desktop reference width: the shell is rendered at this width then scaled to fit. */
@@ -747,35 +1097,32 @@ const AchievementBanner = () => {
   const fallbackTheme = String(settings.banner_theme ?? "default")
     .trim()
     .toLowerCase();
-  const activeBannerTheme =
-    itemTheme === "theme2" || itemTheme === "tomato"
-      ? "theme2"
-      : fallbackTheme === "theme2" || fallbackTheme === "tomato"
-        ? "theme2"
-        : "default";
-  const isTheme2 = activeBannerTheme === "theme2";
+  const activeBannerTheme = resolveAchievementBannerTheme(itemTheme, fallbackTheme);
+  const isTheme3 = activeBannerTheme === "theme3";
+  const isDefaultBannerTheme = activeBannerTheme === "default";
+  const bannerUsesPresetTokens =
+    activeBannerTheme === "theme2" || activeBannerTheme === "theme3";
   const bannerThemeVars: CSSProperties =
-    isTheme2
-      ? {
-          ["--achievement-banner-side-bg" as string]:
-            "linear-gradient(135deg, #0a6f62 0%, #075f54 48%, #045248 100%)",
-          ["--achievement-banner-side-overlay" as string]:
-            "linear-gradient(to left, #14303d, transparent)",
-          ["--achievement-banner-eyebrow" as string]: "#fcd34d",
-          ["--achievement-banner-line" as string]: "#fbbf24",
-          ["--achievement-banner-progress" as string]: "#3fb8af",
-          ["--achievement-banner-tag-fg" as string]: "#fde68a",
-          ["--achievement-banner-tag-bg" as string]: "rgba(251, 191, 36, 0.20)",
-          ["--achievement-banner-tag-border" as string]: "rgba(251, 191, 36, 0.40)",
-          ["--achievement-banner-ach-bg" as string]: "rgba(255, 255, 255, 0.12)",
-          ["--achievement-banner-ach-border" as string]: "rgba(255, 149, 89, 0.62)",
-          ["--achievement-banner-ach-title" as string]: "#FFF0EA",
-          ["--achievement-banner-congrats-bg" as string]: "rgba(255, 255, 255, 0.18)",
-          ["--achievement-banner-congrats-border" as string]: "rgba(255, 149, 89, 0.72)",
-          ["--achievement-banner-congrats-heading" as string]: "#FFF7D6",
-          ["--achievement-banner-icon-accent" as string]: "#3fb8af",
-        }
-      : {};
+    activeBannerTheme === "theme2"
+      ? THEME2_BANNER_CSS_VARS
+      : activeBannerTheme === "theme3"
+        ? THEME3_BANNER_CSS_VARS
+        : {};
+
+  const presetNavBtnStyle: CSSProperties | undefined =
+    !bannerUsesPresetTokens
+      ? undefined
+      : activeBannerTheme === "theme2"
+        ? {
+            color: "var(--achievement-banner-icon-accent)",
+            borderColor: "rgba(34,197,94,0.55)",
+            backgroundColor: "rgba(34,197,94,0.12)",
+          }
+        : {
+            color: THEME3_GOLD,
+            borderColor: "rgba(212, 175, 55, 0.5)",
+            backgroundColor: "rgba(212, 175, 55, 0.12)",
+          };
 
   const navBtnClass =
     "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-primary/45 bg-primary/[0.08] text-primary shadow-md backdrop-blur-sm transition-all hover:border-primary hover:bg-primary/15 hover:text-primary hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-95 sm:h-10 sm:w-10 dark:border-primary/50 dark:bg-primary/[0.12] dark:hover:bg-primary/20";
@@ -821,20 +1168,48 @@ const AchievementBanner = () => {
                   decoding="async"
                   sizes="100vw"
                 />
-                <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] h-[50%] bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
-                <div className="absolute inset-x-0 bottom-0 z-[2] flex flex-col items-start gap-0.5 px-3 pb-2.5">
-                  <p className="font-bold leading-tight text-white text-sm drop-shadow-[0_1px_6px_rgba(0,0,0,0.9)]">
+                {!isTheme3 ? (
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] h-[50%] bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+                ) : null}
+                <div className="absolute inset-x-0 bottom-0 z-[2] flex flex-col items-start gap-0.5 px-3 pb-2.5 pt-1">
+                  <p
+                    className={cn(
+                      "leading-tight",
+                      isTheme3 ? "font-extrabold" : "text-sm font-bold text-white drop-shadow-[0_1px_6px_rgba(0,0,0,0.9)]"
+                    )}
+                    style={isTheme3 ? THEME3_NAME_ON_PHOTO_STYLE : undefined}
+                  >
                     {item.name}
                   </p>
                   {bannerPhotoBatchLine(item) && (
                     <span
-                      className="inline-flex rounded-md border px-1.5 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide"
-                      style={{ borderColor: "var(--achievement-banner-tag-border)", backgroundColor: "var(--achievement-banner-tag-bg)", color: "var(--achievement-banner-eyebrow)" }}
+                      className={cn(
+                        "inline-flex rounded-md border px-1.5 py-0.5 text-[0.7rem] font-bold tracking-wide",
+                        !isDefaultBannerTheme && "uppercase"
+                      )}
+                      style={
+                        isTheme3
+                          ? {
+                              fontFamily: "'Lato', sans-serif",
+                              fontWeight: 700,
+                              borderColor: "rgba(212, 175, 55, 0.45)",
+                              backgroundColor: "rgba(255, 255, 255, 0.12)",
+                              color: "rgba(253, 230, 138, 0.92)",
+                            }
+                          : {
+                              borderColor: "var(--achievement-banner-tag-border)",
+                              backgroundColor: "var(--achievement-banner-tag-bg)",
+                              color: "var(--achievement-banner-eyebrow)",
+                            }
+                      }
                     >
                       {bannerPhotoBatchLine(item)}
                     </span>
                   )}
-                  <p className="text-[0.65rem] font-semibold leading-snug" style={{ color: "var(--achievement-banner-line)" }}>
+                  <p
+                    className={cn("text-[0.7rem] leading-snug font-bold")}
+                    style={isTheme3 ? THEME3_TAGLINE_ON_PHOTO_STYLE : { color: "var(--achievement-banner-line)" }}
+                  >
                     {bannerPhotoTagline(item)}
                   </p>
                 </div>
@@ -877,7 +1252,13 @@ const AchievementBanner = () => {
                 animation: "hpc-winner-trophy 1s cubic-bezier(0.34,1.56,0.64,1) 0.08s both",
               }}
             >
-              <Trophy className="h-6 w-6 text-amber-400/95 drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)]" strokeWidth={1.75} />
+              <Trophy
+                className={cn(
+                  "h-6 w-6 drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)]",
+                  isTheme3 ? "text-[#D4AF37]" : "text-amber-400/95"
+                )}
+                strokeWidth={1.75}
+              />
             </div>
           </div>
 
@@ -887,7 +1268,7 @@ const AchievementBanner = () => {
             {achievements.length > 1 ? (
               <button type="button" onClick={prev} aria-label="Previous slide"
                 className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-primary/45 bg-primary/[0.08] text-primary shadow-sm transition-all hover:border-primary hover:bg-primary/15 active:scale-95"
-                style={isTheme2 ? { color: "var(--achievement-banner-icon-accent)", borderColor: "rgba(34,197,94,0.55)", backgroundColor: "rgba(34,197,94,0.12)" } : undefined}
+                style={presetNavBtnStyle}
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
@@ -905,6 +1286,7 @@ const AchievementBanner = () => {
                   borderColor: "var(--achievement-banner-tag-border)",
                   backgroundColor: "var(--achievement-banner-tag-bg)",
                   color: "var(--achievement-banner-eyebrow)",
+                  ...(isTheme3 ? THEME3_SPOTLIGHT_PILL_STYLE : {}),
                 }}
               >
                 <Award className="h-3 w-3 shrink-0" />
@@ -917,7 +1299,7 @@ const AchievementBanner = () => {
             {achievements.length > 1 ? (
               <button type="button" onClick={next} aria-label="Next slide"
                 className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-primary/45 bg-primary/[0.08] text-primary shadow-sm transition-all hover:border-primary hover:bg-primary/15 active:scale-95"
-                style={isTheme2 ? { color: "var(--achievement-banner-icon-accent)", borderColor: "rgba(34,197,94,0.55)", backgroundColor: "rgba(34,197,94,0.12)" } : undefined}
+                style={presetNavBtnStyle}
               >
                 <ChevronRight className="h-4 w-4" />
               </button>
@@ -931,8 +1313,10 @@ const AchievementBanner = () => {
           >
             {/* Spotlight radial glow — same feel as achievement banner ambient */}
             <div className="pointer-events-none absolute inset-0 z-[1] hpc-celebrate-ambient hpc-celebrate-pauseable" aria-hidden />
-            {/* Shimmer overlay — same as desktop right pane */}
-            <div className="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-br from-primary/[0.07] via-transparent to-transparent hpc-banner-right-pauseable hpc-banner-right-bg-shimmer" />
+            {/* Shimmer overlay — theme 3 uses flat navy for a cleaner luxury look */}
+            {!isTheme3 ? (
+              <div className="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-br from-primary/[0.07] via-transparent to-transparent hpc-banner-right-pauseable hpc-banner-right-bg-shimmer" />
+            ) : null}
             <div
               className={cn("relative z-10 flex flex-col gap-2", isTransitioning ? "opacity-0" : "opacity-100")}
               style={{ transition: "opacity 0.3s" }}
@@ -941,28 +1325,47 @@ const AchievementBanner = () => {
               {item.achievement_title?.trim() ? (
                 <div
                   key={`mob-ach-${item.id}-${animCycle}`}
-                  className="hpc-banner-right-enter rounded-lg border bg-white/[0.06] px-3 py-2 backdrop-blur-[2px]"
+                  className={cn(
+                    "hpc-banner-right-enter w-full min-w-0 rounded-lg border bg-white/[0.06] px-3 py-2",
+                    !isTheme3 && "backdrop-blur-[2px]"
+                  )}
                   style={{
-                    borderColor: isTheme2 ? "var(--achievement-banner-ach-border)" : "var(--achievement-banner-tag-border)",
-                    background: isTheme2 ? "var(--achievement-banner-ach-bg)" : undefined,
+                    borderColor: bannerUsesPresetTokens ? "var(--achievement-banner-ach-border)" : "var(--achievement-banner-tag-border)",
+                    background: bannerUsesPresetTokens ? "var(--achievement-banner-ach-bg)" : undefined,
                     animationDelay: "0.08s",
                   }}
                 >
                   <p
-                    className="text-[0.6rem] font-semibold uppercase tracking-widest"
-                    style={{ color: "#FFFFFF" }}
-                  >
-                    Achievement
-                  </p>
-                  <p
                     className={cn(
-                      "mt-0.5 break-words leading-snug text-sm",
-                      "font-semibold"
+                      "text-[0.6rem] uppercase",
+                      isTheme3 ? "tracking-[0.14em]" : isDefaultBannerTheme ? "tracking-[0.12em]" : "font-semibold tracking-widest"
                     )}
-                    style={{ color: "var(--achievement-banner-line)" }}
+                    style={
+                      isTheme3
+                        ? THEME3_ACH_LABEL_STYLE
+                        : isDefaultBannerTheme
+                          ? DEFAULT_ACH_LABEL_STYLE_LIKE_T3
+                          : { color: "#FFFFFF" }
+                    }
                   >
-                    {item.achievement_title.trim()}
+                    {isTheme3 ? "ACHIEVEMENT" : "Achievement"}
                   </p>
+                  <MobileAchievementTitleOneLine
+                    text={item.achievement_title.trim()}
+                    maxRem={isTheme3 ? 1.15 : isDefaultBannerTheme ? 1.38 : 0.95}
+                    className={cn(
+                      "mt-0.5 w-full min-w-0 leading-snug text-sm text-left",
+                      isDefaultBannerTheme && "uppercase",
+                      !isTheme3 && !isDefaultBannerTheme && "font-semibold"
+                    )}
+                    style={
+                      isTheme3
+                        ? THEME3_ACH_TITLE_STYLE
+                        : isDefaultBannerTheme
+                          ? DEFAULT_ACH_TITLE_STYLE_LIKE_T3
+                          : { color: "var(--achievement-banner-line)" }
+                    }
+                  />
                 </div>
               ) : null}
 
@@ -978,7 +1381,8 @@ const AchievementBanner = () => {
                     heading={item.banner_congratulations_text}
                     slideKey={`mob-${item.id}-${animCycle}`}
                     isPaused={isPaused}
-                    theme2Style={isTheme2}
+                    presetBannerTokens={bannerUsesPresetTokens}
+                    bannerTheme={activeBannerTheme}
                   />
                 </div>
               ) : null}
@@ -1032,13 +1436,14 @@ const AchievementBanner = () => {
                 item={item}
                 isTransitioning={isTransitioning}
                 awardClassName="h-28 w-28 text-white/20"
+                bannerTheme={activeBannerTheme}
               />
               {achievements.length > 1 ? (
                 <button
                   type="button"
                   onClick={prev}
                   className="absolute left-2 top-1/2 z-30 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full border-2 border-primary/45 bg-primary/[0.08] text-primary shadow-md backdrop-blur-sm transition-all hover:border-primary hover:bg-primary/15 active:scale-95"
-                  style={isTheme2 ? { color: "var(--achievement-banner-icon-accent)", borderColor: "rgba(34,197,94,0.55)", backgroundColor: "rgba(34,197,94,0.12)" } : undefined}
+                  style={presetNavBtnStyle}
                   aria-label="Previous slide"
                 >
                   <ChevronLeft className="h-4 w-4" />
@@ -1061,13 +1466,15 @@ const AchievementBanner = () => {
                   type="button"
                   onClick={next}
                   className="absolute right-2 top-1/2 z-30 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full border-2 border-primary/45 bg-primary/[0.08] text-primary shadow-md backdrop-blur-sm transition-all hover:border-primary hover:bg-primary/15 active:scale-95"
-                  style={isTheme2 ? { color: "var(--achievement-banner-icon-accent)", borderColor: "rgba(34,197,94,0.55)", backgroundColor: "rgba(34,197,94,0.12)" } : undefined}
+                  style={presetNavBtnStyle}
                   aria-label="Next slide"
                 >
                   <ChevronRight className="h-4 w-4" />
                 </button>
               ) : null}
-              <div className="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-br from-primary/[0.07] via-transparent to-transparent hpc-banner-right-pauseable hpc-banner-right-bg-shimmer" />
+              {!isTheme3 ? (
+                <div className="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-br from-primary/[0.07] via-transparent to-transparent hpc-banner-right-pauseable hpc-banner-right-bg-shimmer" />
+              ) : null}
               <div
                 className={cn(
                   "relative z-10 flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-hidden",
@@ -1077,7 +1484,8 @@ const AchievementBanner = () => {
               >
                 <div
                   className={cn(
-                    "flex min-h-0 min-w-0 flex-col justify-start gap-1.5 overflow-x-hidden border-l-[3px] border-primary px-3.5 pb-2",
+                    "flex min-h-0 min-w-0 flex-col justify-start gap-1.5 overflow-x-hidden border-l-[3px] px-3.5 pb-2",
+                    isTheme3 ? "border-[#D4AF37]" : "border-primary",
                     item.message?.trim()
                       ? "hpc-achievement-mobile-text-scroll min-w-0 flex-1 w-full max-w-full overflow-y-auto overscroll-contain pt-0 pr-12 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.25)_transparent]"
                       : "w-full min-w-0 max-w-full flex-1 overflow-y-hidden"
@@ -1094,6 +1502,7 @@ const AchievementBanner = () => {
                         borderColor: "var(--achievement-banner-tag-border)",
                         backgroundColor: "var(--achievement-banner-tag-bg)",
                         color: "var(--achievement-banner-eyebrow)",
+                        ...(isTheme3 ? THEME3_SPOTLIGHT_PILL_STYLE : {}),
                       }}
                     >
                       <Award className="h-3 w-3 shrink-0" />
@@ -1112,24 +1521,49 @@ const AchievementBanner = () => {
                       style={{ animationDelay: "0.12s" }}
                     >
                       <div
-                        className="hpc-banner-right-box-glow hpc-banner-right-pauseable w-full rounded-lg border bg-white/[0.06] px-2.5 py-1.5 backdrop-blur-[2px]"
+                        className={cn(
+                          "hpc-banner-right-pauseable w-full rounded-lg border bg-white/[0.06] px-2.5 py-1.5",
+                          isTheme3 ? "" : "hpc-banner-right-box-glow backdrop-blur-[2px]"
+                        )}
                         style={{
-                          borderColor: isTheme2 ? "var(--achievement-banner-ach-border)" : "var(--achievement-banner-tag-border)",
-                          background: isTheme2 ? "var(--achievement-banner-ach-bg)" : undefined,
+                          borderColor: bannerUsesPresetTokens ? "var(--achievement-banner-ach-border)" : "var(--achievement-banner-tag-border)",
+                          background: bannerUsesPresetTokens ? "var(--achievement-banner-ach-bg)" : undefined,
                         }}
                       >
                         <p
-                          className="text-[0.58rem] font-semibold uppercase tracking-widest"
-                          style={{ color: "#FFFFFF" }}
+                          className={cn(
+                            "text-[0.58rem] uppercase",
+                            isTheme3 ? "tracking-[0.14em]" : isDefaultBannerTheme ? "tracking-[0.12em]" : "font-semibold tracking-widest"
+                          )}
+                          style={
+                            isTheme3
+                              ? THEME3_ACH_LABEL_STYLE
+                              : isDefaultBannerTheme
+                                ? DEFAULT_ACH_LABEL_STYLE_LIKE_T3
+                                : { color: "#FFFFFF" }
+                          }
                         >
-                          Achievement
+                          {isTheme3 ? "ACHIEVEMENT" : "Achievement"}
                         </p>
                         <p
                           className={cn(
-                            "mt-0.5 break-words leading-snug text-[clamp(0.68rem,2.6cqw+0.18rem,0.8125rem)]",
-                            "font-semibold"
+                            "mt-0.5 w-full min-w-0 break-words text-wrap leading-snug text-left hyphens-none",
+                            isDefaultBannerTheme && "uppercase",
+                            !isTheme3 && !isDefaultBannerTheme && "text-[clamp(0.68rem,2.6cqw+0.18rem,0.8125rem)] font-semibold"
                           )}
-                          style={{ color: "var(--achievement-banner-line)" }}
+                          style={
+                            isTheme3
+                              ? {
+                                  ...THEME3_ACH_TITLE_STYLE,
+                                  fontSize: "clamp(0.75rem, 2.8cqw + 0.2rem, 0.95rem)",
+                                }
+                              : isDefaultBannerTheme
+                                ? {
+                                    ...DEFAULT_ACH_TITLE_STYLE_LIKE_T3,
+                                    fontSize: DEFAULT_ACH_TITLE_FONT_SIZE_DESKTOP,
+                                  }
+                                : { color: "var(--achievement-banner-line)" }
+                          }
                         >
                           {item.achievement_title.trim()}
                         </p>
@@ -1148,7 +1582,8 @@ const AchievementBanner = () => {
                         heading={item.banner_congratulations_text}
                         slideKey={`${item.id}-${animCycle}`}
                         isPaused={isPaused}
-                        theme2Style={isTheme2}
+                        presetBannerTokens={bannerUsesPresetTokens}
+                        bannerTheme={activeBannerTheme}
                       />
                     </div>
                   ) : null}

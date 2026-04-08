@@ -5,8 +5,13 @@ import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useHistorySyncOverlay } from "@/hooks/useHistorySyncOverlay";
 
-const Dialog = ({ open, onOpenChange, ...props }: React.ComponentProps<typeof DialogPrimitive.Root>) => {
-  useHistorySyncOverlay(open === true, () => onOpenChange?.(false));
+type DialogRootProps = React.ComponentProps<typeof DialogPrimitive.Root> & {
+  /** When false, skips browser history sync (use for nested modals so inner close does not pop the parent). Default true. */
+  syncHistory?: boolean;
+};
+
+const Dialog = ({ open, onOpenChange, syncHistory = true, ...props }: DialogRootProps) => {
+  useHistorySyncOverlay(syncHistory && open === true, () => onOpenChange?.(false));
   return <DialogPrimitive.Root open={open} onOpenChange={onOpenChange} {...props} />;
 };
 

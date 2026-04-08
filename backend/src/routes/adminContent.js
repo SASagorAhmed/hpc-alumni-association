@@ -254,6 +254,7 @@ async function ensureProfileDirectoryVisibleColumn(pool) {
 function normalizeAchievementBannerTheme(raw) {
   const theme = String(raw ?? "").trim().toLowerCase();
   if (theme === "theme2" || theme === "tomato") return "theme2";
+  if (theme === "theme3") return "theme3";
   return "default";
 }
 
@@ -777,7 +778,9 @@ router.put("/achievement-settings/:id", requireAuth, async (req, res) => {
     }
     if ("banner_theme" in b) {
       const raw = String(b.banner_theme || "").trim().toLowerCase();
-      patch.banner_theme = raw === "theme2" || raw === "tomato" ? "theme2" : "default";
+      if (raw === "theme2" || raw === "tomato") patch.banner_theme = "theme2";
+      else if (raw === "theme3") patch.banner_theme = "theme3";
+      else patch.banner_theme = "default";
     }
     if (Object.keys(patch).length === 0) {
       return res.status(400).json({ ok: false, error: "No valid fields to update" });

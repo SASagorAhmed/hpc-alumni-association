@@ -53,7 +53,7 @@ export function AchievementPhotoCropDialog({ open, imageSrc, onOpenChange, onCro
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} syncHistory={false}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Crop photo for banner</DialogTitle>

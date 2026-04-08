@@ -41,7 +41,7 @@ interface Achievement {
   banner_photo_batch_text?: string | null;
   banner_photo_tagline?: string | null;
   banner_congratulations_text?: string | null;
-  banner_theme?: "default" | "theme2" | null;
+  banner_theme?: "default" | "theme2" | "theme3" | null;
 }
 
 interface AchievementSettings {
@@ -49,7 +49,14 @@ interface AchievementSettings {
   banner_enabled: boolean;
   slide_duration: number;
   max_display_count: number | null;
-  banner_theme?: "default" | "theme2";
+  banner_theme?: "default" | "theme2" | "theme3";
+}
+
+function normalizeBannerThemeFromApi(raw: string | null | undefined): "default" | "theme2" | "theme3" {
+  const t = String(raw ?? "").trim().toLowerCase();
+  if (t === "theme2" || t === "tomato") return "theme2";
+  if (t === "theme3") return "theme3";
+  return "default";
 }
 
 const emptyForm = {
@@ -67,7 +74,7 @@ const emptyForm = {
   banner_photo_batch_text: "",
   banner_photo_tagline: "",
   banner_congratulations_text: "",
-  banner_theme: "default" as "default" | "theme2",
+  banner_theme: "default" as "default" | "theme2" | "theme3",
 };
 
 const AdminAchievements = () => {
@@ -99,6 +106,57 @@ const AdminAchievements = () => {
     setCropDialogOpen(open);
     if (!open) revokeCropPreview();
   };
+
+  /** Resolve profile / upload URLs and fetch image for canvas-safe blob crop (CORS + optional admin auth). */
+  const resolvePhotoUrlForFetch = (url: string) => {
+    const t = url.trim();
+    if (t.startsWith("http://") || t.startsWith("https://")) return t;
+    if (t.startsWith("/")) return `${API_BASE_URL}${t}`;
+    return `${API_BASE_URL}/${t}`;
+  };
+
+  const openCropFromRemoteUrl = React.useCallback(
+    async (photoUrl: string) => {
+      const trimmed = photoUrl.trim();
+      if (!trimmed) return;
+      revokeCropPreview();
+      try {
+        const absolute = resolvePhotoUrlForFetch(trimmed);
+        const headers: HeadersInit = {};
+        if (token && absolute.startsWith(API_BASE_URL)) {
+          headers.Authorization = `Bearer ${token}`;
+        }
+        const r = await fetch(absolute, { mode: "cors", headers });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const blob = await r.blob();
+        if (blob.size > 8 * 1024 * 1024) {
+          toast({
+            title: "Image too large",
+            description: "Profile photo is over 8MB. Use Upload photo with a smaller file to crop.",
+            variant: "destructive",
+          });
+          return;
+        }
+        const type = blob.type || "";
+        if (type && !type.startsWith("image/")) {
+          toast({ title: "Not an image", description: "The profile photo URL did not return an image.", variant: "destructive" });
+          return;
+        }
+        const objectUrl = URL.createObjectURL(blob);
+        cropObjectUrlRef.current = objectUrl;
+        setCropImageSrc(objectUrl);
+        setCropDialogOpen(true);
+      } catch {
+        toast({
+          title: "Could not open cropper",
+          description:
+            "The profile photo was still applied. Use Change Photo → upload a file to crop for the banner, or try again.",
+          variant: "destructive",
+        });
+      }
+    },
+    [revokeCropPreview, token]
+  );
 
   const uploadPhotoBlob = async (blob: Blob) => {
     if (blob.size > 2 * 1024 * 1024) {
@@ -184,14 +242,11 @@ const AdminAchievements = () => {
         banner_enabled: s.banner_enabled === true || s.banner_enabled === 1 || s.banner_enabled === "1",
         slide_duration: slide,
         max_display_count: maxDisplay,
-        banner_theme: (() => {
-          const rawTheme =
-            typeof (s as { banner_theme?: unknown }).banner_theme === "string"
-              ? String((s as { banner_theme?: unknown }).banner_theme).toLowerCase()
-              : "";
-          if (rawTheme === "theme2" || rawTheme === "tomato") return "theme2";
-          return "default";
-        })(),
+        banner_theme: normalizeBannerThemeFromApi(
+          typeof (s as { banner_theme?: unknown }).banner_theme === "string"
+            ? String((s as { banner_theme?: unknown }).banner_theme)
+            : undefined
+        ),
       });
     }
   };
@@ -246,21 +301,30 @@ const AdminAchievements = () => {
       }
       const batchStr = p.batch != null ? String(p.batch).trim() : "";
       const batchLine = batchStr ? clampToWordLimit(`Batch ${batchStr}`, BANNER_MAX_WORDS) : "";
+      const importedPhoto = p.photo_url != null ? String(p.photo_url).trim() : "";
       setForm((prev) => ({
         ...prev,
         name: p.name != null ? String(p.name).trim() || prev.name : prev.name,
         batch: batchStr,
-        photo_url: p.photo_url != null ? String(p.photo_url).trim() : prev.photo_url,
+        photo_url: importedPhoto || prev.photo_url,
         institution: p.institution != null ? String(p.institution).trim() : prev.institution,
         location: p.location != null ? String(p.location).trim() : prev.location,
         achievement_title: "",
         message: BANNER_DEFAULT_CONGRATULATIONS_MESSAGE,
         banner_photo_batch_text: batchLine,
       }));
-      toast({
-        title: "Profile loaded",
-        description: "Enter the achievement title, tag, achievement date, and schedule start/end, then save.",
-      });
+      if (importedPhoto) {
+        toast({
+          title: "Profile loaded",
+          description: "Choose the banner crop for the photo next, then complete achievement details and save.",
+        });
+        await openCropFromRemoteUrl(importedPhoto);
+      } else {
+        toast({
+          title: "Profile loaded",
+          description: "No photo on file—upload one below if needed. Enter achievement title, tag, dates, then save.",
+        });
+      }
     } catch (e) {
       toast({ title: "Request failed", description: (e as Error).message, variant: "destructive" });
     } finally {
@@ -286,10 +350,7 @@ const AdminAchievements = () => {
       banner_photo_batch_text: a.banner_photo_batch_text ?? "",
       banner_photo_tagline: a.banner_photo_tagline ?? "",
       banner_congratulations_text: a.banner_congratulations_text ?? "",
-      banner_theme:
-        a.banner_theme === "theme2" || a.banner_theme === "tomato"
-          ? "theme2"
-          : "default",
+      banner_theme: normalizeBannerThemeFromApi(a.banner_theme),
     });
     setDialogOpen(true);
   };
@@ -527,10 +588,10 @@ const AdminAchievements = () => {
                         <TableCell>{a.tag && <Badge variant="outline" className="text-xs">{a.tag}</Badge>}</TableCell>
                         <TableCell>
                           <Badge variant="secondary" className="text-xs">
-                            {a.banner_theme === "tomato"
+                            {a.banner_theme === "tomato" || a.banner_theme === "theme2"
                               ? "Theme 2"
-                              : a.banner_theme === "theme2"
-                                ? "Theme 2"
+                              : a.banner_theme === "theme3"
+                                ? "Theme 3"
                                 : "Default"}
                           </Badge>
                         </TableCell>
@@ -601,17 +662,20 @@ const AdminAchievements = () => {
                         onValueChange={(v) =>
                           setSettings({
                             ...settings,
-                            banner_theme: v === "theme2" ? "theme2" : "default",
+                            banner_theme: normalizeBannerThemeFromApi(v),
                           })
                         }
                       >
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="default">Default (current)</SelectItem>
+                          <SelectItem value="default">Default (follows site theme)</SelectItem>
                           <SelectItem value="theme2">Theme 2</SelectItem>
+                          <SelectItem value="theme3">Theme 3 (fixed palette)</SelectItem>
                         </SelectContent>
                       </Select>
-                      <p className="text-xs text-muted-foreground">Default stays unchanged unless you switch it.</p>
+                      <p className="text-xs text-muted-foreground">
+                        Default uses landing theme tokens. Theme 2 and Theme 3 use their own banner colors.
+                      </p>
                     </div>
                     <div className="space-y-2">
                       <Label>Max Display Count</Label>
@@ -642,11 +706,12 @@ const AdminAchievements = () => {
                 <div className="space-y-1.5 rounded-lg border border-primary/25 bg-primary/5 p-3">
                   <Label className="text-foreground">Prefill from Alumni ID</Label>
                   <p className="text-xs text-muted-foreground">
-                    Fetches name, batch, photo, institution, and location from a registered profile. Then enter the{" "}
-                    <span className="font-medium text-foreground">achievement title</span>, choose a{" "}
-                    <span className="font-medium text-foreground">tag</span>, set{" "}
-                    <span className="font-medium text-foreground">achievement date</span> and{" "}
-                    <span className="font-medium text-foreground">schedule start / end</span>.
+                    Loads name, batch, institution, and location from a registered profile. If the profile has a photo, the{" "}
+                    <span className="font-medium text-foreground">banner crop</span> dialog opens next so you can choose what
+                    appears in the 8∶5 frame. Then enter the <span className="font-medium text-foreground">achievement title</span>
+                    , <span className="font-medium text-foreground">tag</span>,{" "}
+                    <span className="font-medium text-foreground">achievement date</span>, and{" "}
+                    <span className="font-medium text-foreground">schedule start / end</span>, and save.
                   </p>
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                     <Input
@@ -699,7 +764,7 @@ const AdminAchievements = () => {
                   onValueChange={(v) =>
                     setForm({
                       ...form,
-                      banner_theme: v === "theme2" ? "theme2" : "default",
+                      banner_theme: normalizeBannerThemeFromApi(v),
                     })
                   }
                 >
@@ -707,6 +772,7 @@ const AdminAchievements = () => {
                   <SelectContent>
                     <SelectItem value="default">Default</SelectItem>
                     <SelectItem value="theme2">Theme 2</SelectItem>
+                    <SelectItem value="theme3">Theme 3</SelectItem>
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
