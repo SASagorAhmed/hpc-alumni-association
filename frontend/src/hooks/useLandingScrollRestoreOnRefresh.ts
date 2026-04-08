@@ -12,9 +12,18 @@ import {
  */
 export function useLandingScrollRestoreOnRefresh() {
   useLayoutEffect(() => {
+    if (window.location.pathname !== "/") return;
+    // If URL already targets a section explicitly, let hash target behavior win.
+    if (window.location.hash && window.location.hash.length > 1) return;
+
+    const navEntry = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
+    const isReload = navEntry?.type === "reload";
+    if (!isReload) return;
+
     const y = tryConsumeLandingRefreshScroll();
     if (y !== null) {
-      applyWindowScrollYWithRetries(y, { landingReload: true });
+      const cancel = applyWindowScrollYWithRetries(y, { landingReload: true });
+      return () => cancel();
     }
   }, []);
 

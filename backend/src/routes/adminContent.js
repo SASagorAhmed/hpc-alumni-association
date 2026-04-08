@@ -5,7 +5,7 @@ const { ensureProfileEditAuditTable } = require("../utils/ensureProfileEditAudit
 const { ensureProfileBirthdayColumn } = require("../utils/ensureProfileBirthdayColumn");
 const { ensureProfileNicknameUniShortColumns } = require("../utils/ensureProfileNicknameUniShortColumns");
 const { getOrCreatePool } = require("../db/pool");
-const { requireAuth } = require("../auth/jwt");
+const { requireAuth, verifyJwt } = require("../auth/jwt");
 const cloudinary = require("../config/cloudinary");
 const { getCloudinaryFolder } = require("../utils/uploadFolders");
 
@@ -117,6 +117,263 @@ async function listManagedCloudinaryImagePublicIds() {
     for (const id of ids) managed.add(id);
   }
   return managed;
+}
+
+function getManagedFolderModuleEntries() {
+  const out = [];
+  const seen = new Set();
+  const pairs = [
+    ["profile", getCloudinaryFolder("profile")],
+    ["achievements", getCloudinaryFolder("achievements")],
+    ["memories", getCloudinaryFolder("memories")],
+    ["committee", getCloudinaryFolder("committee")],
+    ["events", getCloudinaryFolder("events")],
+    ["notices", getCloudinaryFolder("notices")],
+    ["candidates", getCloudinaryFolder("candidates")],
+  ];
+  for (const [module, rawFolder] of pairs) {
+    const folder = String(rawFolder || "").trim();
+    if (!folder || seen.has(folder)) continue;
+    seen.add(folder);
+    out.push({ module, folder });
+  }
+  return out;
+}
+
+function folderFromPublicId(publicId, fallbackFolder) {
+  const id = String(publicId || "").trim();
+  if (!id) return String(fallbackFolder || "").trim();
+  const idx = id.lastIndexOf("/");
+  if (idx <= 0) return String(fallbackFolder || "").trim();
+  return id.slice(0, idx);
+}
+
+function groupOrphans(entries) {
+  const byModule = {};
+  const byFolder = {};
+  for (const entry of entries) {
+    const module = String(entry.module || "unknown");
+    const folder = String(entry.folder || "unknown");
+    if (!byModule[module]) byModule[module] = [];
+    if (!byFolder[folder]) byFolder[folder] = [];
+    byModule[module].push(entry);
+    byFolder[folder].push(entry);
+  }
+  return { byModule, byFolder };
+}
+
+const ORPHAN_JOB_TTL_MS = 15 * 60 * 1000;
+const orphanCleanupJobs = new Map();
+
+function writeSseEvent(res, eventName, data) {
+  res.write(`event: ${eventName}\n`);
+  res.write(`data: ${JSON.stringify(data)}\n\n`);
+}
+
+function cleanupOldOrphanJobs() {
+  const now = Date.now();
+  for (const [id, job] of orphanCleanupJobs.entries()) {
+    const createdMs = Date.parse(job.created_at || "");
+    if (!Number.isFinite(createdMs)) continue;
+    if (now - createdMs > ORPHAN_JOB_TTL_MS) {
+      orphanCleanupJobs.delete(id);
+    }
+  }
+}
+
+function createOrphanCleanupJob({ apply, userId }) {
+  cleanupOldOrphanJobs();
+  const id = uuidv4();
+  const job = {
+    id,
+    user_id: userId,
+    apply,
+    mode: apply ? "delete" : "scan",
+    status: "queued",
+    phase: "queued",
+    progress: 0,
+    referenced_count: 0,
+    managed_count: 0,
+    orphan_count: 0,
+    deleted_count: 0,
+    delete_error_count: 0,
+    current_chunk: 0,
+    total_chunks: 0,
+    created_at: new Date().toISOString(),
+    completed_at: null,
+    error: null,
+    result: null,
+    subscribers: new Set(),
+  };
+  orphanCleanupJobs.set(id, job);
+  return job;
+}
+
+function progressPayload(job) {
+  return {
+    job_id: job.id,
+    mode: job.mode,
+    status: job.status,
+    phase: job.phase,
+    progress: job.progress,
+    referenced_count: job.referenced_count,
+    managed_count: job.managed_count,
+    orphan_count: job.orphan_count,
+    deleted_count: job.deleted_count,
+    delete_error_count: job.delete_error_count,
+    current_chunk: job.current_chunk,
+    total_chunks: job.total_chunks,
+  };
+}
+
+function broadcastJobEvent(job, eventName, payload) {
+  for (const res of job.subscribers) {
+    try {
+      writeSseEvent(res, eventName, payload);
+    } catch (_e) {
+      // ignore broken stream clients
+    }
+  }
+}
+
+function updateOrphanJob(job, patch) {
+  Object.assign(job, patch);
+  broadcastJobEvent(job, "progress", progressPayload(job));
+}
+
+function finalizeOrphanJob(job, result) {
+  job.status = "completed";
+  job.phase = "finalizing";
+  job.progress = 100;
+  job.completed_at = new Date().toISOString();
+  job.result = result;
+  broadcastJobEvent(job, "progress", progressPayload(job));
+  broadcastJobEvent(job, "result", result);
+  for (const res of job.subscribers) {
+    try {
+      res.end();
+    } catch (_e) {
+      // ignore
+    }
+  }
+  job.subscribers.clear();
+}
+
+function failOrphanJob(job, errorMessage) {
+  job.status = "failed";
+  job.error = errorMessage;
+  job.completed_at = new Date().toISOString();
+  broadcastJobEvent(job, "error", { ok: false, job_id: job.id, error: errorMessage });
+  for (const res of job.subscribers) {
+    try {
+      res.end();
+    } catch (_e) {
+      // ignore
+    }
+  }
+  job.subscribers.clear();
+}
+
+async function runOrphanCleanupJob(job, pool) {
+  try {
+    updateOrphanJob(job, { status: "running", phase: "collecting_referenced", progress: 3 });
+    const referenced = await getReferencedCloudinaryImagePublicIds(pool);
+    updateOrphanJob(job, { referenced_count: referenced.size, progress: 15 });
+
+    const folderEntries = getManagedFolderModuleEntries();
+    const managedEntries = [];
+    const seenPublicIds = new Set();
+    updateOrphanJob(job, { phase: "listing_managed", progress: 16 });
+    for (let i = 0; i < folderEntries.length; i += 1) {
+      const entry = folderEntries[i];
+      const ids = await listCloudinaryImagePublicIdsByPrefix(entry.folder);
+      for (const publicId of ids) {
+        if (seenPublicIds.has(publicId)) continue;
+        seenPublicIds.add(publicId);
+        managedEntries.push({
+          module: entry.module,
+          folder: folderFromPublicId(publicId, entry.folder),
+          public_id: publicId,
+          status: job.apply ? "pending_delete" : "will_delete",
+        });
+      }
+      const ratio = folderEntries.length > 0 ? (i + 1) / folderEntries.length : 1;
+      const progress = 16 + Math.round(ratio * 39); // up to ~55
+      updateOrphanJob(job, { managed_count: managedEntries.length, progress: Math.min(55, progress) });
+    }
+
+    updateOrphanJob(job, { phase: "diffing_orphans", progress: 56 });
+    const orphanEntries = managedEntries.filter((x) => !referenced.has(x.public_id));
+    updateOrphanJob(job, { orphan_count: orphanEntries.length, progress: 70 });
+
+    let deletedCount = 0;
+    let deleteErrors = 0;
+    if (job.apply && orphanEntries.length > 0) {
+      const totalChunks = Math.ceil(orphanEntries.length / 100);
+      updateOrphanJob(job, { phase: "deleting_chunks", total_chunks: totalChunks, current_chunk: 0, progress: 70 });
+      for (let i = 0; i < orphanEntries.length; i += 100) {
+        const chunkEntries = orphanEntries.slice(i, i + 100);
+        const chunk = chunkEntries.map((x) => x.public_id);
+        const chunkIndex = Math.floor(i / 100) + 1;
+        try {
+          const result = await cloudinary.api.delete_resources(chunk, {
+            resource_type: "image",
+            type: "upload",
+          });
+          const deletedMap = result?.deleted || {};
+          for (const item of chunkEntries) {
+            const status = String(deletedMap[item.public_id] || "error");
+            item.status = status;
+            if (status === "deleted") deletedCount += 1;
+            else if (status !== "not_found") deleteErrors += 1;
+          }
+        } catch (_e) {
+          for (const item of chunkEntries) item.status = "error";
+          deleteErrors += chunkEntries.length;
+        }
+        const ratio = totalChunks > 0 ? chunkIndex / totalChunks : 1;
+        const progress = 70 + Math.round(ratio * 25); // up to ~95
+        updateOrphanJob(job, {
+          deleted_count: deletedCount,
+          delete_error_count: deleteErrors,
+          current_chunk: chunkIndex,
+          progress: Math.min(95, progress),
+        });
+      }
+    }
+
+    updateOrphanJob(job, { phase: "finalizing", progress: 96 });
+    const grouped = groupOrphans(orphanEntries);
+    const payload = {
+      ok: true,
+      job_id: job.id,
+      dry_run: !job.apply,
+      referenced_count: referenced.size,
+      managed_count: managedEntries.length,
+      orphan_count: orphanEntries.length,
+      deleted_count: deletedCount,
+      delete_error_count: deleteErrors,
+      sample_orphans: orphanEntries.map((x) => x.public_id).slice(0, 30),
+      orphans_flat: orphanEntries,
+      orphans_by_module: grouped.byModule,
+      orphans_by_folder: grouped.byFolder,
+    };
+    finalizeOrphanJob(job, payload);
+  } catch (e) {
+    failOrphanJob(job, e?.message || "Failed to cleanup Cloudinary orphans");
+  }
+}
+
+function parseSseToken(req) {
+  const token = String(req.query.token || "").trim();
+  if (!token) return null;
+  try {
+    const payload = verifyJwt(token);
+    const userId = String(payload?.sub || "").trim();
+    return userId || null;
+  } catch (_e) {
+    return null;
+  }
 }
 
 async function requireAdmin(pool, userId) {
@@ -844,6 +1101,67 @@ router.put("/achievement-settings/:id", requireAuth, async (req, res) => {
  * - apply=false (default): dry run
  * - apply=true: delete orphaned image resources
  */
+router.post("/cloudinary/cleanup-orphans/start", requireAuth, async (req, res) => {
+  try {
+    const pool = await withAdmin(req, res);
+    if (!pool) return;
+    const apply = req.body?.apply === true || req.body?.apply === 1 || req.body?.apply === "1";
+    const job = createOrphanCleanupJob({ apply, userId: req.auth.userId });
+    runOrphanCleanupJob(job, pool);
+    return res.status(202).json({
+      ok: true,
+      job_id: job.id,
+      mode: job.mode,
+      status: job.status,
+    });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message || "Failed to start Cloudinary cleanup job" });
+  }
+});
+
+router.get("/cloudinary/cleanup-orphans/stream/:jobId", async (req, res) => {
+  try {
+    const userId = parseSseToken(req);
+    if (!userId) return res.status(401).json({ ok: false, error: "Missing or invalid token" });
+    req.auth = { userId };
+    const pool = await withAdmin(req, res);
+    if (!pool) return;
+
+    const jobId = String(req.params.jobId || "").trim();
+    const job = orphanCleanupJobs.get(jobId);
+    if (!job) return res.status(404).json({ ok: false, error: "Cleanup job not found" });
+    if (job.user_id !== userId) return res.status(403).json({ ok: false, error: "Forbidden" });
+
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache, no-transform");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders?.();
+
+    writeSseEvent(res, "progress", progressPayload(job));
+    if (job.status === "completed" && job.result) {
+      writeSseEvent(res, "result", job.result);
+      return res.end();
+    }
+    if (job.status === "failed") {
+      writeSseEvent(res, "error", { ok: false, job_id: job.id, error: job.error || "Cleanup failed" });
+      return res.end();
+    }
+
+    job.subscribers.add(res);
+    req.on("close", () => {
+      job.subscribers.delete(res);
+      try {
+        res.end();
+      } catch (_e) {
+        // ignore
+      }
+    });
+    return undefined;
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message || "Failed to stream cleanup progress" });
+  }
+});
+
 router.post("/cloudinary/cleanup-orphans", requireAuth, async (req, res) => {
   try {
     const pool = await withAdmin(req, res);

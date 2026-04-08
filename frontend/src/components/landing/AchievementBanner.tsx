@@ -341,12 +341,6 @@ const DEFAULT_ACH_TITLE_STYLE_LIKE_T3: CSSProperties = {
   fontWeight: 600,
   color: "var(--achievement-banner-line)",
 };
-/** Default theme: achievement title 20% larger than base Theme-3–matched clamps. */
-const DEFAULT_ACH_TITLE_FONT_SIZE_MOBILE =
-  "clamp(1.14rem, calc((4cqw + 0.35rem) * 1.2), 1.38rem)";
-const DEFAULT_ACH_TITLE_FONT_SIZE_DESKTOP =
-  "clamp(0.9rem, calc((2.8cqw + 0.2rem) * 1.2), 1.14rem)";
-
 /** Mobile achievement title: one line only; scale font between min and max to fit the card width. */
 const MOBILE_ACH_TITLE_FIT_MIN_REM = 0.55;
 
@@ -663,10 +657,10 @@ function BannerPhotoPanel({
           >
             <p
               className={cn(
-                "max-w-full break-words leading-tight",
+                "hpc-banner-photo-name max-w-full break-words leading-tight",
                 theme3Photo
-                  ? "font-extrabold max-lg:[font-size:clamp(1.14rem,7.2cqw+0.44rem,1.45rem)] lg:[font-size:clamp(1.05rem,6.5cqw+0.4rem,1.45rem)]"
-                  : "font-bold text-white max-lg:[font-size:clamp(0.98rem,6.4cqw+0.4rem,1.2rem)] lg:[font-size:clamp(0.78rem,5.5cqw+0.32rem,1.12rem)]"
+                  ? "font-extrabold"
+                  : "font-bold text-white"
               )}
               style={
                 theme3Photo
@@ -679,9 +673,8 @@ function BannerPhotoPanel({
             {batchLine ? (
               <span
                 className={cn(
-                  "inline-flex max-w-full break-words rounded-md border px-1.5 py-0.5 tracking-wide sm:px-2 sm:py-0.5",
+                  "hpc-banner-photo-chip inline-flex max-w-full break-words rounded-md border px-1.5 py-0.5 tracking-wide sm:px-2 sm:py-0.5",
                   bannerTheme !== "default" && "uppercase",
-                  "max-lg:[font-size:clamp(0.8rem,3.8cqw+0.3rem,0.92rem)] lg:[font-size:clamp(0.65rem,3cqw+0.24rem,0.82rem)]",
                   theme3Photo ? "font-bold shadow-none" : "font-bold shadow-md"
                 )}
                 style={
@@ -706,10 +699,10 @@ function BannerPhotoPanel({
             ) : null}
             <p
               className={cn(
-                "max-w-full break-words leading-snug",
+                "hpc-banner-photo-tagline max-w-full break-words leading-snug",
                 theme3Photo
-                  ? "font-bold max-lg:[font-size:clamp(0.98rem,5cqw+0.34rem,1.08rem)] lg:[font-size:clamp(0.85rem,4.5cqw+0.28rem,1.05rem)]"
-                  : "font-bold max-lg:[font-size:clamp(0.8rem,4cqw+0.28rem,0.9rem)] lg:[font-size:clamp(0.62rem,3.4cqw+0.22rem,0.82rem)]"
+                  ? "font-bold"
+                  : "font-bold"
               )}
               style={
                 theme3Photo
@@ -740,10 +733,10 @@ function BannerPhotoPanel({
           <div className="relative z-[1] flex flex-col items-start gap-1 px-2 pb-2 pt-4 text-left sm:gap-1.5 sm:px-3 sm:pb-3 sm:pt-6">
             <p
               className={cn(
-                "max-w-full break-words",
+                "hpc-banner-photo-name max-w-full break-words",
                 theme3Photo
-                  ? "font-extrabold max-lg:[font-size:clamp(1.14rem,7.2cqw+0.44rem,1.45rem)] lg:[font-size:clamp(1.05rem,6.5cqw+0.4rem,1.45rem)]"
-                  : "font-bold text-white/90 max-lg:[font-size:clamp(0.98rem,6.4cqw+0.4rem,1.2rem)] lg:[font-size:clamp(0.78rem,5.5cqw+0.32rem,1.12rem)]"
+                  ? "font-extrabold"
+                  : "font-bold text-white/90"
               )}
               style={
                 theme3Photo
@@ -761,7 +754,7 @@ function BannerPhotoPanel({
             {batchLine ? (
               <span
                 className={cn(
-                  "inline-flex max-w-full rounded-md border px-1.5 py-0.5 font-bold tracking-wide max-lg:[font-size:clamp(0.76rem,3.4cqw+0.26rem,0.85rem)] lg:[font-size:clamp(0.58rem,2.8cqw+0.2rem,0.75rem)]",
+                  "hpc-banner-photo-chip inline-flex max-w-full rounded-md border px-1.5 py-0.5 font-bold tracking-wide",
                   bannerTheme !== "default" && "uppercase"
                 )}
                 style={
@@ -784,10 +777,10 @@ function BannerPhotoPanel({
             ) : null}
             <p
               className={cn(
-                "max-w-full break-words",
+                "hpc-banner-photo-tagline max-w-full break-words",
                 theme3Photo
-                  ? "font-bold max-lg:[font-size:clamp(0.98rem,5cqw+0.34rem,1.08rem)] lg:[font-size:clamp(0.85rem,4.5cqw+0.28rem,1.05rem)]"
-                  : "font-bold max-lg:[font-size:clamp(0.8rem,4cqw+0.28rem,0.9rem)] lg:[font-size:clamp(0.62rem,3.4cqw+0.22rem,0.82rem)]"
+                  ? "font-bold"
+                  : "font-bold"
               )}
               style={
                 theme3Photo
@@ -1042,7 +1035,7 @@ const AchievementBanner = () => {
       <div className="layout-container min-w-0 pb-2 pt-2 sm:pb-2.5 sm:pt-2.5 md:pb-3 md:pt-3">
         <div className="relative mx-auto flex w-full min-w-0 max-w-full items-center justify-center gap-2 overflow-x-hidden px-0.5 sm:gap-3 md:gap-3.5">
         <div
-          className="@container/achievement-banner relative flex min-w-0 w-full flex-1 max-w-full flex-col overflow-hidden rounded-xl border border-border/90 bg-background shadow-md ring-1 ring-border/40"
+          className="@container/achievement-banner hpc-banner-typography-root relative flex min-w-0 w-full flex-1 max-w-full flex-col overflow-hidden rounded-xl border border-border/90 bg-background shadow-md ring-1 ring-border/40"
           onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
         >
@@ -1084,8 +1077,8 @@ const AchievementBanner = () => {
                 <div className="absolute inset-x-0 bottom-0 z-[2] flex flex-col items-start gap-0.5 px-3 pb-2.5 pt-1">
                   <p
                     className={cn(
-                      "leading-tight",
-                      isTheme3 ? "font-extrabold" : "fs-card-title font-bold text-white drop-shadow-[0_1px_6px_rgba(0,0,0,0.9)]"
+                      "hpc-banner-photo-name leading-tight",
+                      isTheme3 ? "font-extrabold" : "font-bold text-white drop-shadow-[0_1px_6px_rgba(0,0,0,0.9)]"
                     )}
                     style={isTheme3 ? THEME3_NAME_ON_PHOTO_STYLE : undefined}
                   >
@@ -1094,7 +1087,7 @@ const AchievementBanner = () => {
                   {bannerPhotoBatchLine(item) && (
                     <span
                       className={cn(
-                        "fs-caption inline-flex rounded-md border px-1.5 py-0.5 font-bold tracking-wide",
+                        "hpc-banner-photo-chip inline-flex rounded-md border px-1.5 py-0.5 font-bold tracking-wide",
                         !isDefaultBannerTheme && "uppercase"
                       )}
                       style={
@@ -1117,7 +1110,7 @@ const AchievementBanner = () => {
                     </span>
                   )}
                   <p
-                    className={cn("fs-caption leading-snug font-bold")}
+                    className={cn("hpc-banner-photo-tagline leading-snug font-bold")}
                     style={isTheme3 ? THEME3_TAGLINE_ON_PHOTO_STYLE : { color: "var(--achievement-banner-line)" }}
                   >
                     {bannerPhotoTagline(item)}
@@ -1264,7 +1257,7 @@ const AchievementBanner = () => {
                     text={item.achievement_title.trim()}
                     maxRem={isTheme3 ? 1.15 : isDefaultBannerTheme ? 1.38 : 0.95}
                     className={cn(
-                      "mt-0.5 w-full min-w-0 fs-ui leading-snug text-left",
+                      "hpc-banner-ach-title mt-0.5 w-full min-w-0 leading-snug text-left",
                       isDefaultBannerTheme && "uppercase",
                       !isTheme3 && !isDefaultBannerTheme && "font-semibold"
                     )}
@@ -1457,21 +1450,15 @@ const AchievementBanner = () => {
                         </p>
                         <p
                           className={cn(
-                            "mt-0.5 w-full min-w-0 break-words text-wrap leading-snug text-left hyphens-none",
+                            "hpc-banner-ach-title mt-0.5 w-full min-w-0 break-words text-wrap leading-snug text-left hyphens-none",
                             isDefaultBannerTheme && "uppercase",
-                            !isTheme3 && !isDefaultBannerTheme && "fs-banner-ach-title-cqw font-semibold"
+                            !isTheme3 && !isDefaultBannerTheme && "font-semibold"
                           )}
                           style={
                             isTheme3
-                              ? {
-                                  ...THEME3_ACH_TITLE_STYLE,
-                                  fontSize: "clamp(0.75rem, 2.8cqw + 0.2rem, 0.95rem)",
-                                }
+                              ? THEME3_ACH_TITLE_STYLE
                               : isDefaultBannerTheme
-                                ? {
-                                    ...DEFAULT_ACH_TITLE_STYLE_LIKE_T3,
-                                    fontSize: DEFAULT_ACH_TITLE_FONT_SIZE_DESKTOP,
-                                  }
+                                ? DEFAULT_ACH_TITLE_STYLE_LIKE_T3
                                 : { color: "var(--achievement-banner-line)" }
                           }
                         >

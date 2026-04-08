@@ -842,36 +842,67 @@
     line-height: 1.2;
   }
 
-  /* Achievement banner (outside .landing-copy-scale): cqw helpers centralized */
-  .fs-banner-message-body {
-    font-size: clamp(0.84rem, 3.1cqw + 0.28rem, 1.02rem);
-    line-height: 1.45;
+  /* Achievement banner (outside .landing-copy-scale): proportional text base for photo + copy columns */
+  .hpc-banner-typography-root {
+    --banner-u: clamp(0.58rem, 1.85cqw + 0.34rem, 1.08rem);
+    --banner-photo-name: clamp(
+      calc(var(--banner-u) * 1.34),
+      3.8cqw + 0.42rem,
+      calc(var(--banner-u) * 1.58)
+    );
+    --banner-photo-chip: clamp(
+      calc(var(--banner-u) * 0.86),
+      2.4cqw + 0.24rem,
+      calc(var(--banner-u) * 1.02)
+    );
+    --banner-photo-tagline: clamp(
+      calc(var(--banner-u) * 0.9),
+      2.8cqw + 0.24rem,
+      calc(var(--banner-u) * 1.1)
+    );
+    --banner-ach-title: clamp(
+      calc(var(--banner-u) * 0.98),
+      2.9cqw + 0.2rem,
+      calc(var(--banner-u) * 1.18)
+    );
+    --banner-nav-icon: clamp(0.8rem, 1.5cqw + 0.45rem, 1rem);
   }
-  @media (min-width: 1024px) {
-    .fs-banner-message-body {
-      font-size: clamp(0.7rem, 2.3cqw + 0.2rem, 0.86rem);
-    }
-  }
-  .fs-banner-celebrate-heading {
-    font-size: clamp(0.72rem, 4.5cqw + 0.28rem, 1.08rem);
+
+  .hpc-banner-photo-name {
+    font-size: var(--banner-photo-name);
     line-height: 1.2;
   }
-  .fs-banner-association-line {
-    font-size: clamp(0.62rem, 0.58rem + 0.2vw, 0.72rem);
+  .hpc-banner-photo-chip {
+    font-size: var(--banner-photo-chip);
+    line-height: 1.25;
+  }
+  .hpc-banner-photo-tagline {
+    font-size: var(--banner-photo-tagline);
     line-height: 1.35;
   }
-  @media (min-width: 640px) {
-    .fs-banner-association-line {
-      font-size: clamp(0.65rem, 0.6rem + 0.22vw, 0.74rem);
-    }
+  .hpc-banner-ach-title {
+    font-size: var(--banner-ach-title);
+    line-height: 1.32;
   }
-  @media (min-width: 1024px) {
-    .fs-banner-association-line {
-      font-size: clamp(0.58rem, 0.54rem + 0.18vw, 0.68rem);
-    }
+  .hpc-banner-nav-icon {
+    width: var(--banner-nav-icon);
+    height: var(--banner-nav-icon);
   }
-  .fs-banner-ach-title-cqw {
-    font-size: clamp(0.68rem, 2.6cqw + 0.18rem, 0.8125rem);
+
+  .hpc-banner-typography-root .fs-banner-message-body {
+    font-size: clamp(calc(var(--banner-u) * 0.95), 2.6cqw + 0.22rem, calc(var(--banner-u) * 1.06));
+    line-height: 1.45;
+  }
+  .hpc-banner-typography-root .fs-banner-celebrate-heading {
+    font-size: clamp(calc(var(--banner-u) * 0.9), 3.8cqw + 0.22rem, calc(var(--banner-u) * 1.16));
+    line-height: 1.2;
+  }
+  .hpc-banner-typography-root .fs-banner-association-line {
+    font-size: clamp(calc(var(--banner-u) * 0.74), 1.8cqw + 0.18rem, calc(var(--banner-u) * 0.9));
+    line-height: 1.35;
+  }
+  .hpc-banner-typography-root .fs-banner-ach-title-cqw {
+    font-size: var(--banner-ach-title);
     line-height: 1.35;
   }
 
@@ -898,6 +929,29 @@
     font-size: clamp(0.5rem, 0.45rem + 0.1vw, 0.5625rem);
     line-height: 1.2;
     letter-spacing: 0.08em;
+  }
+
+  /* Unified navbar role classes (desktop + mobile, logged-in + logged-out) */
+  .nav-role-link,
+  .nav-role-action,
+  .nav-role-row {
+    font-size: clamp(0.82rem, 0.74rem + 0.28vw, 0.98rem);
+    line-height: 1.2;
+  }
+  .nav-role-action {
+    font-weight: 600;
+  }
+  .nav-role-action-logged {
+    font-size: clamp(0.86rem, 0.78rem + 0.3vw, 1.02rem);
+    line-height: 1.2;
+  }
+  .nav-icon-trigger {
+    width: clamp(1.2rem, 1.08rem + 0.34vw, 1.45rem);
+    height: clamp(1.2rem, 1.08rem + 0.34vw, 1.45rem);
+  }
+  .nav-icon-inline {
+    width: clamp(0.9rem, 0.84rem + 0.2vw, 1.05rem);
+    height: clamp(0.9rem, 0.84rem + 0.2vw, 1.05rem);
   }
   /* Auth / CTA: same type size as section links (`.fs-nav`); do not shrink `.topnav-btn-text` — was too small */
 

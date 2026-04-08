@@ -23,11 +23,15 @@ import {
 export function ScrollToTopOnRouteChange() {
   const location = useLocation();
   const prevPathnameRef = useRef<string | null>(null);
+  const restoreCancelRef = useRef<(() => void) | null>(null);
 
   const pathKey = `${location.pathname}${location.search}${location.hash}`;
   const pathname = location.pathname;
 
   useLayoutEffect(() => {
+    restoreCancelRef.current?.();
+    restoreCancelRef.current = null;
+
     if (prevPathnameRef.current === null) {
       prevPathnameRef.current = pathname;
       return;
@@ -43,32 +47,30 @@ export function ScrollToTopOnRouteChange() {
 
     const backFromAchievementDetail =
       pathname === "/" && (consumeBackToAchievementsSection() || fromAchievementDetail);
+    const hasLandingHashTarget = pathname === "/" && Boolean(location.hash && location.hash.length > 1);
 
     // Back from /achievements/:id → landing: restore exact scroll if user opened detail from grid
     if (backFromAchievementDetail) {
-      const savedY = tryConsumeNavScrollRestore(pathKey);
+      const savedY = hasLandingHashTarget ? null : tryConsumeNavScrollRestore(pathKey);
       if (savedY !== null) {
-        applyWindowScrollYWithRetries(savedY);
+        restoreCancelRef.current = applyWindowScrollYWithRetries(savedY);
         return;
       }
       const apply = () => scrollToLandingSectionById("achievements");
       apply();
       scrollToLandingSectionByIdWhenReady("achievements");
-      requestAnimationFrame(apply);
-      requestAnimationFrame(() => requestAnimationFrame(apply));
-      queueMicrotask(apply);
-      setTimeout(apply, 0);
-      setTimeout(apply, 60);
-      setTimeout(apply, 150);
-      setTimeout(apply, 320);
       return;
     }
 
-    const y = tryConsumeNavScrollRestore(pathKey);
+    const y = hasLandingHashTarget ? null : tryConsumeNavScrollRestore(pathKey);
     if (y !== null) {
-      applyWindowScrollYWithRetries(y);
+      restoreCancelRef.current = applyWindowScrollYWithRetries(y);
     }
-  }, [pathname, pathKey]);
+    return () => {
+      restoreCancelRef.current?.();
+      restoreCancelRef.current = null;
+    };
+  }, [pathname, pathKey, location.hash]);
 
   return null;
 }

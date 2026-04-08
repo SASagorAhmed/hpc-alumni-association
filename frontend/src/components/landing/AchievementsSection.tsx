@@ -111,7 +111,7 @@ const sectionShellClass =
 const AchievementsSection = () => {
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [loading, setLoading] = useState(true);
-  const [visibleCount, setVisibleCount] = useState(6);
+  const [visibleCount, setVisibleCount] = useState(3);
   const gridOuterRef = useRef<HTMLDivElement>(null);
   const gridInnerRef = useRef<HTMLDivElement>(null);
   const [gridScale, setGridScale] = useState(1);
@@ -260,11 +260,11 @@ const AchievementsSection = () => {
       <div className="layout-container">
         {headerBlock}
 
-        {/* Narrow: 2 columns; very small widths use CSS zoom like committee member cards */}
+        {/* Narrow/mobile: one card per row */}
         {isNarrowViewport ? (
           <div ref={narrowGridOuterRef} className="w-full min-w-0">
             <div
-              className="hpc-ios-touch-text-root grid w-full min-w-0 grid-cols-2 items-stretch gap-3 sm:gap-4 md:gap-5"
+              className="hpc-ios-touch-text-root grid w-full min-w-0 grid-cols-1 items-stretch gap-3 sm:gap-4 md:gap-5"
               style={mobileGridZoomStyle}
             >
               {achievements.slice(0, visibleCount).map((a, i) => (
@@ -295,7 +295,7 @@ const AchievementsSection = () => {
           </div>
         )}
 
-        {(visibleCount < achievements.length || visibleCount > 6) && (
+        {(visibleCount < achievements.length || visibleCount > 3) && (
           <div className="flex items-center justify-center gap-4 mt-8">
             {visibleCount < achievements.length && (
               <>
@@ -313,9 +313,9 @@ const AchievementsSection = () => {
                 </button>
               </>
             )}
-            {visibleCount > 6 && (
+            {visibleCount > 3 && (
               <button
-                onClick={() => setVisibleCount(6)}
+                onClick={() => setVisibleCount(3)}
                 className="px-5 py-2 rounded-full border border-muted-foreground/30 text-muted-foreground text-sm font-medium hover:bg-muted transition-colors"
               >
                 Show Less

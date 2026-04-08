@@ -105,10 +105,10 @@ const SidebarContent = ({
       className="flex h-14 shrink-0 items-center justify-between border-b border-white/10 px-2"
       style={{ background: "var(--theme-navbar-bg)" }}
     >
-      <Link to={dashboardHref} className="flex min-w-0 items-center gap-1.5">
+      <Link to={dashboardHref} onClick={onNavigate} className="flex min-w-0 items-center gap-1.5">
         <img src={hpcLogo} alt="HPC Logo" className="h-7 w-7 shrink-0 rounded-full shadow-sm ring-1 ring-[hsl(43,96%,56%)]/50" />
         <div className="min-w-0 leading-none">
-          <span className="block truncate text-[10px] font-bold tracking-tight text-white">Hamdard Public College</span>
+          <span className="block truncate text-[10px] font-bold tracking-tight text-white">HPCAA</span>
           <span className="mt-px block truncate text-[7px] font-semibold uppercase tracking-wide" style={{ color: "hsl(43, 96%, 56%)" }}>
             {panelSubtitle}
           </span>
@@ -126,14 +126,15 @@ const SidebarContent = ({
           <li key={href}>
             <Link
               to={href}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-[14px] transition-all duration-300 ease-in-out ${
+              onClick={onNavigate}
+              className={`flex items-center gap-2 px-2.5 py-2 sm:gap-2.5 sm:px-3 sm:py-2.5 rounded-lg text-[12px] sm:text-[13px] lg:text-[14px] transition-all duration-300 ease-in-out ${
                 isActive(href)
                   ? "text-primary font-semibold bg-primary/10 border-l-4 border-primary"
                   : "text-muted-foreground font-medium hover:bg-muted hover:text-foreground"
               }`}
             >
               <Icon
-                className={`w-[18px] h-[18px] shrink-0 ${
+                className={`h-4 w-4 sm:h-[17px] sm:w-[17px] lg:h-[18px] lg:w-[18px] shrink-0 ${
                   isActive(href) ? "text-primary" : "text-muted-foreground"
                 }`}
               />
@@ -146,9 +147,9 @@ const SidebarContent = ({
     <div className="px-3 py-4 border-t border-border">
       <button
         onClick={() => { logout(); onNavigate?.(); }}
-        className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[14px] font-medium bg-red-600 text-white hover:bg-red-700 transition-colors w-full"
+        className="flex items-center gap-2 px-2.5 py-2 sm:gap-2.5 sm:px-3 sm:py-2.5 rounded-lg text-[12px] sm:text-[13px] lg:text-[14px] font-medium bg-red-600 text-white hover:bg-red-700 transition-colors w-full"
       >
-        <LogOut className="w-[18px] h-[18px]" />
+        <LogOut className="h-4 w-4 sm:h-[17px] sm:w-[17px] lg:h-[18px] lg:w-[18px]" />
         Logout
       </button>
     </div>
@@ -237,18 +238,18 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       {/* Backdrop for outside click */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-30 bg-black/20 transition-opacity duration-300"
+          className="fixed inset-0 z-40 bg-black/20 transition-opacity duration-300"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       {/* Fixed Sidebar */}
       <aside
-        className={`fixed top-0 left-0 z-40 flex h-screen flex-col overflow-hidden border-r border-border/80 bg-sidebar transition-all duration-300 ease-in-out ${
-          sidebarOpen ? "w-64" : "w-0"
+        className={`fixed top-0 left-0 z-50 flex h-screen flex-col overflow-hidden border-r border-border/80 bg-sidebar transition-all duration-300 ease-in-out ${
+          sidebarOpen ? "w-[55vw] lg:w-64" : "w-0"
         }`}
       >
-        <div className="min-w-[16rem] h-full flex flex-col">
+        <div className="h-full w-full min-w-0 flex flex-col">
           <SidebarContent
             menu={menu}
             isActive={isActive}
@@ -262,10 +263,10 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         </div>
       </aside>
 
-      {/* Main wrapper: ml must match aside w-64 (both 16rem) — fixed px caused a gap when html font-size ≠ 16px */}
+      {/* Main wrapper: keep mobile as overlay (no push), keep desktop push for wide view */}
       <div
         className={`flex min-h-screen flex-col transition-[margin] duration-300 ease-in-out ${
-          sidebarOpen ? "ml-64" : "ml-0"
+          sidebarOpen ? "ml-0 lg:ml-64" : "ml-0"
         }`}
       >
         <div className="flex flex-col min-h-screen">
@@ -280,10 +281,10 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
               {!sidebarOpen && (
                 <button
                   onClick={() => setSidebarOpen(true)}
-                  className="rounded p-0.5 hover:bg-gray-900/10"
+                  className="rounded p-1.5 sm:p-1 md:p-0.5 hover:bg-gray-900/10"
                   aria-label="Open menu"
                 >
-                  <Menu className="h-3.5 w-3.5 text-white" />
+                  <Menu className="h-5 w-5 sm:h-4 sm:w-4 md:h-3.5 md:w-3.5 text-white" />
                 </button>
               )}
               <h1 className="hidden truncate text-[12px] font-semibold leading-tight text-white sm:block">

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useId, type MouseEvent } from "react";
+import { useState, useEffect, useCallback, useMemo, useId, useRef, type MouseEvent } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, Menu, X, LogOut } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -154,7 +154,7 @@ function DesktopNavDropdown({
         to={link.href === "#" ? "/" : `/${link.href}`}
         onClick={(e) => onLandingClick(e, link.href)}
         className={cn(
-          "fs-nav topnav-btn-text relative inline-flex h-8 min-h-0 items-center whitespace-nowrap rounded-md px-1.5 font-semibold transition-colors lg:px-2",
+            "nav-role-link topnav-btn-text relative inline-flex h-8 min-h-0 items-center whitespace-nowrap rounded-md px-1.5 font-semibold transition-colors lg:px-2",
           activeSection === link.href
             ? "text-primary"
             : "text-muted-foreground hover:text-primary"
@@ -182,7 +182,7 @@ function DesktopNavDropdown({
                 href={item.to}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="fs-ui block w-full whitespace-normal break-words px-3 py-2 text-left font-medium leading-snug text-foreground transition-colors hover:bg-muted/70 hover:text-primary [overflow-wrap:anywhere]"
+                className="nav-role-row block w-full whitespace-normal break-words px-3 py-2 text-left font-medium leading-snug text-foreground transition-colors hover:bg-muted/70 hover:text-primary [overflow-wrap:anywhere]"
               >
                 {item.label}
               </a>
@@ -191,7 +191,7 @@ function DesktopNavDropdown({
                 key={item.key}
                 role="menuitem"
                 to={item.to}
-                className="fs-ui block w-full whitespace-normal break-words px-3 py-2 text-left font-medium leading-snug text-foreground transition-colors hover:bg-muted/70 hover:text-primary [overflow-wrap:anywhere]"
+                className="nav-role-row block w-full whitespace-normal break-words px-3 py-2 text-left font-medium leading-snug text-foreground transition-colors hover:bg-muted/70 hover:text-primary [overflow-wrap:anywhere]"
               >
                 {item.label}
               </Link>
@@ -213,7 +213,7 @@ function MobileNavDropSection({
   link: (typeof navLinks)[number];
   activeSection: string;
   items: NavDropItem[];
-  onLandingClick: (e: MouseEvent<HTMLAnchorElement>, href: string) => void;
+  onLandingClick: (href: string) => void;
   onItemNavigate: () => void;
 }) {
   const [subOpen, setSubOpen] = useState(false);
@@ -223,29 +223,33 @@ function MobileNavDropSection({
   return (
     <div className="flex flex-col gap-0.5">
       <div className="flex min-w-0 items-stretch gap-1">
-        <Link
-          to={link.href === "#" ? "/" : `/${link.href}`}
-          onClick={(e) => onLandingClick(e, link.href)}
+        <button
+          type="button"
+          onClick={() => onLandingClick(link.href)}
           className={cn(
-            "fs-ui topnav-btn-text inline-flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-2.5 py-1.5 font-semibold transition-colors",
+            "nav-role-link topnav-btn-text inline-flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-2.5 py-1.5 font-semibold transition-colors",
             activeSection === link.href
               ? "bg-primary/10 text-primary"
               : "text-muted-foreground hover:bg-muted/60 hover:text-primary"
           )}
         >
           {link.label}
-        </Link>
+        </button>
         <button
           type="button"
           id={toggleBtnId}
           aria-expanded={subOpen}
           aria-controls={subMenuId}
           aria-label={subOpen ? `Hide ${link.label} links` : `Show ${link.label} links`}
-          onClick={() => setSubOpen((v) => !v)}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setSubOpen((v) => !v);
+          }}
           className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
         >
           <ChevronDown
-            className={cn("h-4 w-4 shrink-0 transition-transform duration-200", subOpen && "rotate-180")}
+            className={cn("nav-icon-inline shrink-0 transition-transform duration-200", subOpen && "rotate-180")}
             aria-hidden
           />
         </button>
@@ -271,7 +275,7 @@ function MobileNavDropSection({
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={onItemNavigate}
-                    className="fs-ui topnav-btn-text block w-full whitespace-normal break-words rounded-md px-2 py-1.5 text-left font-medium leading-snug text-muted-foreground transition-colors hover:bg-muted/60 hover:text-primary [overflow-wrap:anywhere]"
+                    className="nav-role-row topnav-btn-text block w-full whitespace-normal break-words rounded-md px-2 py-1.5 text-left font-medium leading-snug text-muted-foreground transition-colors hover:bg-muted/60 hover:text-primary [overflow-wrap:anywhere]"
                   >
                     {item.label}
                   </a>
@@ -280,7 +284,7 @@ function MobileNavDropSection({
                     key={item.key}
                     to={item.to}
                     onClick={onItemNavigate}
-                    className="fs-ui topnav-btn-text block w-full whitespace-normal break-words rounded-md px-2 py-1.5 text-left font-medium leading-snug text-muted-foreground transition-colors hover:bg-muted/60 hover:text-primary [overflow-wrap:anywhere]"
+                    className="nav-role-row topnav-btn-text block w-full whitespace-normal break-words rounded-md px-2 py-1.5 text-left font-medium leading-snug text-muted-foreground transition-colors hover:bg-muted/60 hover:text-primary [overflow-wrap:anywhere]"
                   >
                     {item.label}
                   </Link>
@@ -307,25 +311,46 @@ function scrollToLandingSection(href: string) {
   window.scrollTo({ top: Math.max(0, y), behavior: "smooth" });
 }
 
-function scrollToLandingSectionWhenReady(href: string, attempt = 0) {
-  if (href === "#") {
-    scrollToLandingSection(href);
-    return;
-  }
-  const id = href.replace(/^#/, "");
-  if (!id) return;
-  const el = document.getElementById(id);
-  if (el) {
-    scrollToLandingSection(href);
-    return;
-  }
-  if (attempt >= 20) return;
-  window.setTimeout(() => scrollToLandingSectionWhenReady(href, attempt + 1), 80);
+function startLandingSectionScrollWhenReady(href: string): () => void {
+  let cancelled = false;
+  const timers: number[] = [];
+
+  const stop = () => {
+    if (cancelled) return;
+    cancelled = true;
+    for (const id of timers) window.clearTimeout(id);
+    window.removeEventListener("wheel", cancelByUserInput);
+    window.removeEventListener("touchmove", cancelByUserInput);
+  };
+
+  const cancelByUserInput = () => stop();
+
+  const tryScroll = (attempt = 0) => {
+    if (cancelled) return;
+    if (href === "#") {
+      scrollToLandingSection(href);
+      return;
+    }
+    const id = href.replace(/^#/, "");
+    if (!id) return;
+    if (document.getElementById(id)) {
+      scrollToLandingSection(href);
+      return;
+    }
+    if (attempt >= 20) return;
+    timers.push(window.setTimeout(() => tryScroll(attempt + 1), 80));
+  };
+
+  window.addEventListener("wheel", cancelByUserInput, { passive: true });
+  window.addEventListener("touchmove", cancelByUserInput, { passive: true });
+  tryScroll();
+  return stop;
 }
 
 const Navbar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeSection, setActiveSection] = useState("#");
+  const pendingLandingScrollCancelRef = useRef<(() => void) | null>(null);
   const { user, isLoading, logout } = useAuth();
   const { viewAsAlumni } = useAdminViewAsAlumni();
   const location = useLocation();
@@ -401,19 +426,23 @@ const Navbar = () => {
   const dashboardPath =
     user?.role === "admin" && !viewAsAlumni ? "/admin/dashboard" : "/dashboard";
 
+  const closeMobileMenu = useCallback(() => {
+    setMobileOpen(false);
+  }, []);
+
   /** SPA-safe: go to `/` + hash and scroll (hash-only links break off-home and often don’t scroll with RR). */
-  const handleLandingNavClick = useCallback(
-    (e: MouseEvent<HTMLAnchorElement>, href: string) => {
-      e.preventDefault();
+  const runLandingNavigation = useCallback(
+    (href: string) => {
       setActiveSection(href === "#" ? "#" : href);
-      setMobileOpen(false);
+      pendingLandingScrollCancelRef.current?.();
+      pendingLandingScrollCancelRef.current = null;
 
       const onHome = location.pathname === "/";
       const sectionHash = href === "#" ? "" : `#${href.replace(/^#/, "")}`;
 
       if (!onHome) {
         navigate(sectionHash ? `/${sectionHash}` : "/");
-        scrollToLandingSectionWhenReady(href);
+        pendingLandingScrollCancelRef.current = startLandingSectionScrollWhenReady(href);
         return;
       }
 
@@ -426,6 +455,31 @@ const Navbar = () => {
     },
     [location.pathname, navigate]
   );
+
+  const handleLandingNavClick = useCallback(
+    (e: MouseEvent<HTMLAnchorElement>, href: string) => {
+      e.preventDefault();
+      runLandingNavigation(href);
+    },
+    [runLandingNavigation]
+  );
+
+  const handleMobileLandingNavClick = useCallback(
+    (href: string) => {
+      closeMobileMenu();
+      window.setTimeout(() => {
+        runLandingNavigation(href);
+      }, 0);
+    },
+    [closeMobileMenu, runLandingNavigation]
+  );
+
+  useEffect(() => {
+    return () => {
+      pendingLandingScrollCancelRef.current?.();
+      pendingLandingScrollCancelRef.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     if (!mobileOpen) return;
@@ -586,7 +640,7 @@ const Navbar = () => {
                     to={link.href === "#" ? "/" : `/${link.href}`}
                     onClick={(e) => handleLandingNavClick(e, link.href)}
                     className={cn(
-                      "fs-nav topnav-btn-text group relative inline-flex h-8 min-h-0 shrink-0 items-center whitespace-nowrap rounded-md px-1.5 font-semibold transition-colors lg:px-2",
+                      "nav-role-link topnav-btn-text group relative inline-flex h-8 min-h-0 shrink-0 items-center whitespace-nowrap rounded-md px-1.5 font-semibold transition-colors lg:px-2",
                       activeSection === link.href
                         ? "text-primary"
                         : "text-muted-foreground hover:text-primary"
@@ -614,16 +668,16 @@ const Navbar = () => {
             <div className="ml-2 flex shrink-0 items-center gap-2 border-l border-border/40 pl-3">
               <Link
                 to={dashboardPath}
-                className="fs-nav topnav-btn-text inline-flex h-9 min-h-0 items-center justify-center whitespace-nowrap rounded-md border border-transparent bg-primary px-3.5 font-semibold text-primary-foreground transition-all hover:bg-primary/90 active:scale-[0.98]"
+                className="nav-role-action nav-role-action-logged topnav-btn-text inline-flex h-9 min-h-0 items-center justify-center whitespace-nowrap rounded-md border border-transparent bg-primary px-3.5 font-semibold text-primary-foreground transition-all hover:bg-primary/90 active:scale-[0.98]"
               >
                 Dashboard
               </Link>
               <button
                 type="button"
                 onClick={logout}
-                className="fs-nav topnav-btn-text inline-flex h-9 min-h-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-border/80 px-3.5 font-medium text-foreground transition-colors hover:bg-muted/50 hover:text-primary"
+                className="nav-role-action nav-role-action-logged topnav-btn-text inline-flex h-9 min-h-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-border/80 px-3.5 font-medium text-foreground transition-colors hover:bg-muted/50 hover:text-primary"
               >
-                <LogOut size={14} className="shrink-0" />
+                <LogOut className="nav-icon-inline shrink-0" />
                 Logout
               </button>
               {showThemeToggle ? (
@@ -634,13 +688,13 @@ const Navbar = () => {
             <div className="ml-2 flex shrink-0 items-center gap-2 border-l border-border/40 pl-3">
               <Link
                 to="/login"
-                className="fs-nav topnav-btn-text inline-flex h-9 min-h-0 items-center justify-center whitespace-nowrap rounded-md border border-border/80 px-3.5 font-semibold text-foreground transition-all hover:border-primary/40 hover:bg-muted/60 active:scale-[0.98]"
+                className="nav-role-action topnav-btn-text inline-flex h-9 min-h-0 items-center justify-center whitespace-nowrap rounded-md border border-border/80 px-3.5 font-semibold text-foreground transition-all hover:border-primary/40 hover:bg-muted/60 active:scale-[0.98]"
               >
                 Login
               </Link>
               <Link
                 to="/register"
-                className="fs-nav topnav-btn-text inline-flex h-9 min-h-0 items-center justify-center whitespace-nowrap rounded-md border border-transparent bg-primary px-3.5 font-semibold text-primary-foreground transition-all hover:bg-primary/90 active:scale-[0.98]"
+                className="nav-role-action topnav-btn-text inline-flex h-9 min-h-0 items-center justify-center whitespace-nowrap rounded-md border border-transparent bg-primary px-3.5 font-semibold text-primary-foreground transition-all hover:bg-primary/90 active:scale-[0.98]"
               >
                 Join Alumni
               </Link>
@@ -657,10 +711,18 @@ const Navbar = () => {
           aria-expanded={mobileOpen}
           aria-controls="landing-nav-mobile-menu"
           aria-label={mobileOpen ? "Close menu" : "Open menu"}
-          onClick={() => setMobileOpen(!mobileOpen)}
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-foreground hover:bg-muted/50 lg:hidden"
+          onClick={() => {
+            pendingLandingScrollCancelRef.current?.();
+            pendingLandingScrollCancelRef.current = null;
+            setMobileOpen((prev) => !prev);
+          }}
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-foreground hover:bg-muted/50 sm:h-10 sm:w-10 lg:hidden"
         >
-          {mobileOpen ? <X size={20} strokeWidth={2} /> : <Menu size={20} strokeWidth={2} />}
+          {mobileOpen ? (
+            <X className="nav-icon-trigger" strokeWidth={2} />
+          ) : (
+            <Menu className="nav-icon-trigger" strokeWidth={2} />
+          )}
         </button>
       </div>
 
@@ -684,8 +746,8 @@ const Navbar = () => {
                       link={link}
                       activeSection={activeSection}
                       items={committeeNavItems}
-                      onLandingClick={handleLandingNavClick}
-                      onItemNavigate={() => setMobileOpen(false)}
+                      onLandingClick={handleMobileLandingNavClick}
+                      onItemNavigate={closeMobileMenu}
                     />
                   );
                 }
@@ -696,8 +758,8 @@ const Navbar = () => {
                       link={link}
                       activeSection={activeSection}
                       items={achievementNavItems}
-                      onLandingClick={handleLandingNavClick}
-                      onItemNavigate={() => setMobileOpen(false)}
+                      onLandingClick={handleMobileLandingNavClick}
+                      onItemNavigate={closeMobileMenu}
                     />
                   );
                 }
@@ -708,8 +770,8 @@ const Navbar = () => {
                       link={link}
                       activeSection={activeSection}
                       items={noticeNavItems}
-                      onLandingClick={handleLandingNavClick}
-                      onItemNavigate={() => setMobileOpen(false)}
+                      onLandingClick={handleMobileLandingNavClick}
+                      onItemNavigate={closeMobileMenu}
                     />
                   );
                 }
@@ -720,8 +782,8 @@ const Navbar = () => {
                       link={link}
                       activeSection={activeSection}
                       items={memoryNavItems}
-                      onLandingClick={handleLandingNavClick}
-                      onItemNavigate={() => setMobileOpen(false)}
+                      onLandingClick={handleMobileLandingNavClick}
+                      onItemNavigate={closeMobileMenu}
                     />
                   );
                 }
@@ -732,25 +794,25 @@ const Navbar = () => {
                       link={link}
                       activeSection={activeSection}
                       items={communityNavItems}
-                      onLandingClick={handleLandingNavClick}
-                      onItemNavigate={() => setMobileOpen(false)}
+                      onLandingClick={handleMobileLandingNavClick}
+                      onItemNavigate={closeMobileMenu}
                     />
                   );
                 }
                 return (
-                  <Link
+                  <button
+                    type="button"
                     key={link.href + link.label}
-                    to={link.href === "#" ? "/" : `/${link.href}`}
-                    onClick={(e) => handleLandingNavClick(e, link.href)}
+                    onClick={() => handleMobileLandingNavClick(link.href)}
                     className={cn(
-                      "fs-ui topnav-btn-text inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 font-semibold transition-colors",
+                      "nav-role-link topnav-btn-text inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 font-semibold transition-colors",
                       activeSection === link.href
                         ? "bg-primary/10 text-primary"
                         : "text-muted-foreground hover:bg-muted/60 hover:text-primary"
                     )}
                   >
                     {link.label}
-                  </Link>
+                  </button>
                 );
               })}
 
@@ -760,16 +822,16 @@ const Navbar = () => {
                 <>
                   <Link
                     to={dashboardPath}
-                    onClick={() => setMobileOpen(false)}
-                    className="fs-ui topnav-btn-text mt-2 rounded-md bg-primary px-4 py-2 text-center font-semibold text-primary-foreground shadow-sm"
+                    onClick={closeMobileMenu}
+                    className="nav-role-action topnav-btn-text mt-2 rounded-md bg-primary px-4 py-2 text-center font-semibold text-primary-foreground shadow-sm"
                   >
                     Dashboard
                   </Link>
                   <button
-                    onClick={() => { logout(); setMobileOpen(false); }}
-                    className="fs-ui topnav-btn-text mt-1 inline-flex items-center justify-center gap-1.5 rounded-md border border-border px-4 py-2 font-medium text-foreground hover:text-primary"
+                    onClick={() => { logout(); closeMobileMenu(); }}
+                    className="nav-role-action topnav-btn-text mt-1 inline-flex items-center justify-center gap-1.5 rounded-md border border-border px-4 py-2 font-medium text-foreground hover:text-primary"
                   >
-                    <LogOut size={14} />
+                    <LogOut className="nav-icon-inline" />
                     Logout
                   </button>
                 </>
@@ -777,15 +839,15 @@ const Navbar = () => {
                 <>
                   <Link
                     to="/login"
-                    onClick={() => setMobileOpen(false)}
-                    className="fs-ui topnav-btn-text mt-2 rounded-md border border-border px-4 py-2 text-center font-semibold text-foreground"
+                    onClick={closeMobileMenu}
+                    className="nav-role-action topnav-btn-text mt-2 rounded-md border border-border px-4 py-2 text-center font-semibold text-foreground"
                   >
                     Login
                   </Link>
                   <Link
                     to="/register"
-                    onClick={() => setMobileOpen(false)}
-                    className="fs-ui topnav-btn-text mt-1 rounded-md bg-primary px-4 py-2 text-center font-semibold text-primary-foreground shadow-sm"
+                    onClick={closeMobileMenu}
+                    className="nav-role-action topnav-btn-text mt-1 rounded-md bg-primary px-4 py-2 text-center font-semibold text-primary-foreground shadow-sm"
                   >
                     Join Alumni
                   </Link>

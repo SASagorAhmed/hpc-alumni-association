@@ -142,16 +142,66 @@ export function tryConsumeLandingRefreshScroll(): number | null {
 }
 
 /** Reapply scroll after layout / ScrollRestoration (extra delays for landing images/async blocks). */
-export function applyWindowScrollYWithRetries(y: number, options?: { landingReload?: boolean }): void {
-  const apply = () => window.scrollTo({ top: y, left: 0, behavior: "auto" });
-  apply();
-  requestAnimationFrame(apply);
-  requestAnimationFrame(() => requestAnimationFrame(apply));
-  queueMicrotask(apply);
-  const delays = options?.landingReload
-    ? [0, 50, 120, 280, 500, 900, 1500, 2500]
-    : [0, 50, 120, 280];
-  for (const ms of delays) {
-    window.setTimeout(apply, ms);
+let activeScrollRestoreCancel: (() => void) | null = null;
+
+export function cancelActiveScrollRestore(): void {
+  if (activeScrollRestoreCancel) {
+    activeScrollRestoreCancel();
+    activeScrollRestoreCancel = null;
   }
+}
+
+/** Reapply scroll after layout / ScrollRestoration (extra delays for landing images/async blocks). */
+export function applyWindowScrollYWithRetries(
+  y: number,
+  options?: { landingReload?: boolean }
+): () => void {
+  cancelActiveScrollRestore();
+
+  let cancelled = false;
+  const timers: number[] = [];
+  const rafs: number[] = [];
+
+  const apply = () => {
+    if (cancelled) return;
+    window.scrollTo({ top: y, left: 0, behavior: "auto" });
+  };
+
+  const stop = () => {
+    if (cancelled) return;
+    cancelled = true;
+    for (const id of timers) window.clearTimeout(id);
+    for (const id of rafs) window.cancelAnimationFrame(id);
+    window.removeEventListener("wheel", cancelByUserInput);
+    window.removeEventListener("touchmove", cancelByUserInput);
+    window.removeEventListener("pointerdown", cancelByUserInput);
+    window.removeEventListener("keydown", cancelByUserInput);
+    if (activeScrollRestoreCancel === stop) activeScrollRestoreCancel = null;
+  };
+
+  const cancelByUserInput = () => {
+    stop();
+  };
+
+  activeScrollRestoreCancel = stop;
+
+  window.addEventListener("wheel", cancelByUserInput, { passive: true });
+  window.addEventListener("touchmove", cancelByUserInput, { passive: true });
+  window.addEventListener("pointerdown", cancelByUserInput, { passive: true });
+  window.addEventListener("keydown", cancelByUserInput, { passive: true });
+
+  apply();
+  rafs.push(window.requestAnimationFrame(apply));
+  rafs.push(window.requestAnimationFrame(() => {
+    rafs.push(window.requestAnimationFrame(apply));
+  }));
+  queueMicrotask(apply);
+
+  // Keep landing retries short to avoid fighting real user scrolling after refresh.
+  const delays = options?.landingReload ? [0, 40, 90, 180, 320, 500] : [0, 40, 90, 180, 320];
+  for (const ms of delays) {
+    timers.push(window.setTimeout(apply, ms));
+  }
+
+  return stop;
 }

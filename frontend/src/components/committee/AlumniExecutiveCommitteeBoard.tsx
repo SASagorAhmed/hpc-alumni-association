@@ -1243,6 +1243,8 @@ const COMMITTEE_DESIGN_W = 1024; // reference = laptop viewport
 const MOBILE_REF_W = BREAKPOINT_MOBILE_MAX; // mobile band top — cards zoom below this
 
 type CollapsibleSection = Exclude<BoardSectionKey, "governing_body">;
+const DEFAULT_SECTION_VISIBLE = 3;
+const SECTION_SEE_MORE_STEP = 6;
 
 const SECTION_REVEAL_META: Record<CollapsibleSection, { cta: string; hint: string }> = {
   executive_committee: {
@@ -1279,6 +1281,11 @@ export function AlumniExecutiveCommitteeBoard({
   const [openExecutive, setOpenExecutive] = useState(true);
   const [openHeads, setOpenHeads] = useState(true);
   const [openMembers, setOpenMembers] = useState(true);
+  const [visibleBySection, setVisibleBySection] = useState<Record<CollapsibleSection, number>>({
+    executive_committee: DEFAULT_SECTION_VISIBLE,
+    committee_heads: DEFAULT_SECTION_VISIBLE,
+    committee_members: DEFAULT_SECTION_VISIBLE,
+  });
 
   useEffect(() => {
     if (showAll) {
@@ -1322,7 +1329,7 @@ export function AlumniExecutiveCommitteeBoard({
       cancelAnimationFrame(r2);
       ro.disconnect();
     };
-  }, [openExecutive, openHeads, openMembers, showAll, totalMembers]);
+  }, [openExecutive, openHeads, openMembers, visibleBySection, showAll, totalMembers]);
 
   const presidentPick = pickPresidentFromStructured(data);
 
@@ -1381,6 +1388,33 @@ export function AlumniExecutiveCommitteeBoard({
     if (sec === "executive_committee") setOpenExecutive((v) => !v);
     else if (sec === "committee_heads") setOpenHeads((v) => !v);
     else setOpenMembers((v) => !v);
+  };
+
+  const visibleCountForSection = (sec: CollapsibleSection, total: number) => {
+    if (showAll) return total;
+    const raw = visibleBySection[sec] ?? DEFAULT_SECTION_VISIBLE;
+    return Math.min(Math.max(raw, DEFAULT_SECTION_VISIBLE), total);
+  };
+
+  const showMoreForSection = (sec: CollapsibleSection) => {
+    setVisibleBySection((prev) => ({
+      ...prev,
+      [sec]: (prev[sec] ?? DEFAULT_SECTION_VISIBLE) + SECTION_SEE_MORE_STEP,
+    }));
+  };
+
+  const showAllForSection = (sec: CollapsibleSection, total: number) => {
+    setVisibleBySection((prev) => ({
+      ...prev,
+      [sec]: total,
+    }));
+  };
+
+  const resetSectionVisible = (sec: CollapsibleSection) => {
+    setVisibleBySection((prev) => ({
+      ...prev,
+      [sec]: DEFAULT_SECTION_VISIBLE,
+    }));
   };
 
   const isMobile = boardW < COMMITTEE_MOBILE_STACK_MAX;
@@ -1460,6 +1494,8 @@ export function AlumniExecutiveCommitteeBoard({
     const meta = BOARD_SECTION_LABELS[sec];
     const items = sectionItemsFor(withSerial, sec);
     const isOpen = sectionIsOpen(sec);
+    const visible = visibleCountForSection(sec, items.length);
+    const visibleItems = items.slice(0, visible);
     return (
       <Fragment key={sec}>
         <div className={twoColMobile ? "col-span-2" : undefined}>
@@ -1484,7 +1520,7 @@ export function AlumniExecutiveCommitteeBoard({
           </button>
         </div>
         {isOpen
-          ? items.map((item) => {
+          ? visibleItems.map((item) => {
               const forceSingleColumnOnMobile = sec === "committee_members" && twoColMobile;
               const card = (
                 <MobileMemberCard
@@ -1503,15 +1539,35 @@ export function AlumniExecutiveCommitteeBoard({
               );
             })
           : null}
-        {!showAll && isOpen ? (
-          <div className={cn(twoColMobile && "col-span-2", "flex justify-center pb-1 pt-1")}>
-            <button
-              type="button"
-              onClick={() => toggleSection(sec)}
-              className="text-xs font-medium text-muted-foreground underline-offset-4 transition-colors hover:text-primary hover:underline"
-            >
-              Hide · {meta.title}
-            </button>
+        {!showAll && isOpen && (visible < items.length || visible > DEFAULT_SECTION_VISIBLE) ? (
+          <div className={cn(twoColMobile && "col-span-2", "flex items-center justify-center gap-3 pb-1 pt-1")}>
+            {visible < items.length ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => showMoreForSection(sec)}
+                  className="rounded-full border border-primary/40 px-3 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/10"
+                >
+                  See More
+                </button>
+                <button
+                  type="button"
+                  onClick={() => showAllForSection(sec, items.length)}
+                  className="text-xs font-medium text-primary underline underline-offset-4 transition-colors hover:text-primary/80"
+                >
+                  See All
+                </button>
+              </>
+            ) : null}
+            {visible > DEFAULT_SECTION_VISIBLE ? (
+              <button
+                type="button"
+                onClick={() => resetSectionVisible(sec)}
+                className="rounded-full border border-muted-foreground/30 px-3 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted"
+              >
+                See Less
+              </button>
+            ) : null}
           </div>
         ) : null}
       </Fragment>
@@ -1564,6 +1620,8 @@ export function AlumniExecutiveCommitteeBoard({
     }
     const meta = BOARD_SECTION_LABELS[sec];
     const items = sectionItemsFor(withSerial, sec);
+    const visible = visibleCountForSection(sec, items.length);
+    const visibleItems = items.slice(0, visible);
     return (
       <div key={sec} className="space-y-4">
         <div className="pt-2">
@@ -1582,12 +1640,12 @@ export function AlumniExecutiveCommitteeBoard({
             </div>
           </button>
         </div>
-        {items.length > 0 ? (
+        {visibleItems.length > 0 ? (
           <div
             className="grid w-full min-w-0 gap-5"
             style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "20px" }}
           >
-            {items.map((item) => (
+            {visibleItems.map((item) => (
               <div key={item.row.id} className="min-w-0 h-full">
                 <ExecutiveMemberCard
                   member={committeeRowToDBMember(item.row)}
@@ -1598,15 +1656,35 @@ export function AlumniExecutiveCommitteeBoard({
             ))}
           </div>
         ) : null}
-        {!showAll ? (
-          <div className="flex justify-center pt-1">
-            <button
-              type="button"
-              onClick={() => toggleSection(sec)}
-              className="text-sm font-medium text-muted-foreground underline-offset-4 transition-colors hover:text-primary hover:underline"
-            >
-              Hide · {meta.title}
-            </button>
+        {!showAll && (visible < items.length || visible > DEFAULT_SECTION_VISIBLE) ? (
+          <div className="flex items-center justify-center gap-4 pt-1">
+            {visible < items.length ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => showMoreForSection(sec)}
+                  className="rounded-full border border-primary/40 px-4 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-primary/10"
+                >
+                  See More
+                </button>
+                <button
+                  type="button"
+                  onClick={() => showAllForSection(sec, items.length)}
+                  className="text-sm font-medium text-primary underline underline-offset-4 transition-colors hover:text-primary/80"
+                >
+                  See All
+                </button>
+              </>
+            ) : null}
+            {visible > DEFAULT_SECTION_VISIBLE ? (
+              <button
+                type="button"
+                onClick={() => resetSectionVisible(sec)}
+                className="rounded-full border border-muted-foreground/30 px-4 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted"
+              >
+                See Less
+              </button>
+            ) : null}
           </div>
         ) : null}
       </div>
