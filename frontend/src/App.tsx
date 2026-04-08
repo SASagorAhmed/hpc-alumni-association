@@ -16,6 +16,7 @@ import { ThemeToggleFixedFallback } from "@/components/ThemeToggleFixedFallback"
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { ScrollToTopOnRouteChange } from "@/components/ScrollToTopOnRouteChange";
 import { SplashGate } from "@/components/splash/SplashGate";
+import AutoRepairBoundary from "@/components/ui/AutoRepairBoundary";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import Index from "./pages/Index.tsx";
 import CoreFeatures from "./pages/CoreFeatures.tsx";
@@ -75,7 +76,9 @@ function AppShell() {
         <AdminViewAsAlumniProvider>
           <ThemeToggleFixedFallback />
           <SplashGate>
-            <Outlet />
+            <AutoRepairBoundary title="Page content">
+              <Outlet />
+            </AutoRepairBoundary>
           </SplashGate>
         </AdminViewAsAlumniProvider>
       </AuthProvider>

@@ -1,4 +1,4 @@
-import { useState, useRef, useLayoutEffect, type CSSProperties } from "react";
+import { useState, useRef, useLayoutEffect, useEffect, type CSSProperties } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { StructuredCommitteePayload } from "@/components/committee/StructuredCommitteeDisplay";
 import { API_BASE_URL } from "@/api-production/api.js";
@@ -25,6 +25,20 @@ const CommitteeSection = ({ showAll = false }: { showAll?: boolean }) => {
   const [legacyScale, setLegacyScale] = useState(1);
   const [legacyWrapH, setLegacyWrapH] = useState<number | undefined>(undefined);
   const [legacyW, setLegacyW] = useState(COMMITTEE_DESIGN_W);
+  const [legacyMeasureTick, setLegacyMeasureTick] = useState(0);
+
+  useEffect(() => {
+    const outer = legacyOuterRef.current;
+    if (!outer) return;
+    // Re-measure when nested images settle to avoid clipped half-cards.
+    const onMediaSettled = () => setLegacyMeasureTick((v) => v + 1);
+    outer.addEventListener("load", onMediaSettled, true);
+    outer.addEventListener("error", onMediaSettled, true);
+    return () => {
+      outer.removeEventListener("load", onMediaSettled, true);
+      outer.removeEventListener("error", onMediaSettled, true);
+    };
+  }, [visibleCount]);
 
   useLayoutEffect(() => {
     const outer = legacyOuterRef.current;
@@ -44,7 +58,7 @@ const CommitteeSection = ({ showAll = false }: { showAll?: boolean }) => {
     ro.observe(outer);
     ro.observe(inner);
     return () => { cancelAnimationFrame(r1); cancelAnimationFrame(r2); ro.disconnect(); };
-  }, [visibleCount]);
+  }, [visibleCount, legacyMeasureTick]);
 
   const { data: structured, isLoading: structuredLoading, isFetching: structuredFetching } = useQuery({
     queryKey: ["committee-active-public"],

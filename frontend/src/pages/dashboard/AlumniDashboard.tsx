@@ -11,6 +11,7 @@ import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { API_BASE_URL } from "@/api-production/api.js";
 import { saveNavScrollRestore } from "@/lib/navScrollRestore";
+import AutoRepairBoundary from "@/components/ui/AutoRepairBoundary";
 
 interface Notice {
   id: string;
@@ -158,18 +159,24 @@ const AlumniDashboard = () => {
         </div>
 
         {/* Achievement Banner Slider */}
-        <div className="rounded-2xl overflow-hidden border border-border">
-          <AchievementBanner />
+        <div className="rounded-2xl border border-border p-2 sm:p-2.5">
+          <AutoRepairBoundary title="Achievement banner">
+            <AchievementBanner />
+          </AutoRepairBoundary>
         </div>
 
         {/* Executive Committee */}
-        <div className="rounded-2xl overflow-hidden border border-border">
-          <CommitteeSection />
+        <div className="rounded-2xl border border-border p-2 sm:p-2.5">
+          <AutoRepairBoundary title="Committee section">
+            <CommitteeSection />
+          </AutoRepairBoundary>
         </div>
 
         {/* Achievements of Our Alumni */}
-        <div className="rounded-2xl overflow-hidden border border-border">
-          <AchievementsSection />
+        <div className="rounded-2xl border border-border p-2 sm:p-2.5">
+          <AutoRepairBoundary title="Achievements section">
+            <AchievementsSection />
+          </AutoRepairBoundary>
         </div>
 
         {/* Election Status */}

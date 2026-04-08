@@ -34,6 +34,7 @@ import { Label } from "@/components/ui/label";
 import TopNoticeBar from "@/components/notices/TopNoticeBar";
 import ActiveElectionBanner from "@/components/elections/ActiveElectionBanner";
 import NotificationDropdown from "@/components/notifications/NotificationDropdown";
+import AutoRepairBoundary from "@/components/ui/AutoRepairBoundary";
 
 const SIDEBAR_OPEN_KEY = "hpc_layout_dashboard_sidebar_open";
 
@@ -120,7 +121,7 @@ const SidebarContent = ({
         </button>
       )}
     </div>
-    <nav className="flex-1 overflow-y-auto py-4 px-3">
+    <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
       <ul className="space-y-1">
         {menu.map(({ icon: Icon, label, href }) => (
           <li key={href}>
@@ -144,7 +145,7 @@ const SidebarContent = ({
         ))}
       </ul>
     </nav>
-    <div className="px-3 py-4 border-t border-border">
+    <div className="sticky bottom-0 mt-auto border-t border-border bg-sidebar px-3 py-3">
       <button
         onClick={() => { logout(); onNavigate?.(); }}
         className="flex items-center gap-2 px-2.5 py-2 sm:gap-2.5 sm:px-3 sm:py-2.5 rounded-lg text-[12px] sm:text-[13px] lg:text-[14px] font-medium bg-red-600 text-white hover:bg-red-700 transition-colors w-full"
@@ -396,7 +397,9 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
           {/* Page Content */}
           <main className="flex-1 p-4 lg:p-6">
-            {children ?? <Outlet />}
+            <AutoRepairBoundary title="Page content">
+              {children ?? <Outlet />}
+            </AutoRepairBoundary>
           </main>
         </div>
       </div>

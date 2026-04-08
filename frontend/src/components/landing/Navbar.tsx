@@ -351,7 +351,7 @@ const Navbar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeSection, setActiveSection] = useState("#");
   const pendingLandingScrollCancelRef = useRef<(() => void) | null>(null);
-  const { user, isLoading, logout } = useAuth();
+  const { user, isLoading, isAuthReady, logout } = useAuth();
   const { viewAsAlumni } = useAdminViewAsAlumni();
   const location = useLocation();
   const navigate = useNavigate();
@@ -425,6 +425,7 @@ const Navbar = () => {
 
   const dashboardPath =
     user?.role === "admin" && !viewAsAlumni ? "/admin/dashboard" : "/dashboard";
+  const authPending = !isAuthReady || isLoading;
 
   const closeMobileMenu = useCallback(() => {
     setMobileOpen(false);
@@ -659,7 +660,7 @@ const Navbar = () => {
             </div>
           </div>
 
-          {isLoading ? (
+          {authPending ? (
             <div className="ml-2 flex shrink-0 items-center gap-2 border-l border-border/40 pl-3">
               <div className="h-9 w-[76px] animate-pulse rounded-md bg-muted/40" />
               <div className="h-9 w-[84px] animate-pulse rounded-md bg-muted/40" />
@@ -816,7 +817,7 @@ const Navbar = () => {
                 );
               })}
 
-              {isLoading ? (
+              {authPending ? (
                 <div className="mt-2 h-10 animate-pulse rounded-md bg-muted/40" />
               ) : user ? (
                 <>

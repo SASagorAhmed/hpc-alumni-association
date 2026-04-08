@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useRef, type CSSProperties } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useCallback, type CSSProperties } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { Award, Calendar, GraduationCap, Camera, Building2, ChevronRight, PartyPopper } from "lucide-react";
@@ -16,7 +16,29 @@ const ACHIEVEMENTS_DESIGN_W = 1024;
 /** Proportional zoom below mobile band max (committee / banner pattern). */
 const MOBILE_REF_W = BREAKPOINT_MOBILE_MAX;
 
-function AchievementGridCard({ a, i }: { a: Achievement; i: number }) {
+function AchievementGridCard({
+  a,
+  i,
+  onMediaSettled,
+}: {
+  a: Achievement;
+  i: number;
+  onMediaSettled?: () => void;
+}) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const reportedRef = useRef(false);
+
+  useEffect(() => {
+    setImageFailed(false);
+    reportedRef.current = false;
+  }, [a.id, a.photo_url]);
+
+  const reportSettled = () => {
+    if (reportedRef.current) return;
+    reportedRef.current = true;
+    onMediaSettled?.();
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -34,8 +56,19 @@ function AchievementGridCard({ a, i }: { a: Achievement; i: number }) {
         <div className="h-1 shrink-0" style={{ background: "var(--achievement-card-accent-bar)" }} />
 
         <div className="w-full shrink-0 overflow-hidden" style={{ aspectRatio: ACHIEVEMENT_BANNER_CROP_ASPECT }}>
-          {a.photo_url ? (
-            <img src={a.photo_url} alt={a.name} className="h-full w-full object-cover object-center" />
+          {a.photo_url && !imageFailed ? (
+            <img
+              src={a.photo_url}
+              alt={a.name}
+              className="h-full w-full object-cover object-center"
+              loading="lazy"
+              decoding="async"
+              onLoad={reportSettled}
+              onError={() => {
+                setImageFailed(true);
+                reportSettled();
+              }}
+            />
           ) : (
             <div className="flex h-full w-full items-center justify-center" style={{ background: "var(--achievement-card-photo-bg)" }}>
               <Camera className="h-10 w-10 text-primary/40" />
@@ -124,6 +157,10 @@ const AchievementsSection = () => {
   const [narrowGridW, setNarrowGridW] = useState(() =>
     typeof window !== "undefined" ? window.innerWidth : 1024
   );
+  const [mediaSettleTick, setMediaSettleTick] = useState(0);
+  const handleCardMediaSettled = useCallback(() => {
+    setMediaSettleTick((v) => v + 1);
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -154,7 +191,7 @@ const AchievementsSection = () => {
     const ro = new ResizeObserver(() => requestAnimationFrame(update));
     ro.observe(el);
     return () => ro.disconnect();
-  }, [isNarrowViewport, gridReady, visibleCount]);
+  }, [isNarrowViewport, gridReady, visibleCount, mediaSettleTick]);
 
   useLayoutEffect(() => {
     if (isNarrowViewport) {
@@ -185,7 +222,7 @@ const AchievementsSection = () => {
       cancelAnimationFrame(r2);
       ro.disconnect();
     };
-  }, [gridReady, visibleCount, isNarrowViewport]);
+  }, [gridReady, visibleCount, isNarrowViewport, mediaSettleTick]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -233,7 +270,21 @@ const AchievementsSection = () => {
       <section id="achievements" className={sectionShellClass}>
         <div className="layout-container">
           {headerBlock}
-          <div className="flex justify-center py-12 text-sm text-muted-foreground">Loading…</div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, idx) => (
+              <div key={`achievements-skeleton-${idx}`} className="overflow-hidden rounded-2xl border border-border bg-card">
+                <div className="animate-pulse">
+                  <div className="w-full bg-muted" style={{ aspectRatio: ACHIEVEMENT_BANNER_CROP_ASPECT }} />
+                  <div className="space-y-2 p-3">
+                    <div className="h-3 w-20 rounded bg-muted" />
+                    <div className="h-4 w-3/4 rounded bg-muted" />
+                    <div className="h-3 w-full rounded bg-muted" />
+                    <div className="h-3 w-5/6 rounded bg-muted" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
     );
@@ -268,7 +319,12 @@ const AchievementsSection = () => {
               style={mobileGridZoomStyle}
             >
               {achievements.slice(0, visibleCount).map((a, i) => (
-                <AchievementGridCard key={a.id} a={a} i={i} />
+                <AchievementGridCard
+                  key={a.id}
+                  a={a}
+                  i={i}
+                  onMediaSettled={handleCardMediaSettled}
+                />
               ))}
             </div>
           </div>
@@ -288,7 +344,12 @@ const AchievementsSection = () => {
                 }}
               >
                 {achievements.slice(0, visibleCount).map((a, i) => (
-                  <AchievementGridCard key={a.id} a={a} i={i} />
+                  <AchievementGridCard
+                    key={a.id}
+                    a={a}
+                    i={i}
+                    onMediaSettled={handleCardMediaSettled}
+                  />
                 ))}
               </div>
             </div>

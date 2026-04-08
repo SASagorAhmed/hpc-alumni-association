@@ -49,6 +49,7 @@ export interface User {
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
+  isAuthReady: boolean;
   login: (
     email: string,
     password: string,
@@ -104,6 +105,7 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAuthReady, setIsAuthReady] = useState(false);
 
   useEffect(() => {
     const bootstrap = async () => {
@@ -130,16 +132,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           return;
         }
 
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         const u = data?.user as User | undefined;
-        setUser(u || null);
-        if (u) saveUserDisplayCache(u);
+        if (!u) {
+          clearAuthToken();
+          setUser(null);
+          clearUserDisplayCache();
+          return;
+        }
+        setUser(u);
+        saveUserDisplayCache(u);
       } catch (_e) {
         clearAuthToken();
         setUser(null);
         clearUserDisplayCache();
       } finally {
         setIsLoading(false);
+        setIsAuthReady(true);
       }
     };
 
@@ -219,6 +228,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setAuthToken(token, rememberMe);
     setUser(u);
     saveUserDisplayCache(u);
+    setIsLoading(false);
+    setIsAuthReady(true);
     return { success: true, message: "Login successful!" };
   };
 
@@ -246,6 +257,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setAuthToken(token, rememberMe);
     setUser(u);
     saveUserDisplayCache(u);
+    setIsLoading(false);
+    setIsAuthReady(true);
     return { success: true, message: "Admin login successful!" };
   };
 
@@ -253,6 +266,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(null);
     clearAuthToken();
     clearUserDisplayCache();
+    setIsAuthReady(true);
   };
 
   const updateProfile = async (data: Partial<User> & { photoFile?: File }) => {
@@ -303,7 +317,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, adminLogin, register, verifyOtp, logout, updateProfile }}>
+    <AuthContext.Provider value={{ user, isLoading, isAuthReady, login, adminLogin, register, verifyOtp, logout, updateProfile }}>
       {children}
     </AuthContext.Provider>
   );

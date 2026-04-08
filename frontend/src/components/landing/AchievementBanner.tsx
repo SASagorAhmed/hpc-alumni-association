@@ -614,11 +614,17 @@ function BannerPhotoPanel({
   item,
   isTransitioning,
   awardClassName,
+  photoFailed,
+  onPhotoLoad,
+  onPhotoError,
   bannerTheme = "default",
 }: {
   item: Achievement;
   isTransitioning: boolean;
   awardClassName: string;
+  photoFailed?: boolean;
+  onPhotoLoad?: () => void;
+  onPhotoError?: () => void;
   bannerTheme?: "default" | "theme2" | "theme3";
 }) {
   const tagline = bannerPhotoTagline(item);
@@ -634,13 +640,16 @@ function BannerPhotoPanel({
         isTransitioning ? "scale-[1.02] opacity-0" : "scale-100 opacity-100"
       )}
     >
-      {item.photo_url ? (
+      {item.photo_url && !photoFailed ? (
         <>
           <img
             src={item.photo_url}
             alt={item.name}
             className="absolute inset-0 z-0 h-full w-full object-cover object-center"
             decoding="async"
+            loading="lazy"
+            onLoad={onPhotoLoad}
+            onError={onPhotoError}
           />
           {/* Bottom fade — theme 3: none (full photo visible); default: dark fade for white text */}
           {!theme3Photo ? (
@@ -856,7 +865,12 @@ const DESIGN_W = 960;
 const NARROW_ZOOM_DESIGN_W = 330;
 
 const AchievementBanner = () => {
-  const { data: bannerData } = useAchievementBannerData();
+  const {
+    data: bannerData,
+    isLoading: bannerLoading,
+    isError: bannerError,
+    refetch: refetchBanner,
+  } = useAchievementBannerData();
   const settings = bannerData?.settings ?? null;
   const achievements = bannerData?.achievements ?? [];
   const [current, setCurrent] = useState(0);
@@ -872,6 +886,8 @@ const AchievementBanner = () => {
   const [bannerScale, setBannerScale] = useState(1);
   const [bannerWrapperH, setBannerWrapperH] = useState<number | undefined>(undefined);
   const [bannerCardW, setBannerCardW] = useState(960);
+  const [photoFailedById, setPhotoFailedById] = useState<Record<string, boolean>>({});
+  const [mediaSettleTick, setMediaSettleTick] = useState(0);
   /** True → stacked mobile (≤630px); false → two-column (tablet 631–1024 or desktop 1025+). */
   const [isNarrowViewport, setIsNarrowViewport] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -929,7 +945,24 @@ const AchievementBanner = () => {
       cancelAnimationFrame(raf2);
       ro.disconnect();
     };
-  }, [bannerReady, isNarrowViewport, current]);
+  }, [bannerReady, isNarrowViewport, current, mediaSettleTick]);
+
+  useEffect(() => {
+    // If the list changes, reset remembered broken-image state for fresh assets.
+    setPhotoFailedById({});
+  }, [achievements.length]);
+
+  const markMediaSettled = useCallback(() => {
+    setMediaSettleTick((v) => v + 1);
+  }, []);
+
+  const markPhotoFailed = useCallback((id: string) => {
+    setPhotoFailedById((prev) => {
+      if (prev[id]) return prev;
+      return { ...prev, [id]: true };
+    });
+    markMediaSettled();
+  }, [markMediaSettled]);
 
   // Stacked vs two-column: separate tablet band and desktop-min MQs (same layout for both; listeners not shared).
   useEffect(() => {
@@ -989,6 +1022,32 @@ const AchievementBanner = () => {
     const interval = setInterval(tick, delay);
     return () => clearInterval(interval);
   }, [settings, isPaused, achievements.length, next]);
+
+  if (bannerLoading) {
+    return (
+      <div className="w-full rounded-xl border border-border/80 bg-card p-3 sm:p-4">
+        <div className="animate-pulse space-y-2">
+          <div className="h-5 w-40 rounded bg-muted" />
+          <div className="w-full rounded bg-muted" style={{ aspectRatio: ACHIEVEMENT_BANNER_CROP_ASPECT }} />
+        </div>
+      </div>
+    );
+  }
+
+  if (bannerError) {
+    return (
+      <div className="w-full rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm">
+        <p className="font-medium text-destructive">Achievement banner could not load.</p>
+        <button
+          type="button"
+          onClick={() => refetchBanner()}
+          className="mt-2 inline-flex items-center rounded-md border border-border px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
+        >
+          Refresh banner
+        </button>
+      </div>
+    );
+  }
 
   if (!settings?.banner_enabled || achievements.length === 0) return null;
 
@@ -1062,7 +1121,7 @@ const AchievementBanner = () => {
             className="relative w-full max-w-full shrink-0 overflow-hidden bg-neutral-950"
             style={{ aspectRatio: ACHIEVEMENT_BANNER_CROP_ASPECT }}
           >
-            {item.photo_url ? (
+            {item.photo_url && !photoFailedById[item.id] ? (
               <>
                 <img
                   src={item.photo_url}
@@ -1070,6 +1129,8 @@ const AchievementBanner = () => {
                   className="absolute inset-0 z-0 h-full w-full object-cover object-center"
                   decoding="async"
                   sizes="100vw"
+                  onLoad={markMediaSettled}
+                  onError={() => markPhotoFailed(item.id)}
                 />
                 {!isTheme3 ? (
                   <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] h-[50%] bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
@@ -1339,6 +1400,9 @@ const AchievementBanner = () => {
                 item={item}
                 isTransitioning={isTransitioning}
                 awardClassName="h-28 w-28 text-white/20"
+                photoFailed={photoFailedById[item.id]}
+                onPhotoLoad={markMediaSettled}
+                onPhotoError={() => markPhotoFailed(item.id)}
                 bannerTheme={activeBannerTheme}
               />
               {achievements.length > 1 ? (

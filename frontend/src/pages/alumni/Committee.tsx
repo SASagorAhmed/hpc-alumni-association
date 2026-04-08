@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
 import { API_BASE_URL } from "@/api-production/api.js";
+import AutoRepairBoundary from "@/components/ui/AutoRepairBoundary";
 
 const Committee = () => {
   const [selectedTermId, setSelectedTermId] = useState<string | null>(null);
@@ -16,7 +17,7 @@ const Committee = () => {
     queryFn: async () => {
       const res = await fetch(`${API_BASE_URL}/api/public/committee/terms`);
       if (!res.ok) return [];
-      return res.json() as { id: string; name: string; is_current?: number }[];
+      return (await res.json()) as { id: string; name: string; is_current?: number }[];
     },
   });
 
@@ -82,8 +83,10 @@ const Committee = () => {
           <Skeleton className="h-28 w-full rounded-xl" />
         </div>
       ) : showStructured && displayData ? (
-        <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden p-6 sm:p-8">
-          <AlumniExecutiveCommitteeBoard data={displayData} showAll compactIntro />
+        <div className="rounded-xl border border-border bg-card p-6 shadow-sm sm:p-8">
+          <AutoRepairBoundary title="Committee board">
+            <AlumniExecutiveCommitteeBoard data={displayData} showAll compactIntro />
+          </AutoRepairBoundary>
         </div>
       ) : selectedTermId && !loadingDetail ? (
         <Card>
@@ -92,8 +95,10 @@ const Committee = () => {
           </CardContent>
         </Card>
       ) : (
-        <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
-          <CommitteeSection showAll />
+        <div className="rounded-xl border border-border bg-card p-2 shadow-sm sm:p-2.5">
+          <AutoRepairBoundary title="Committee section">
+            <CommitteeSection showAll />
+          </AutoRepairBoundary>
         </div>
       )}
     </div>
