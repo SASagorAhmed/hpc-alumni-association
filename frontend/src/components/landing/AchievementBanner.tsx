@@ -526,10 +526,8 @@ function CongratulationsBurstReveal({
             className={cn(
               "hpc-celebrate-title hpc-celebrate-pauseable inline-block text-center text-[clamp(0.72rem,4.5cqw+0.28rem,1.08rem)]",
               theme3Celebrate
-                ? "normal-case tracking-[0.04em] sm:tracking-[0.05em]"
-                : bannerTheme === "default"
-                  ? "font-extrabold normal-case tracking-[0.12em] sm:tracking-[0.14em] bg-gradient-to-r from-amber-100 via-white to-amber-200/95 bg-clip-text text-transparent"
-                  : "font-extrabold uppercase tracking-[0.12em] sm:tracking-[0.14em] bg-gradient-to-r from-amber-100 via-white to-amber-200/95 bg-clip-text text-transparent"
+                ? "uppercase tracking-[0.04em] sm:tracking-[0.05em]"
+                : "font-extrabold uppercase tracking-[0.12em] sm:tracking-[0.14em] bg-gradient-to-r from-amber-100 via-white to-amber-200/95 bg-clip-text text-transparent"
             )}
             style={theme3Celebrate ? THEME3_CONGRATS_TITLE_STYLE : undefined}
           >
