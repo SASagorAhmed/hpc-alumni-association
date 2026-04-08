@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { MessageCircle, Send, Users, Globe, ArrowRight } from "lucide-react";
+import { getLandingIcon } from "@/lib/landingIcons";
 
 const defaultStats = [
   { icon: Users, value: "1,500+", label: "Alumni Members" },
@@ -20,8 +21,15 @@ const CommunitySection = ({ content }: CommunityProps) => {
   const telegramUrl = content?.telegramUrl ?? "https://t.me/hpcalumni";
   const facebookUrl = content?.facebookUrl ?? "https://facebook.com/hpcalumni";
   const stats = content?.stats
-    ? content.stats.map((s: any, i: number) => ({ icon: iconMap[s.label] || [Users, Globe, MessageCircle, Send][i % 4], value: s.value, label: s.label }))
+    ? content.stats.map((s: any, i: number) => ({
+        icon: getLandingIcon(s.iconKey, iconMap[s.label] || [Users, Globe, MessageCircle, Send][i % 4]),
+        value: s.value,
+        label: s.label,
+      }))
     : defaultStats;
+
+  const telegramButtonLabel = content?.telegramButtonLabel ?? "Join Telegram Group";
+  const facebookButtonLabel = content?.facebookButtonLabel ?? "Facebook Group";
 
   return (
     <section id="community" className="relative overflow-hidden border-t border-border/60 bg-background py-14 md:py-16">
@@ -40,7 +48,7 @@ const CommunitySection = ({ content }: CommunityProps) => {
                 rel="noopener noreferrer"
                 className="fs-button-text inline-flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 font-semibold text-primary-foreground shadow-lg transition-all hover:scale-[1.02] active:scale-[0.97]"
               >
-                <Send size={16} /> Join Telegram Group
+                <Send size={16} /> {telegramButtonLabel}
               </a>
               <a
                 href={facebookUrl}
@@ -48,7 +56,7 @@ const CommunitySection = ({ content }: CommunityProps) => {
                 rel="noopener noreferrer"
                 className="fs-button-text inline-flex items-center gap-2 rounded-md border border-border px-5 py-2.5 font-semibold text-primary transition-all hover:bg-muted shadow-sm active:scale-[0.97]"
               >
-                Facebook Page <ArrowRight size={16} />
+                {facebookButtonLabel} <ArrowRight size={16} />
               </a>
             </div>
           </motion.div>

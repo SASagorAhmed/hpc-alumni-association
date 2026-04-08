@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { ArrowRight, MapPin, Calendar, Award } from "lucide-react";
 import { Link } from "react-router-dom";
 import heroCampus from "@/assets/hero-campus.jpg";
+import { getLandingIcon } from "@/lib/landingIcons";
 
 const defaultStats = [
   { icon: Calendar, label: "Est.", value: "2010" },
@@ -25,8 +26,19 @@ const HeroSection = ({ content }: HeroProps) => {
   const ctaSecondary = content?.ctaSecondary ?? "Learn More";
   const motto = content?.motto ?? "HAMDARD PUBLIC COLLEGE, DHAKA";
   const stats = content?.stats
-    ? content.stats.map((s: any) => ({ icon: iconMap[s.label] || Calendar, label: s.label, value: s.value }))
+    ? content.stats.map((s: any) => ({
+        icon: getLandingIcon(s.iconKey, iconMap[s.label] || Calendar),
+        label: s.label,
+        value: s.value,
+      }))
     : defaultStats;
+
+  const ctaPrimaryHref = content?.ctaPrimaryHref ?? "/register";
+  const ctaSecondaryHref = content?.ctaSecondaryHref ?? "#about";
+
+  const primaryIsExternal = /^https?:\/\//i.test(ctaPrimaryHref);
+  const secondaryIsExternal = /^https?:\/\//i.test(ctaSecondaryHref);
+  const secondaryIsHash = ctaSecondaryHref.startsWith("#");
 
   return (
     <section className="relative overflow-hidden border-b border-border bg-background">
@@ -83,18 +95,39 @@ const HeroSection = ({ content }: HeroProps) => {
               {description}
             </p>
             <div className="flex flex-wrap gap-3 max-lg:min-w-0 max-sm:flex-col max-sm:gap-2.5">
-              <Link
-                to="/register"
-                className="fs-button-text inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-primary px-5 py-2.5 font-semibold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 active:scale-[0.98] max-lg:min-h-10 max-lg:max-w-full max-lg:whitespace-normal max-lg:text-center max-sm:w-full max-sm:py-3"
-              >
-                {ctaPrimary} <ArrowRight className="h-[1em] w-[1em] shrink-0" strokeWidth={2} />
-              </Link>
-              <a
-                href="#about"
-                className="fs-button-text inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-border bg-card px-5 py-2.5 font-semibold text-foreground transition-all hover:bg-muted/80 active:scale-[0.98] max-lg:min-h-10 max-lg:max-w-full max-lg:whitespace-normal max-lg:text-center max-sm:w-full max-sm:py-3"
-              >
-                {ctaSecondary}
-              </a>
+              {primaryIsExternal ? (
+                <a
+                  href={ctaPrimaryHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="fs-button-text inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-primary px-5 py-2.5 font-semibold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 active:scale-[0.98] max-lg:min-h-10 max-lg:max-w-full max-lg:whitespace-normal max-lg:text-center max-sm:w-full max-sm:py-3"
+                >
+                  {ctaPrimary} <ArrowRight className="h-[1em] w-[1em] shrink-0" strokeWidth={2} />
+                </a>
+              ) : (
+                <Link
+                  to={ctaPrimaryHref}
+                  className="fs-button-text inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-primary px-5 py-2.5 font-semibold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 active:scale-[0.98] max-lg:min-h-10 max-lg:max-w-full max-lg:whitespace-normal max-lg:text-center max-sm:w-full max-sm:py-3"
+                >
+                  {ctaPrimary} <ArrowRight className="h-[1em] w-[1em] shrink-0" strokeWidth={2} />
+                </Link>
+              )}
+              {secondaryIsExternal || secondaryIsHash ? (
+                <a
+                  href={ctaSecondaryHref}
+                  {...(secondaryIsExternal ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                  className="fs-button-text inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-border bg-card px-5 py-2.5 font-semibold text-foreground transition-all hover:bg-muted/80 active:scale-[0.98] max-lg:min-h-10 max-lg:max-w-full max-lg:whitespace-normal max-lg:text-center max-sm:w-full max-sm:py-3"
+                >
+                  {ctaSecondary}
+                </a>
+              ) : (
+                <Link
+                  to={ctaSecondaryHref}
+                  className="fs-button-text inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-border bg-card px-5 py-2.5 font-semibold text-foreground transition-all hover:bg-muted/80 active:scale-[0.98] max-lg:min-h-10 max-lg:max-w-full max-lg:whitespace-normal max-lg:text-center max-sm:w-full max-sm:py-3"
+                >
+                  {ctaSecondary}
+                </Link>
+              )}
             </div>
           </motion.div>
         </div>

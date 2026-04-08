@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { Target, Users, Handshake, GraduationCap } from "lucide-react";
+import { getLandingIcon } from "@/lib/landingIcons";
 
 const defaultObjectives = [
   { icon: Users, title: "Connect Alumni", description: "Reconnect former students of Hamdard Public College across the globe." },
@@ -27,7 +28,11 @@ const AboutSection = ({ content }: AboutProps) => {
     "Our vision is to build a global network of Hamdard Public College graduates who contribute to society and support the development of their alma mater.",
   ];
   const objectives = content?.objectives
-    ? content.objectives.map((o: any, i: number) => ({ icon: iconMap[o.title] || [Users, GraduationCap, Handshake, Target][i % 4], title: o.title, description: o.description }))
+    ? content.objectives.map((o: any, i: number) => ({
+        icon: getLandingIcon(o.iconKey, iconMap[o.title] || [Users, GraduationCap, Handshake, Target][i % 4]),
+        title: o.title,
+        description: o.description,
+      }))
     : defaultObjectives;
 
   return (

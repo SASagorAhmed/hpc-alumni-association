@@ -1,4 +1,4 @@
-import { Send } from "lucide-react";
+import { Send, Instagram } from "lucide-react";
 import hpcLogo from "@/assets/hpc-logo.png";
 
 interface FooterProps { content?: Record<string, any>; }
@@ -10,6 +10,7 @@ const Footer = ({ content }: FooterProps) => {
   const navLinks = content?.navLinks ?? ["About", "Committee", "Features", "Community", "Contact"];
   const telegramUrl = content?.telegramUrl ?? "https://t.me/hpcalumni";
   const facebookUrl = content?.facebookUrl ?? "https://facebook.com/hpcalumni";
+  const instagramUrl = typeof content?.instagramUrl === "string" ? content.instagramUrl.trim() : "";
 
   return (
     <footer
@@ -45,6 +46,7 @@ const Footer = ({ content }: FooterProps) => {
               target="_blank"
               rel="noopener noreferrer"
               className="flex h-9 w-9 items-center justify-center rounded-full border border-white/35 bg-black/25 text-white transition-colors hover:border-white/60 hover:text-white"
+              aria-label="Telegram"
             >
               <Send size={14} />
             </a>
@@ -53,9 +55,21 @@ const Footer = ({ content }: FooterProps) => {
               target="_blank"
               rel="noopener noreferrer"
               className="fs-ui flex h-9 w-9 items-center justify-center rounded-full border border-white/35 bg-black/25 font-bold text-white transition-colors hover:border-white/60 hover:text-white"
+              aria-label="Facebook"
             >
               f
             </a>
+            {instagramUrl ? (
+              <a
+                href={instagramUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/35 bg-black/25 text-white transition-colors hover:border-white/60 hover:text-white"
+                aria-label="Instagram"
+              >
+                <Instagram size={16} />
+              </a>
+            ) : null}
           </div>
         </div>
         <div className="mt-8 border-t border-white/25 pt-6 text-center">

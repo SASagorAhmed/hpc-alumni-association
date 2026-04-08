@@ -233,6 +233,27 @@ async function ensureAchievementBannerOverlayColumns(pool) {
   }
 }
 
+async function ensureAchievementDetailPageColumns(pool) {
+  const fragments = [
+    "ADD COLUMN `alumni_ref_id` VARCHAR(128) NULL",
+    "ADD COLUMN `section` TEXT NULL",
+    "ADD COLUMN `session` TEXT NULL",
+    "ADD COLUMN `department` TEXT NULL",
+    "ADD COLUMN `university` TEXT NULL",
+    "ADD COLUMN `about` TEXT NULL",
+    "ADD COLUMN `profession` TEXT NULL",
+    "ADD COLUMN `achievement_details` TEXT NULL",
+  ];
+  for (const frag of fragments) {
+    try {
+      await pool.query(`ALTER TABLE achievements ${frag}`);
+    } catch (e) {
+      const msg = String(e && e.message ? e.message : e);
+      if (!/Duplicate column name/i.test(msg)) throw e;
+    }
+  }
+}
+
 async function ensureProfileReviewNoteColumn(pool) {
   try {
     await pool.query("ALTER TABLE profiles ADD COLUMN profile_review_note TEXT NULL");
@@ -271,7 +292,6 @@ function achievementInsertRow(body, id) {
     institution: nullableTrim(b.institution),
     message: nullableTrim(b.message),
     tag: nullableTrim(b.tag),
-    location: nullableTrim(b.location),
     achievement_date: normalizeAchievementDateTime(b.achievement_date),
     start_date: normalizeAchievementDateTime(b.start_date),
     end_date: normalizeAchievementDateTime(b.end_date),
@@ -282,6 +302,14 @@ function achievementInsertRow(body, id) {
     banner_photo_tagline: nullableTrim(b.banner_photo_tagline),
     banner_congratulations_text: nullableTrim(b.banner_congratulations_text),
     banner_theme: normalizeAchievementBannerTheme(b.banner_theme),
+    alumni_ref_id: nullableTrim(b.alumni_ref_id),
+    section: nullableTrim(b.section),
+    session: nullableTrim(b.session),
+    department: nullableTrim(b.department),
+    university: nullableTrim(b.university),
+    about: nullableTrim(b.about),
+    profession: nullableTrim(b.profession),
+    achievement_details: nullableTrim(b.achievement_details),
   };
 }
 
@@ -313,6 +341,14 @@ function achievementUpdatePatch(body) {
   if ("banner_photo_tagline" in b) patch.banner_photo_tagline = nullableTrim(b.banner_photo_tagline);
   if ("banner_congratulations_text" in b) patch.banner_congratulations_text = nullableTrim(b.banner_congratulations_text);
   if ("banner_theme" in b) patch.banner_theme = normalizeAchievementBannerTheme(b.banner_theme);
+  if ("alumni_ref_id" in b) patch.alumni_ref_id = nullableTrim(b.alumni_ref_id);
+  if ("section" in b) patch.section = nullableTrim(b.section);
+  if ("session" in b) patch.session = nullableTrim(b.session);
+  if ("department" in b) patch.department = nullableTrim(b.department);
+  if ("university" in b) patch.university = nullableTrim(b.university);
+  if ("about" in b) patch.about = nullableTrim(b.about);
+  if ("profession" in b) patch.profession = nullableTrim(b.profession);
+  if ("achievement_details" in b) patch.achievement_details = nullableTrim(b.achievement_details);
   return patch;
 }
 
@@ -652,7 +688,8 @@ router.get("/achievements/alumni-profile", requireAuth, async (req, res) => {
       return res.status(400).json({ ok: false, error: "alumni_id is required" });
     }
     const [profRows] = await pool.query(
-      `SELECT p.name, p.batch, p.photo, p.university, p.address, p.registration_number, p.profession, p.college_name
+      `SELECT p.name, p.batch, p.photo, p.university, p.company, p.registration_number, p.profession, p.college_name,
+              p.department, p.session, p.faculty, p.bio, p.additional_info
        FROM profiles p
        WHERE TRIM(COALESCE(p.registration_number,'')) = ?
           OR UPPER(TRIM(COALESCE(p.registration_number,''))) = UPPER(?)`,
@@ -664,17 +701,24 @@ router.get("/achievements/alumni-profile", requireAuth, async (req, res) => {
     }
     const regNum =
       profile.registration_number != null ? String(profile.registration_number).trim() : key;
+    const bio = profile.bio != null ? String(profile.bio).trim() : "";
+    const addl = profile.additional_info != null ? String(profile.additional_info).trim() : "";
+    const aboutCombined = [bio, addl].filter(Boolean).join("\n\n") || null;
     res.status(200).json({
       ok: true,
       profile: {
         name: profile.name != null ? String(profile.name).trim() : "",
         batch: profile.batch != null ? String(profile.batch).trim() : null,
         photo_url: profile.photo != null ? String(profile.photo).trim() || null : null,
-        institution: profile.university != null ? String(profile.university).trim() || null : null,
-        location: profile.address != null ? String(profile.address).trim() || null : null,
+        institution: profile.company != null ? String(profile.company).trim() || null : null,
         registration_number: regNum,
         profession: profile.profession != null ? String(profile.profession).trim() || null : null,
         college_name: profile.college_name != null ? String(profile.college_name).trim() || null : null,
+        department: profile.department != null ? String(profile.department).trim() || null : null,
+        session: profile.session != null ? String(profile.session).trim() || null : null,
+        section: profile.faculty != null ? String(profile.faculty).trim() || null : null,
+        university: profile.university != null ? String(profile.university).trim() || null : null,
+        about: aboutCombined,
       },
     });
   } catch (e) {
@@ -688,6 +732,7 @@ router.post("/achievements", requireAuth, async (req, res) => {
     const pool = await withAdmin(req, res);
     if (!pool) return;
     await ensureAchievementBannerOverlayColumns(pool);
+    await ensureAchievementDetailPageColumns(pool);
     const id = uuidv4();
     const row = achievementInsertRow(req.body, id);
     if (!row.name || !row.achievement_title) {
@@ -708,6 +753,7 @@ router.put("/achievements/:id", requireAuth, async (req, res) => {
     const pool = await withAdmin(req, res);
     if (!pool) return;
     await ensureAchievementBannerOverlayColumns(pool);
+    await ensureAchievementDetailPageColumns(pool);
     const [existingRows] = await pool.query("SELECT photo_url FROM achievements WHERE id = ? LIMIT 1", [req.params.id]);
     const existing = existingRows?.[0] || null;
     const patch = achievementUpdatePatch(req.body);

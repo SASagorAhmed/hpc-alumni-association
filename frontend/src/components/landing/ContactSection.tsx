@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { MapPin, Phone, Mail, Globe } from "lucide-react";
+import { getLandingIcon } from "@/lib/landingIcons";
 
 const defaultContactInfo = [
   { icon: MapPin, label: "Address", value: "23/G/7 Panthapath, Dhaka-1205, Bangladesh" },
@@ -30,7 +31,12 @@ const ContactSection = ({ content }: ContactProps) => {
   const heading = content?.heading ?? "Get in Touch";
   const description = content?.description ?? "Whether you're a prospective student, alumni member, or just curious about HPC, we'd love to hear from you. Reach out through any of the channels below.";
   const contactInfo = content?.contactInfo
-    ? content.contactInfo.map((c: any) => ({ icon: iconMap[c.label] || MapPin, label: c.label, value: c.value }))
+    ? content.contactInfo.map((c: any) => ({
+        icon: getLandingIcon(c.iconKey, iconMap[c.label] || MapPin),
+        label: c.label,
+        value: c.value,
+        href: typeof c.href === "string" && c.href.trim() ? c.href.trim() : undefined,
+      }))
     : defaultContactInfo;
   const administration = content?.administration ?? defaultAdmin;
   const quickInfo = content?.quickInfo ?? defaultQuickInfo;
@@ -53,7 +59,18 @@ const ContactSection = ({ content }: ContactProps) => {
                   </div>
                   <div>
                     <p className="fs-caption font-medium tracking-wider text-muted-foreground">{info.label.toUpperCase()}</p>
-                    <p className="fs-card-title font-medium text-foreground">{info.value}</p>
+                    {info.href ? (
+                      <a
+                        href={info.href}
+                        className="fs-card-title font-medium text-foreground hover:underline"
+                        target={/^https?:\/\//i.test(info.href) ? "_blank" : undefined}
+                        rel={/^https?:\/\//i.test(info.href) ? "noopener noreferrer" : undefined}
+                      >
+                        {info.value}
+                      </a>
+                    ) : (
+                      <p className="fs-card-title font-medium text-foreground">{info.value}</p>
+                    )}
                   </div>
                 </div>
               ))}

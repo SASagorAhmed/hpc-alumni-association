@@ -1,5 +1,12 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import {
+  createBrowserRouter,
+  createRoutesFromElements,
+  Outlet,
+  Route,
+  RouterProvider,
+  ScrollRestoration,
+} from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -11,8 +18,10 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import { ScrollToTopOnRouteChange } from "@/components/ScrollToTopOnRouteChange";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import Index from "./pages/Index.tsx";
+import CoreFeatures from "./pages/CoreFeatures.tsx";
 import MemberDetail from "./pages/MemberDetail.tsx";
 import MemoryDetail from "./pages/MemoryDetail.tsx";
+import AchievementDetail from "./pages/AchievementDetail.tsx";
 import CommitteeMemberProfile from "./pages/CommitteeMemberProfile.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import Register from "./pages/auth/Register.tsx";
@@ -58,90 +67,102 @@ import AdminUserProfile from "./pages/admin/AdminUserProfile.tsx";
 
 const queryClient = new QueryClient();
 
+/** Layout: scroll restoration + custom landing/detail scroll helpers; all routes render in `<Outlet />`. */
+function AppShell() {
+  return (
+    <>
+      <ScrollRestoration />
+      <ScrollToTopOnRouteChange />
+      <AuthProvider>
+        <AdminViewAsAlumniProvider>
+          <ThemeToggleFixedFallback />
+          <Outlet />
+        </AdminViewAsAlumniProvider>
+      </AuthProvider>
+    </>
+  );
+}
+
+const router = createBrowserRouter(
+  createRoutesFromElements(
+    <Route path="/" element={<AppShell />}>
+      <Route index element={<Index />} />
+      <Route path="core-features" element={<CoreFeatures />} />
+      <Route path="member/:id" element={<MemberDetail />} />
+      <Route path="memories/:id" element={<MemoryDetail />} />
+      <Route path="achievements/:id" element={<AchievementDetail />} />
+      <Route path="committee/member/:id" element={<CommitteeMemberProfile />} />
+      <Route path="register" element={<Register />} />
+      <Route path="login" element={<Login />} />
+      <Route path="forgot-password" element={<ForgotPassword />} />
+      <Route path="reset-password" element={<ResetPassword />} />
+      <Route path="admin/login" element={<AdminLogin />} />
+      <Route path="verify-otp" element={<VerifyOTP />} />
+      <Route element={<ProtectedRoute />}>
+        <Route path="set-password" element={<SetPassword />} />
+      </Route>
+      <Route element={<ProtectedRoute allowUnapproved />}>
+        <Route element={<DashboardLayout />}>
+          <Route path="pending-verification" element={<PendingVerification />} />
+        </Route>
+      </Route>
+
+      <Route element={<ProtectedRoute requiredRole="alumni" />}>
+        <Route element={<DashboardLayout />}>
+          <Route path="dashboard" element={<AlumniDashboard />} />
+          <Route path="committee" element={<Committee />} />
+          <Route path="directory" element={<Directory />} />
+          <Route path="directory/:id" element={<DirectoryProfile />} />
+          <Route path="elections" element={<Elections />} />
+          <Route path="events" element={<Events />} />
+          <Route path="events/:id" element={<EventDetail />} />
+          <Route path="donations" element={<Donations />} />
+          <Route path="documents" element={<Documents />} />
+        </Route>
+      </Route>
+
+      <Route element={<ProtectedRoute />}>
+        <Route element={<DashboardLayout />}>
+          <Route path="profile" element={<Profile />} />
+          <Route path="notices" element={<Notices />} />
+          <Route path="notices/:id" element={<NoticeDetail />} />
+        </Route>
+      </Route>
+
+      <Route element={<ProtectedRoute requiredRole="admin" />}>
+        <Route element={<DashboardLayout />}>
+          <Route path="admin/dashboard" element={<AdminDashboard />} />
+          <Route path="admin/users" element={<AdminUsers />} />
+          <Route path="admin/users/:id" element={<AdminUserProfile />} />
+          <Route path="admin/committee" element={<AdminCommittee />} />
+          <Route path="admin/elections" element={<AdminElections />} />
+          <Route path="admin/candidates" element={<AdminCandidates />} />
+          <Route path="admin/winners" element={<AdminWinners />} />
+          <Route path="admin/achievements" element={<AdminAchievements />} />
+          <Route path="admin/events" element={<AdminEvents />} />
+          <Route path="admin/donations" element={<AdminDonations />} />
+          <Route path="admin/notices" element={<AdminNotices />} />
+          <Route path="admin/documents" element={<AdminDocuments />} />
+          <Route path="admin/audit-logs" element={<AdminAuditLogs />} />
+          <Route path="admin/settings" element={<AdminSettings />} />
+          <Route path="admin/landing-editor" element={<AdminLandingEditor />} />
+          <Route path="admin/memories" element={<AdminMemories />} />
+        </Route>
+      </Route>
+
+      <Route path="*" element={<NotFound />} />
+    </Route>
+  ),
+  { future: { v7_relativeSplatPath: true } }
+);
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider>
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-          <ScrollToTopOnRouteChange />
-          <AuthProvider>
-            <AdminViewAsAlumniProvider>
-            <ThemeToggleFixedFallback />
-            <Routes>
-              {/* Public */}
-              <Route path="/" element={<Index />} />
-              <Route path="/member/:id" element={<MemberDetail />} />
-              <Route path="/memories/:id" element={<MemoryDetail />} />
-              <Route path="/committee/member/:id" element={<CommitteeMemberProfile />} />
-              <Route path="/register" element={<Register />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/forgot-password" element={<ForgotPassword />} />
-              <Route path="/reset-password" element={<ResetPassword />} />
-              <Route path="/admin/login" element={<AdminLogin />} />
-              <Route path="/verify-otp" element={<VerifyOTP />} />
-              <Route element={<ProtectedRoute />}>
-                <Route path="/set-password" element={<SetPassword />} />
-              </Route>
-              <Route element={<ProtectedRoute allowUnapproved />}>
-                <Route element={<DashboardLayout />}>
-                  <Route path="/pending-verification" element={<PendingVerification />} />
-                </Route>
-              </Route>
-
-              {/* Alumni Routes - nested under persistent DashboardLayout */}
-              <Route element={<ProtectedRoute requiredRole="alumni" />}>
-                <Route element={<DashboardLayout />}>
-                  <Route path="/dashboard" element={<AlumniDashboard />} />
-                  <Route path="/committee" element={<Committee />} />
-                  <Route path="/directory" element={<Directory />} />
-                  <Route path="/directory/:id" element={<DirectoryProfile />} />
-                  <Route path="/elections" element={<Elections />} />
-                  <Route path="/events" element={<Events />} />
-                  <Route path="/events/:id" element={<EventDetail />} />
-                  <Route path="/donations" element={<Donations />} />
-                  <Route path="/documents" element={<Documents />} />
-                </Route>
-              </Route>
-
-              {/* Profile & notices — any authenticated user (same dashboard + sidebar) */}
-              <Route element={<ProtectedRoute />}>
-                <Route element={<DashboardLayout />}>
-                  <Route path="/profile" element={<Profile />} />
-                  <Route path="/notices" element={<Notices />} />
-                  <Route path="/notices/:id" element={<NoticeDetail />} />
-                </Route>
-              </Route>
-
-              {/* Admin Routes - nested under persistent DashboardLayout */}
-              <Route element={<ProtectedRoute requiredRole="admin" />}>
-                <Route element={<DashboardLayout />}>
-                  <Route path="/admin/dashboard" element={<AdminDashboard />} />
-                  <Route path="/admin/users" element={<AdminUsers />} />
-                  <Route path="/admin/users/:id" element={<AdminUserProfile />} />
-                  <Route path="/admin/committee" element={<AdminCommittee />} />
-                  <Route path="/admin/elections" element={<AdminElections />} />
-                  <Route path="/admin/candidates" element={<AdminCandidates />} />
-                  <Route path="/admin/winners" element={<AdminWinners />} />
-                  <Route path="/admin/achievements" element={<AdminAchievements />} />
-                  <Route path="/admin/events" element={<AdminEvents />} />
-                  <Route path="/admin/donations" element={<AdminDonations />} />
-                  <Route path="/admin/notices" element={<AdminNotices />} />
-                  <Route path="/admin/documents" element={<AdminDocuments />} />
-                  <Route path="/admin/audit-logs" element={<AdminAuditLogs />} />
-                  <Route path="/admin/settings" element={<AdminSettings />} />
-                  <Route path="/admin/landing-editor" element={<AdminLandingEditor />} />
-                  <Route path="/admin/memories" element={<AdminMemories />} />
-                </Route>
-              </Route>
-
-              {/* Catch-all */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-            </AdminViewAsAlumniProvider>
-          </AuthProvider>
-        </BrowserRouter>
+        <RouterProvider router={router} future={{ v7_startTransition: true }} />
       </TooltipProvider>
     </ThemeProvider>
   </QueryClientProvider>

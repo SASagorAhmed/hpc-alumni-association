@@ -1,11 +1,24 @@
 import { useLayoutEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
-import { NAV_SCROLL_RESTORE_KEY } from "@/lib/navScrollRestore";
+import {
+  tryConsumeNavScrollRestore,
+  scrollToLandingSectionById,
+  scrollToLandingSectionByIdWhenReady,
+  consumeBackToAchievementsSection,
+  applyWindowScrollYWithRetries,
+} from "@/lib/navScrollRestore";
 
 /**
- * Scrolls to top on in-app **pathname** changes (not hash-only on the same path).
- * If the user opened a detail page from a list/section, we restore the previous
- * scroll position when they return (see `saveNavScrollRestore`).
+ * Complements `<ScrollRestoration />` (data router): that component saves/restores
+ * `window` scroll per history entry and scrolls new routes to the top when needed.
+ *
+ * This module only handles app-specific cases:
+ * - Return from `/achievements/:id` → prefer exact `saveNavScrollRestore` scroll Y; else
+ *   scroll `#achievements` into view (direct link / no saved position).
+ * - Other returns when `saveNavScrollRestore()` was used before opening a detail link.
+ *
+ * We do **not** call `window.scrollTo(0, 0)` on every navigation — that was resetting
+ * positions that ScrollRestoration had just restored.
  */
 export function ScrollToTopOnRouteChange() {
   const location = useLocation();
@@ -19,30 +32,42 @@ export function ScrollToTopOnRouteChange() {
       prevPathnameRef.current = pathname;
       return;
     }
-    if (prevPathnameRef.current === pathname) {
+
+    const prevPathname = prevPathnameRef.current;
+    if (prevPathname === pathname) {
       return;
     }
+
+    const fromAchievementDetail = /^\/achievements\/[^/]+\/?$/.test(prevPathname);
     prevPathnameRef.current = pathname;
 
-    try {
-      const raw = sessionStorage.getItem(NAV_SCROLL_RESTORE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as { scrollY?: number; fromPath?: string };
-        if (typeof parsed.scrollY === "number" && typeof parsed.fromPath === "string" && parsed.fromPath === pathKey) {
-          sessionStorage.removeItem(NAV_SCROLL_RESTORE_KEY);
-          requestAnimationFrame(() => {
-            window.scrollTo({ top: parsed.scrollY, left: 0, behavior: "auto" });
-            requestAnimationFrame(() => {
-              window.scrollTo({ top: parsed.scrollY, left: 0, behavior: "auto" });
-            });
-          });
-          return;
-        }
+    const backFromAchievementDetail =
+      pathname === "/" && (consumeBackToAchievementsSection() || fromAchievementDetail);
+
+    // Back from /achievements/:id → landing: restore exact scroll if user opened detail from grid
+    if (backFromAchievementDetail) {
+      const savedY = tryConsumeNavScrollRestore(pathKey);
+      if (savedY !== null) {
+        applyWindowScrollYWithRetries(savedY);
+        return;
       }
-    } catch {
-      /* ignore */
+      const apply = () => scrollToLandingSectionById("achievements");
+      apply();
+      scrollToLandingSectionByIdWhenReady("achievements");
+      requestAnimationFrame(apply);
+      requestAnimationFrame(() => requestAnimationFrame(apply));
+      queueMicrotask(apply);
+      setTimeout(apply, 0);
+      setTimeout(apply, 60);
+      setTimeout(apply, 150);
+      setTimeout(apply, 320);
+      return;
     }
-    window.scrollTo(0, 0);
+
+    const y = tryConsumeNavScrollRestore(pathKey);
+    if (y !== null) {
+      applyWindowScrollYWithRetries(y);
+    }
   }, [pathname, pathKey]);
 
   return null;

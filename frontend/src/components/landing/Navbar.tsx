@@ -1,12 +1,17 @@
-import { useState, useEffect, useCallback, type MouseEvent } from "react";
+import { useState, useEffect, useCallback, useMemo, type MouseEvent } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, LogOut } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdminViewAsAlumni } from "@/contexts/AdminViewAsAlumniContext";
 import { cn } from "@/lib/utils";
 import hpcLogo from "@/assets/hpc-logo.png";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import type { StructuredCommitteePayload } from "@/components/committee/StructuredCommitteeDisplay";
+import type { AchievementPublicRecord } from "@/lib/achievementPublic";
+import { useLandingContent } from "@/hooks/useLandingContent";
+import { API_BASE_URL } from "@/api-production/api.js";
 
 /** Matches scroll offset logic in Navbar (fixed bar ~48px + breathing room). */
 const LANDING_NAV_SCROLL_OFFSET = 80;
@@ -20,6 +25,238 @@ const navLinks = [
   { label: "Community", href: "#community" },
   { label: "Contact", href: "#contact" },
 ];
+
+type NavDropItem = { key: string; label: string; to: string; external?: boolean };
+
+/** Rows for nav: one per assigned member; label is post title (plus name if multiple holders). */
+function committeeAssignedNavItems(structured: StructuredCommitteePayload | null | undefined) {
+  if (!structured?.posts?.length) return [] as NavDropItem[];
+  const out: NavDropItem[] = [];
+  for (const post of structured.posts) {
+    const members = post.members ?? [];
+    if (members.length === 0) continue;
+    for (const member of members) {
+      if (!member?.id) continue;
+      const label =
+        members.length > 1 ? `${post.title} — ${member.name}` : post.title;
+      out.push({
+        key: `${post.id}-${member.id}`,
+        label,
+        to: `/committee/member/${member.id}`,
+      });
+    }
+  }
+  return out;
+}
+
+function achievementNavItemsFrom(rows: AchievementPublicRecord[] | undefined) {
+  if (!rows?.length) return [] as NavDropItem[];
+  const out: NavDropItem[] = [];
+  for (const a of rows) {
+    if (!a?.id) continue;
+    const title = String(a.achievement_title || "").trim();
+    if (!title) continue;
+    const name = String(a.name || "").trim();
+    const label = name ? `${title} — ${name}` : title;
+    out.push({ key: a.id, label, to: `/achievements/${a.id}` });
+  }
+  return out;
+}
+
+/** Public landing notices — same audience filter as NoticesSection (`landing=1`). */
+type PublicNoticeNavRow = { id: string; title: string };
+
+function noticeNavItemsFrom(rows: PublicNoticeNavRow[] | undefined) {
+  if (!rows?.length) return [] as NavDropItem[];
+  const out: NavDropItem[] = [];
+  for (const n of rows) {
+    if (!n?.id) continue;
+    const title = String(n.title || "").trim();
+    if (!title) continue;
+    out.push({ key: n.id, label: title, to: `/notices/${n.id}` });
+  }
+  return out;
+}
+
+/** Same list source as MemoriesSection (`/api/public/memories?published=true`). */
+type MemoryPublicNavRow = { id: string; title: string; event_date?: string | null };
+
+function formatMemoryNavLabel(m: MemoryPublicNavRow): string {
+  const title = String(m.title || "").trim();
+  if (!title) return "";
+  const ed = m.event_date;
+  if (!ed) return title;
+  const d = new Date(ed);
+  if (Number.isNaN(d.getTime())) return title;
+  const dateStr = d.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+  return `${dateStr} — ${title}`;
+}
+
+function memoryNavItemsFrom(rows: MemoryPublicNavRow[] | undefined) {
+  if (!rows?.length) return [] as NavDropItem[];
+  const out: NavDropItem[] = [];
+  for (const m of rows) {
+    if (!m?.id) continue;
+    const label = formatMemoryNavLabel(m).trim();
+    if (!label) continue;
+    out.push({ key: m.id, label, to: `/memories/${m.id}` });
+  }
+  return out;
+}
+
+/** Same URLs/labels as CommunitySection / landing editor (`community` block). */
+function communityNavItemsFromLanding(community: Record<string, unknown> | undefined) {
+  const telegramUrl = String(community?.telegramUrl ?? "https://t.me/hpcalumni").trim();
+  const facebookUrl = String(community?.facebookUrl ?? "https://facebook.com/hpcalumni").trim();
+  const telegramLabel = String(community?.telegramButtonLabel ?? "Join Telegram Group").trim();
+  const facebookLabel = String(community?.facebookButtonLabel ?? "Facebook Group").trim();
+  const out: NavDropItem[] = [];
+  if (telegramUrl) {
+    out.push({
+      key: "community-telegram",
+      label: telegramLabel || "Join Telegram Group",
+      to: telegramUrl,
+      external: true,
+    });
+  }
+  if (facebookUrl) {
+    out.push({
+      key: "community-facebook",
+      label: facebookLabel || "Facebook Group",
+      to: facebookUrl,
+      external: true,
+    });
+  }
+  return out;
+}
+
+function DesktopNavDropdown({
+  link,
+  activeSection,
+  items,
+  ariaLabel,
+  onLandingClick,
+}: {
+  link: (typeof navLinks)[number];
+  activeSection: string;
+  items: NavDropItem[];
+  ariaLabel: string;
+  onLandingClick: (e: MouseEvent<HTMLAnchorElement>, href: string) => void;
+}) {
+  return (
+    <div className="group relative inline-flex h-8 shrink-0 items-center">
+      <Link
+        to={link.href === "#" ? "/" : `/${link.href}`}
+        onClick={(e) => onLandingClick(e, link.href)}
+        className={cn(
+          "fs-nav topnav-btn-text relative inline-flex h-8 min-h-0 items-center whitespace-nowrap rounded-md px-1.5 font-semibold transition-colors lg:px-2",
+          activeSection === link.href
+            ? "text-primary"
+            : "text-muted-foreground hover:text-primary"
+        )}
+      >
+        <span>{link.label}</span>
+        <span
+          className={cn(
+            "absolute bottom-0 left-1/2 h-px w-0 -translate-x-1/2 rounded-full bg-primary transition-all duration-300",
+            activeSection === link.href ? "w-3/4" : "group-hover:w-3/4"
+          )}
+        />
+      </Link>
+      <div
+        className="pointer-events-none absolute left-1/2 top-full z-[60] flex w-max min-w-[14rem] max-w-[min(36rem,calc(100vw-2rem))] -translate-x-1/2 flex-col -mt-2 pt-2 opacity-0 transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100"
+        role="menu"
+        aria-label={ariaLabel}
+      >
+        <div className="max-h-[min(70vh,28rem)] overflow-y-auto overscroll-contain rounded-md border border-border/80 bg-card py-1 shadow-lg">
+          {items.map((item) =>
+            item.external ? (
+              <a
+                key={item.key}
+                role="menuitem"
+                href={item.to}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block w-full whitespace-normal break-words px-3 py-2 text-left text-sm font-medium leading-snug text-foreground transition-colors hover:bg-muted/70 hover:text-primary [overflow-wrap:anywhere]"
+              >
+                {item.label}
+              </a>
+            ) : (
+              <Link
+                key={item.key}
+                role="menuitem"
+                to={item.to}
+                className="block w-full whitespace-normal break-words px-3 py-2 text-left text-sm font-medium leading-snug text-foreground transition-colors hover:bg-muted/70 hover:text-primary [overflow-wrap:anywhere]"
+              >
+                {item.label}
+              </Link>
+            )
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MobileNavDropSection({
+  link,
+  activeSection,
+  items,
+  onLandingClick,
+  onItemNavigate,
+}: {
+  link: (typeof navLinks)[number];
+  activeSection: string;
+  items: NavDropItem[];
+  onLandingClick: (e: MouseEvent<HTMLAnchorElement>, href: string) => void;
+  onItemNavigate: () => void;
+}) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <Link
+        to={link.href === "#" ? "/" : `/${link.href}`}
+        onClick={(e) => onLandingClick(e, link.href)}
+        className={cn(
+          "fs-ui topnav-btn-text inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 font-semibold transition-colors",
+          activeSection === link.href
+            ? "bg-primary/10 text-primary"
+            : "text-muted-foreground hover:bg-muted/60 hover:text-primary"
+        )}
+      >
+        {link.label}
+      </Link>
+      <div className="ml-2 flex flex-col gap-0.5 border-l border-border/40 pl-2.5">
+        {items.map((item) =>
+          item.external ? (
+            <a
+              key={item.key}
+              href={item.to}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={onItemNavigate}
+              className="fs-ui topnav-btn-text block w-full whitespace-normal break-words rounded-md px-2 py-1.5 text-left text-sm font-medium leading-snug text-muted-foreground transition-colors hover:bg-muted/60 hover:text-primary [overflow-wrap:anywhere]"
+            >
+              {item.label}
+            </a>
+          ) : (
+            <Link
+              key={item.key}
+              to={item.to}
+              onClick={onItemNavigate}
+              className="fs-ui topnav-btn-text block w-full whitespace-normal break-words rounded-md px-2 py-1.5 text-left text-sm font-medium leading-snug text-muted-foreground transition-colors hover:bg-muted/60 hover:text-primary [overflow-wrap:anywhere]"
+            >
+              {item.label}
+            </Link>
+          )
+        )}
+      </div>
+    </div>
+  );
+}
 
 function scrollToLandingSection(href: string) {
   if (href === "#") {
@@ -58,6 +295,72 @@ const Navbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const showThemeToggle = false; // Keep code for later; hidden for now.
+
+  const { data: committeeStructured } = useQuery({
+    queryKey: ["committee-active-public"],
+    queryFn: async (): Promise<StructuredCommitteePayload | null> => {
+      const res = await fetch(`${API_BASE_URL}/api/public/committee/active`);
+      if (!res.ok) return null;
+      const raw = await res.json();
+      if (!raw || !raw.term) return null;
+      return raw as StructuredCommitteePayload;
+    },
+    staleTime: 60_000,
+  });
+  const committeeNavItems = committeeAssignedNavItems(committeeStructured);
+
+  const { data: achievementsRaw } = useQuery({
+    queryKey: ["public-achievements-active"],
+    queryFn: async (): Promise<AchievementPublicRecord[]> => {
+      const res = await fetch(`${API_BASE_URL}/api/public/achievements?active=true`);
+      if (!res.ok) return [];
+      const raw = await res.json();
+      return Array.isArray(raw) ? (raw as AchievementPublicRecord[]) : [];
+    },
+    staleTime: 0,
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
+  });
+  const achievementNavItems = useMemo(
+    () => achievementNavItemsFrom(achievementsRaw),
+    [achievementsRaw]
+  );
+
+  const { data: noticesRaw } = useQuery({
+    queryKey: ["public-notices-navbar"],
+    queryFn: async (): Promise<PublicNoticeNavRow[]> => {
+      const res = await fetch(`${API_BASE_URL}/api/public/notices?limit=30&landing=1`);
+      if (!res.ok) return [];
+      const raw = await res.json();
+      return Array.isArray(raw) ? (raw as PublicNoticeNavRow[]) : [];
+    },
+    staleTime: 0,
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
+  });
+  const noticeNavItems = useMemo(() => noticeNavItemsFrom(noticesRaw), [noticesRaw]);
+
+  const { data: memoriesRaw } = useQuery({
+    queryKey: ["memories-public"],
+    queryFn: async (): Promise<MemoryPublicNavRow[]> => {
+      const res = await fetch(`${API_BASE_URL}/api/public/memories?published=true`);
+      if (!res.ok) throw new Error("Failed to load memories");
+      return res.json() as Promise<MemoryPublicNavRow[]>;
+    },
+    staleTime: 0,
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
+  });
+  const memoryNavItems = useMemo(() => memoryNavItemsFrom(memoriesRaw), [memoriesRaw]);
+
+  const { data: landingContent } = useLandingContent();
+  const communityNavItems = useMemo(
+    () =>
+      communityNavItemsFromLanding(
+        landingContent?.community as Record<string, unknown> | undefined
+      ),
+    [landingContent]
+  );
 
   const dashboardPath =
     user?.role === "admin" && !viewAsAlumni ? "/admin/dashboard" : "/dashboard";
@@ -177,29 +480,92 @@ const Navbar = () => {
 
         {/* Desktop from lg (1025px) — matches tailwind `lg` and site desktop band; avoid xl (1280) gap where laptops saw hamburger */}
         <div className="hidden min-w-0 flex-1 items-center justify-end gap-0 lg:flex">
-          <div className="min-w-0 flex-1 overflow-hidden">
-            <div className="flex min-w-0 items-center justify-center gap-0 overflow-hidden lg:gap-0.5">
-              {navLinks.map((link) => (
-                <Link
-                  key={link.href + link.label}
-                  to={link.href === "#" ? "/" : `/${link.href}`}
-                  onClick={(e) => handleLandingNavClick(e, link.href)}
-                  className={cn(
-                    "fs-nav topnav-btn-text group relative inline-flex h-8 min-h-0 shrink-0 items-center whitespace-nowrap rounded-md px-1.5 font-semibold transition-colors lg:px-2",
-                    activeSection === link.href
-                      ? "text-primary"
-                      : "text-muted-foreground hover:text-primary"
-                  )}
-                >
-                  <span>{link.label}</span>
-                  <span
+          {/* overflow-y visible so the Committee dropdown is not clipped; keep horizontal containment */}
+          <div className="min-w-0 flex-1 overflow-x-hidden overflow-y-visible lg:overflow-visible">
+            <div className="flex min-w-0 items-center justify-center gap-0 overflow-x-hidden overflow-y-visible lg:gap-0.5 lg:overflow-visible">
+              {navLinks.map((link) => {
+                if (link.label === "Committee" && committeeNavItems.length > 0) {
+                  return (
+                    <DesktopNavDropdown
+                      key={link.href + link.label}
+                      link={link}
+                      activeSection={activeSection}
+                      items={committeeNavItems}
+                      ariaLabel="Committee assigned posts"
+                      onLandingClick={handleLandingNavClick}
+                    />
+                  );
+                }
+                if (link.label === "Achievements" && achievementNavItems.length > 0) {
+                  return (
+                    <DesktopNavDropdown
+                      key={link.href + link.label}
+                      link={link}
+                      activeSection={activeSection}
+                      items={achievementNavItems}
+                      ariaLabel="Achievements"
+                      onLandingClick={handleLandingNavClick}
+                    />
+                  );
+                }
+                if (link.label === "Notices" && noticeNavItems.length > 0) {
+                  return (
+                    <DesktopNavDropdown
+                      key={link.href + link.label}
+                      link={link}
+                      activeSection={activeSection}
+                      items={noticeNavItems}
+                      ariaLabel="Notices"
+                      onLandingClick={handleLandingNavClick}
+                    />
+                  );
+                }
+                if (link.label === "Memories" && memoryNavItems.length > 0) {
+                  return (
+                    <DesktopNavDropdown
+                      key={link.href + link.label}
+                      link={link}
+                      activeSection={activeSection}
+                      items={memoryNavItems}
+                      ariaLabel="Memories"
+                      onLandingClick={handleLandingNavClick}
+                    />
+                  );
+                }
+                if (link.label === "Community" && communityNavItems.length > 0) {
+                  return (
+                    <DesktopNavDropdown
+                      key={link.href + link.label}
+                      link={link}
+                      activeSection={activeSection}
+                      items={communityNavItems}
+                      ariaLabel="Community links"
+                      onLandingClick={handleLandingNavClick}
+                    />
+                  );
+                }
+                return (
+                  <Link
+                    key={link.href + link.label}
+                    to={link.href === "#" ? "/" : `/${link.href}`}
+                    onClick={(e) => handleLandingNavClick(e, link.href)}
                     className={cn(
-                      "absolute bottom-0 left-1/2 h-px w-0 -translate-x-1/2 rounded-full bg-primary transition-all duration-300",
-                      activeSection === link.href ? "w-3/4" : "group-hover:w-3/4"
+                      "fs-nav topnav-btn-text group relative inline-flex h-8 min-h-0 shrink-0 items-center whitespace-nowrap rounded-md px-1.5 font-semibold transition-colors lg:px-2",
+                      activeSection === link.href
+                        ? "text-primary"
+                        : "text-muted-foreground hover:text-primary"
                     )}
-                  />
-                </Link>
-              ))}
+                  >
+                    <span>{link.label}</span>
+                    <span
+                      className={cn(
+                        "absolute bottom-0 left-1/2 h-px w-0 -translate-x-1/2 rounded-full bg-primary transition-all duration-300",
+                        activeSection === link.href ? "w-3/4" : "group-hover:w-3/4"
+                      )}
+                    />
+                  </Link>
+                );
+              })}
             </div>
           </div>
 
@@ -274,21 +640,83 @@ const Navbar = () => {
             className="overflow-hidden border-t border-border/50 bg-card lg:hidden"
           >
             <div className="flex max-h-[min(70vh,calc(100dvh-2.75rem))] flex-col gap-0.5 overflow-y-auto overscroll-contain px-4 py-2.5 sm:max-h-[min(70vh,calc(100dvh-3rem))]">
-              {navLinks.map((link) => (
-                <Link
-                  key={link.href + link.label}
-                  to={link.href === "#" ? "/" : `/${link.href}`}
-                  onClick={(e) => handleLandingNavClick(e, link.href)}
-                  className={cn(
-                    "fs-ui topnav-btn-text inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 font-semibold transition-colors",
-                    activeSection === link.href
-                      ? "text-primary bg-primary/10"
-                      : "text-muted-foreground hover:bg-muted/60 hover:text-primary"
-                  )}
-                >
-                  {link.label}
-                </Link>
-              ))}
+              {navLinks.map((link) => {
+                if (link.label === "Committee" && committeeNavItems.length > 0) {
+                  return (
+                    <MobileNavDropSection
+                      key={link.href + link.label}
+                      link={link}
+                      activeSection={activeSection}
+                      items={committeeNavItems}
+                      onLandingClick={handleLandingNavClick}
+                      onItemNavigate={() => setMobileOpen(false)}
+                    />
+                  );
+                }
+                if (link.label === "Achievements" && achievementNavItems.length > 0) {
+                  return (
+                    <MobileNavDropSection
+                      key={link.href + link.label}
+                      link={link}
+                      activeSection={activeSection}
+                      items={achievementNavItems}
+                      onLandingClick={handleLandingNavClick}
+                      onItemNavigate={() => setMobileOpen(false)}
+                    />
+                  );
+                }
+                if (link.label === "Notices" && noticeNavItems.length > 0) {
+                  return (
+                    <MobileNavDropSection
+                      key={link.href + link.label}
+                      link={link}
+                      activeSection={activeSection}
+                      items={noticeNavItems}
+                      onLandingClick={handleLandingNavClick}
+                      onItemNavigate={() => setMobileOpen(false)}
+                    />
+                  );
+                }
+                if (link.label === "Memories" && memoryNavItems.length > 0) {
+                  return (
+                    <MobileNavDropSection
+                      key={link.href + link.label}
+                      link={link}
+                      activeSection={activeSection}
+                      items={memoryNavItems}
+                      onLandingClick={handleLandingNavClick}
+                      onItemNavigate={() => setMobileOpen(false)}
+                    />
+                  );
+                }
+                if (link.label === "Community" && communityNavItems.length > 0) {
+                  return (
+                    <MobileNavDropSection
+                      key={link.href + link.label}
+                      link={link}
+                      activeSection={activeSection}
+                      items={communityNavItems}
+                      onLandingClick={handleLandingNavClick}
+                      onItemNavigate={() => setMobileOpen(false)}
+                    />
+                  );
+                }
+                return (
+                  <Link
+                    key={link.href + link.label}
+                    to={link.href === "#" ? "/" : `/${link.href}`}
+                    onClick={(e) => handleLandingNavClick(e, link.href)}
+                    className={cn(
+                      "fs-ui topnav-btn-text inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 font-semibold transition-colors",
+                      activeSection === link.href
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted-foreground hover:bg-muted/60 hover:text-primary"
+                    )}
+                  >
+                    {link.label}
+                  </Link>
+                );
+              })}
 
               {isLoading ? (
                 <div className="mt-2 h-10 animate-pulse rounded-md bg-muted/40" />

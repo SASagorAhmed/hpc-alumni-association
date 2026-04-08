@@ -140,6 +140,13 @@ router.get("/achievement-settings", async (req, res) => {
   }
 });
 
+/** Omit location from public payloads (privacy). */
+function achievementForPublic(row) {
+  if (!row || typeof row !== "object") return row;
+  const { location: _loc, ...rest } = row;
+  return rest;
+}
+
 router.get("/achievements", async (req, res) => {
   try {
     const pool = getOrCreatePool();
@@ -150,9 +157,27 @@ router.get("/achievements", async (req, res) => {
        ${activeOnly ? "WHERE IFNULL(is_active, 1) = 1" : ""}
        ORDER BY is_pinned DESC, display_order ASC`
     );
-    return res.status(200).json(rows || []);
+    const list = (rows || []).map(achievementForPublic);
+    return res.status(200).json(list);
   } catch (e) {
     return res.status(500).json({ ok: false, error: e.message || "Failed to load achievements" });
+  }
+});
+
+router.get("/achievements/:id", async (req, res) => {
+  try {
+    const pool = getOrCreatePool();
+    if (!pool) return res.status(503).json({ ok: false, error: "MySQL not configured" });
+    const [rows] = await pool.query(
+      "SELECT * FROM achievements WHERE id = ? AND IFNULL(is_active, 1) = 1 LIMIT 1",
+      [req.params.id]
+    );
+    if (!rows || rows.length === 0) {
+      return res.status(404).json({ ok: false, error: "Achievement not found" });
+    }
+    return res.status(200).json(achievementForPublic(rows[0]));
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message || "Failed to load achievement" });
   }
 });
 

@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { Eye, Compass, Target, Heart } from "lucide-react";
+import { getLandingIcon } from "@/lib/landingIcons";
 
 const defaultGoals = [
   {
@@ -51,7 +52,14 @@ const GoalsSection = ({ content }: GoalsProps) => {
   const sectionLabel = content?.sectionLabel ?? "OUR PURPOSE";
   const heading = content?.heading ?? "Vision, Mission & Goals";
   const goals = content?.items
-    ? content.items.map((g: any, i: number) => ({ icon: iconMap[g.title] || [Eye, Compass, Target, Heart][i % 4], title: g.title, description: g.description, color: colorMap[g.title] || defaultGoals[i % 4].color, iconColor: iconColorMap[g.title] || defaultGoals[i % 4].iconColor, iconBg: iconBgMap[g.title] || defaultGoals[i % 4].iconBg }))
+    ? content.items.map((g: any, i: number) => ({
+        icon: getLandingIcon(g.iconKey, iconMap[g.title] || [Eye, Compass, Target, Heart][i % 4]),
+        title: g.title,
+        description: g.description,
+        color: colorMap[g.title] || defaultGoals[i % 4].color,
+        iconColor: iconColorMap[g.title] || defaultGoals[i % 4].iconColor,
+        iconBg: iconBgMap[g.title] || defaultGoals[i % 4].iconBg,
+      }))
     : defaultGoals;
 
   return (

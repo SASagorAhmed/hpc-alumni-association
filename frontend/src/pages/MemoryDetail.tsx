@@ -36,16 +36,17 @@ export default function MemoryDetail() {
   }, [id]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="flex min-h-screen flex-col bg-background">
       <Navbar />
 
-      <main className="flex-1 w-full max-w-4xl mx-auto px-4 py-10 sm:px-6 lg:px-8">
-        {/* Back link */}
+      <main className="flex-1 w-full">
+        {/* pt clears fixed Navbar (z-50) so “Back” isn’t covered */}
+        <div className="mx-auto w-full max-w-4xl min-w-0 px-4 pb-8 pt-20 sm:px-6 sm:pb-10 sm:pt-24 lg:px-8">
         <Link
           to="/#memories"
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-8"
+          className="mb-8 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
-          <ArrowLeft className="w-4 h-4" />
+          <ArrowLeft className="h-4 w-4 shrink-0" />
           Back to Memories
         </Link>
 
@@ -68,17 +69,17 @@ export default function MemoryDetail() {
         )}
 
         {!loading && memory && (
-          <article className="space-y-8">
+          <article className="min-w-0 space-y-8">
             {/* Title + meta */}
-            <div className="space-y-3">
+            <div className="min-w-0 space-y-3">
               <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="secondary" className="flex items-center gap-1">
-                  <Tag className="w-3 h-3" />
-                  {memory.category}
+                <Badge variant="secondary" className="flex max-w-full min-w-0 items-center gap-1 break-words">
+                  <Tag className="h-3 w-3 shrink-0" />
+                  <span className="break-words [overflow-wrap:anywhere]">{memory.category}</span>
                 </Badge>
                 {memory.event_date && (
                   <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
-                    <Calendar className="w-3.5 h-3.5" />
+                    <Calendar className="h-3.5 w-3.5 shrink-0" />
                     {new Date(memory.event_date).toLocaleDateString("en-US", {
                       year: "numeric",
                       month: "long",
@@ -87,42 +88,43 @@ export default function MemoryDetail() {
                   </span>
                 )}
               </div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-foreground leading-snug">
+              <h1 className="break-words text-2xl font-bold leading-snug text-foreground [overflow-wrap:anywhere] sm:text-3xl">
                 {memory.title}
               </h1>
             </div>
 
-            {/* Full photo */}
+            {/* Photo — full width of box; height follows aspect ratio (scroll page if very tall) */}
             <div
-              className="w-full overflow-hidden rounded-2xl border border-border bg-muted shadow-md cursor-zoom-in"
+              className="w-full min-w-0 cursor-zoom-in overflow-hidden rounded-2xl border border-border bg-muted shadow-md"
               onClick={() => memory.photo_url && setImgOpen(true)}
             >
               {memory.photo_url ? (
                 <img
                   src={memory.photo_url}
                   alt={memory.title}
-                  className="w-full h-auto object-contain max-h-[70vh]"
+                  className="block h-auto w-full max-w-none"
                 />
               ) : (
                 <div className="flex items-center justify-center py-24">
-                  <ImageIcon className="w-16 h-16 text-muted-foreground/30" />
+                  <ImageIcon className="h-16 w-16 text-muted-foreground/30" />
                 </div>
               )}
             </div>
 
             {/* Description */}
             {memory.description && (
-              <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-                <h2 className="text-sm font-semibold uppercase tracking-wider text-primary mb-3">
+              <div className="min-w-0 overflow-hidden rounded-xl border border-border bg-card p-5 shadow-sm sm:p-6">
+                <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-primary">
                   About this memory
                 </h2>
-                <p className="text-base text-foreground/85 leading-relaxed whitespace-pre-wrap">
+                <p className="whitespace-pre-wrap break-words text-base leading-relaxed text-foreground/85 [overflow-wrap:anywhere]">
                   {memory.description}
                 </p>
               </div>
             )}
           </article>
         )}
+        </div>
       </main>
 
       <Footer />

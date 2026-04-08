@@ -30,7 +30,6 @@ interface Achievement {
   institution: string | null;
   message: string | null;
   tag: string | null;
-  location: string | null;
   achievement_date: string | null;
   display_order: number;
   is_active: boolean;
@@ -42,6 +41,14 @@ interface Achievement {
   banner_photo_tagline?: string | null;
   banner_congratulations_text?: string | null;
   banner_theme?: "default" | "theme2" | "theme3" | null;
+  alumni_ref_id?: string | null;
+  section?: string | null;
+  session?: string | null;
+  department?: string | null;
+  university?: string | null;
+  about?: string | null;
+  profession?: string | null;
+  achievement_details?: string | null;
 }
 
 interface AchievementSettings {
@@ -67,7 +74,6 @@ const emptyForm = {
   institution: "",
   message: "",
   tag: "",
-  location: "",
   achievement_date: "",
   start_date: "",
   end_date: "",
@@ -75,6 +81,14 @@ const emptyForm = {
   banner_photo_tagline: "",
   banner_congratulations_text: "",
   banner_theme: "default" as "default" | "theme2" | "theme3",
+  alumni_ref_id: "",
+  section: "",
+  session: "",
+  department: "",
+  university: "",
+  about: "",
+  profession: "",
+  achievement_details: "",
 };
 
 const AdminAchievements = () => {
@@ -308,10 +322,16 @@ const AdminAchievements = () => {
         batch: batchStr,
         photo_url: importedPhoto || prev.photo_url,
         institution: p.institution != null ? String(p.institution).trim() : prev.institution,
-        location: p.location != null ? String(p.location).trim() : prev.location,
         achievement_title: "",
         message: BANNER_DEFAULT_CONGRATULATIONS_MESSAGE,
         banner_photo_batch_text: batchLine,
+        alumni_ref_id: p.registration_number != null ? String(p.registration_number).trim() : prev.alumni_ref_id,
+        section: p.section != null ? String(p.section).trim() : prev.section,
+        session: p.session != null ? String(p.session).trim() : prev.session,
+        department: p.department != null ? String(p.department).trim() : prev.department,
+        university: p.university != null ? String(p.university).trim() : prev.university,
+        about: p.about != null ? String(p.about).trim() : prev.about,
+        profession: p.profession != null ? String(p.profession).trim() : prev.profession,
       }));
       if (importedPhoto) {
         toast({
@@ -343,7 +363,6 @@ const AdminAchievements = () => {
       institution: a.institution || "",
       message: a.message || "",
       tag: a.tag || "",
-      location: a.location || "",
       achievement_date: a.achievement_date || "",
       start_date: a.start_date ? a.start_date.slice(0, 16) : "",
       end_date: a.end_date ? a.end_date.slice(0, 16) : "",
@@ -351,6 +370,14 @@ const AdminAchievements = () => {
       banner_photo_tagline: a.banner_photo_tagline ?? "",
       banner_congratulations_text: a.banner_congratulations_text ?? "",
       banner_theme: normalizeBannerThemeFromApi(a.banner_theme),
+      alumni_ref_id: a.alumni_ref_id ?? "",
+      section: a.section ?? "",
+      session: a.session ?? "",
+      department: a.department ?? "",
+      university: a.university ?? "",
+      about: a.about ?? "",
+      profession: a.profession ?? "",
+      achievement_details: a.achievement_details ?? "",
     });
     setDialogOpen(true);
   };
@@ -386,7 +413,7 @@ const AdminAchievements = () => {
       institution: form.institution || null,
       message: form.message || null,
       tag: form.tag || null,
-      location: form.location || null,
+      location: null,
       achievement_date: form.achievement_date || null,
       start_date: form.start_date ? new Date(form.start_date).toISOString() : null,
       end_date: form.end_date ? new Date(form.end_date).toISOString() : null,
@@ -395,6 +422,14 @@ const AdminAchievements = () => {
       banner_photo_tagline: form.banner_photo_tagline.trim() || null,
       banner_congratulations_text: form.banner_congratulations_text.trim() || null,
       banner_theme: form.banner_theme,
+      alumni_ref_id: form.alumni_ref_id.trim() || null,
+      section: form.section.trim() || null,
+      session: form.session.trim() || null,
+      department: form.department.trim() || null,
+      university: form.university.trim() || null,
+      about: form.about.trim() || null,
+      profession: form.profession.trim() || null,
+      achievement_details: form.achievement_details.trim() || null,
     };
 
     const readErr = async (res: Response) => {
@@ -697,7 +732,7 @@ const AdminAchievements = () => {
 
         {/* Add/Edit Dialog */}
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editId ? "Edit" : "Add"} Achievement</DialogTitle>
             </DialogHeader>
@@ -706,7 +741,7 @@ const AdminAchievements = () => {
                 <div className="space-y-1.5 rounded-lg border border-primary/25 bg-primary/5 p-3">
                   <Label className="text-foreground">Prefill from Alumni ID</Label>
                   <p className="text-xs text-muted-foreground">
-                    Loads name, batch, institution, and location from a registered profile. If the profile has a photo, the{" "}
+                    Loads name, batch, institution/company (from profile company), university, session, and other fields from a registered profile. If the profile has a photo, the{" "}
                     <span className="font-medium text-foreground">banner crop</span> dialog opens next so you can choose what
                     appears in the 8∶5 frame. Then enter the <span className="font-medium text-foreground">achievement title</span>
                     , <span className="font-medium text-foreground">tag</span>,{" "}
@@ -782,7 +817,68 @@ const AdminAchievements = () => {
               <div className="space-y-1.5">
                 <Label>Institution / Company</Label>
                 <Input value={form.institution} onChange={(e) => setForm({ ...form, institution: e.target.value })} />
+                <p className="text-xs text-muted-foreground">
+                  Prefill uses the alumni profile <span className="font-medium text-foreground">company</span> field (workplace / organization), not the university field.
+                </p>
               </div>
+
+              <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-3">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Public detail page</p>
+                  <p className="text-xs text-muted-foreground">
+                    Shown when visitors open an achievement card. Import from Alumni ID fills these when available.
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label>Alumni ID</Label>
+                    <Input
+                      value={form.alumni_ref_id}
+                      onChange={(e) => setForm({ ...form, alumni_ref_id: e.target.value })}
+                      placeholder="Registration number"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Section</Label>
+                    <Input value={form.section} onChange={(e) => setForm({ ...form, section: e.target.value })} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Session</Label>
+                    <Input value={form.session} onChange={(e) => setForm({ ...form, session: e.target.value })} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Department</Label>
+                    <Input value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} />
+                  </div>
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label>University</Label>
+                    <Input value={form.university} onChange={(e) => setForm({ ...form, university: e.target.value })} />
+                  </div>
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label>Profession</Label>
+                    <Input value={form.profession} onChange={(e) => setForm({ ...form, profession: e.target.value })} />
+                  </div>
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label>About</Label>
+                    <Textarea
+                      rows={3}
+                      value={form.about}
+                      onChange={(e) => setForm({ ...form, about: e.target.value })}
+                      placeholder="Short bio or background for the detail view"
+                    />
+                  </div>
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label>Details of achievement</Label>
+                    <Textarea
+                      rows={5}
+                      value={form.achievement_details}
+                      onChange={(e) => setForm({ ...form, achievement_details: e.target.value })}
+                      placeholder="Longer story, context, and specifics — paragraph breaks are preserved"
+                    />
+                  </div>
+                </div>
+              </div>
+
               <div className="space-y-1.5">
                 <Label>Photo</Label>
                 <div className="flex items-center gap-3">
@@ -900,22 +996,16 @@ const AdminAchievements = () => {
                   {countWords(form.message)} / {BANNER_MESSAGE_MAX_WORDS} words (banner body — longer limit)
                 </p>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label>Tag</Label>
-                  <Select value={form.tag} onValueChange={(v) => setForm({ ...form, tag: v })}>
-                    <SelectTrigger><SelectValue placeholder="Select tag" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="New Job">New Job</SelectItem>
-                      <SelectItem value="Scholarship">Scholarship</SelectItem>
-                      <SelectItem value="Award">Award</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Location</Label>
-                  <Input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} />
-                </div>
+              <div className="space-y-1.5">
+                <Label>Tag</Label>
+                <Select value={form.tag} onValueChange={(v) => setForm({ ...form, tag: v })}>
+                  <SelectTrigger><SelectValue placeholder="Select tag" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="New Job">New Job</SelectItem>
+                    <SelectItem value="Scholarship">Scholarship</SelectItem>
+                    <SelectItem value="Award">Award</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1.5">
                 <Label>Achievement Date</Label>
