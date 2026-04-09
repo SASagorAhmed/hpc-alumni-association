@@ -183,90 +183,138 @@ const AdminMemories = () => {
   return (
     <>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Memories</h1>
             <p className="text-sm text-muted-foreground">
               Manage alumni photos and event memories
             </p>
           </div>
-          <Button onClick={() => { setForm(emptyForm); setEditId(null); setDialogOpen(true); }}>
+          <Button className="w-full sm:w-auto" onClick={() => { setForm(emptyForm); setEditId(null); setDialogOpen(true); }}>
             <Plus className="w-4 h-4 mr-2" /> Add Memory
           </Button>
         </div>
 
         <Card>
           <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-16">Photo</TableHead>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading ? (
+            <div className="hidden md:block">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                      Loading...
-                    </TableCell>
+                    <TableHead className="w-16">Photo</TableHead>
+                    <TableHead>Title</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
-                ) : memories.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                      No memories yet. Click "Add Memory" to get started.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  memories.map((m) => (
-                    <TableRow key={m.id}>
-                      <TableCell>
-                        {m.photo_url ? (
-                          <img src={m.photo_url} alt="" className="w-12 h-12 rounded object-cover" />
-                        ) : (
-                          <div className="w-12 h-12 rounded bg-muted flex items-center justify-center">
-                            <ImageIcon className="w-5 h-5 text-muted-foreground" />
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell className="font-medium">{m.title}</TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">{m.category}</Badge>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {m.event_date || "—"}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={m.published ? "default" : "outline"}>
-                          {m.published ? "Published" : "Draft"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button size="icon" variant="ghost" onClick={() => openEdit(m)}>
-                            <Pencil className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="text-destructive"
-                            onClick={() => {
-                              if (confirm("Delete this memory?")) deleteMutation.mutate(m.id);
-                            }}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
+                </TableHeader>
+                <TableBody>
+                  {isLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                        Loading...
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  ) : memories.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                        No memories yet. Click "Add Memory" to get started.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    memories.map((m) => (
+                      <TableRow key={m.id}>
+                        <TableCell>
+                          {m.photo_url ? (
+                            <img src={m.photo_url} alt="" className="w-12 h-12 rounded object-cover" />
+                          ) : (
+                            <div className="w-12 h-12 rounded bg-muted flex items-center justify-center">
+                              <ImageIcon className="w-5 h-5 text-muted-foreground" />
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell className="font-medium">{m.title}</TableCell>
+                        <TableCell>
+                          <Badge variant="secondary">{m.category}</Badge>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {m.event_date || "—"}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={m.published ? "default" : "outline"}>
+                            {m.published ? "Published" : "Draft"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button size="icon" variant="ghost" onClick={() => openEdit(m)}>
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="text-destructive"
+                              onClick={() => {
+                                if (confirm("Delete this memory?")) deleteMutation.mutate(m.id);
+                              }}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+            <div className="divide-y divide-border md:hidden">
+              {isLoading ? (
+                <div className="px-4 py-8 text-center text-sm text-muted-foreground">Loading...</div>
+              ) : memories.length === 0 ? (
+                <div className="px-4 py-8 text-center text-sm text-muted-foreground">No memories yet. Click &quot;Add Memory&quot; to get started.</div>
+              ) : (
+                memories.map((m) => (
+                  <div key={m.id} className="space-y-2 px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      {m.photo_url ? (
+                        <img src={m.photo_url} alt="" className="h-11 w-11 rounded object-cover" />
+                      ) : (
+                        <div className="flex h-11 w-11 items-center justify-center rounded bg-muted">
+                          <ImageIcon className="w-4 h-4 text-muted-foreground" />
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-foreground">{m.title}</p>
+                        <p className="text-xs text-muted-foreground">{m.event_date || "—"}</p>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="secondary">{m.category}</Badge>
+                      <Badge variant={m.published ? "default" : "outline"}>
+                        {m.published ? "Published" : "Draft"}
+                      </Badge>
+                    </div>
+                    <div className="flex justify-end gap-1">
+                      <Button size="icon" variant="ghost" onClick={() => openEdit(m)}>
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="text-destructive"
+                        onClick={() => {
+                          if (confirm("Delete this memory?")) deleteMutation.mutate(m.id);
+                        }}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>

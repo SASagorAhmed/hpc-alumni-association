@@ -48,13 +48,13 @@ const AdminWinners = () => {
           <h1 className="text-2xl font-bold text-foreground">Results & Winners</h1>
           <p className="text-sm text-muted-foreground">Review results, declare and publish winners</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
           <Select value={selectedElection || ""} onValueChange={v => setSelectedElection(v)}>
-            <SelectTrigger className="w-64"><SelectValue placeholder="Select Election" /></SelectTrigger>
+            <SelectTrigger className="w-full sm:w-64"><SelectValue placeholder="Select Election" /></SelectTrigger>
             <SelectContent>{elections?.map(e => <SelectItem key={e.id} value={e.id}>{e.title}</SelectItem>)}</SelectContent>
           </Select>
           {election && election.status !== "results_published" && (
-            <Button size="sm" variant="default" onClick={() => updateElection.mutate({ id: election.id, status: "results_published" })}>
+            <Button size="sm" variant="default" className="w-full sm:w-auto" onClick={() => updateElection.mutate({ id: election.id, status: "results_published" })}>
               <Award className="w-3.5 h-3.5 mr-1" /> Publish Results
             </Button>
           )}
@@ -78,7 +78,7 @@ const AdminWinners = () => {
           )}
 
           {/* Summary */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <Card><CardContent className="p-4 text-center">
               <p className="text-2xl font-bold text-foreground">{totalVotes}</p>
               <p className="text-xs text-muted-foreground">Total Votes</p>
@@ -119,7 +119,7 @@ const AdminWinners = () => {
                         const pw = postWinners.find(w => w.candidate_id === c.id);
 
                         return (
-                          <div key={c.id} className={`flex items-center justify-between p-3 rounded-lg border ${isWinner ? "border-yellow-400 bg-yellow-50" : "border-border"}`}>
+                          <div key={c.id} className={`flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between rounded-lg border ${isWinner ? "border-yellow-400 bg-yellow-50" : "border-border"}`}>
                             <div className="flex items-center gap-3">
                               <span className="text-lg font-bold text-muted-foreground w-6">{i + 1}</span>
                               <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center">
@@ -134,7 +134,7 @@ const AdminWinners = () => {
                                 <p className="text-xs text-muted-foreground">Batch: {c.batch || "—"}</p>
                               </div>
                             </div>
-                            <div className="flex items-center gap-3">
+                            <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-normal">
                               <div className="text-right">
                                 <span className="text-lg font-bold">{vc}</span>
                                 <span className="text-xs text-muted-foreground ml-1">votes</span>
@@ -178,8 +178,8 @@ function DeclareWinnerButton({ electionId, postId, candidateId, voteCount, onDec
   const [open, setOpen] = useState(false);
 
   return open ? (
-    <div className="flex items-center gap-2">
-      <Input placeholder="Winner congratulations" value={msg} onChange={e => setMsg(e.target.value)} className="w-48 h-8 text-xs" />
+    <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+      <Input placeholder="Winner congratulations" value={msg} onChange={e => setMsg(e.target.value)} className="h-8 w-full text-xs sm:w-48" />
       <Button size="sm" className="h-8" onClick={() => {
         onDeclare({ election_id: electionId, post_id: postId, candidate_id: candidateId, congratulation_message: msg || undefined, vote_count: voteCount });
         setOpen(false);

@@ -159,8 +159,9 @@ const AdminDocuments = () => {
               <p className="text-sm text-muted-foreground">No documents found</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
+            <>
+              <div className="hidden md:block">
+                <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Document</TableHead>
@@ -182,9 +183,9 @@ const AdminDocuments = () => {
                             <FileText className="w-4 h-4 text-primary shrink-0" />
                           )}
                           <div className="min-w-0">
-                            <p className="font-medium text-sm truncate max-w-[200px]">{doc.title}</p>
+                            <p className="font-medium text-sm truncate max-w-[140px] sm:max-w-[200px]">{doc.title}</p>
                             {doc.file_name && (
-                              <p className="text-[11px] text-muted-foreground truncate max-w-[200px]">{doc.file_name}</p>
+                              <p className="text-[11px] text-muted-foreground truncate max-w-[140px] sm:max-w-[200px]">{doc.file_name}</p>
                             )}
                           </div>
                           {doc.pinned && <Pin className="w-3 h-3 text-amber-500 shrink-0" />}
@@ -224,8 +225,52 @@ const AdminDocuments = () => {
                     </TableRow>
                   ))}
                 </TableBody>
-              </Table>
-            </div>
+                </Table>
+              </div>
+              <div className="divide-y divide-border md:hidden">
+                {filtered.map((doc) => (
+                  <div key={doc.id} className="space-y-2 px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      {doc.file_type?.startsWith("image") ? (
+                        <ImageIcon className="w-4 h-4 text-primary shrink-0" />
+                      ) : (
+                        <FileText className="w-4 h-4 text-primary shrink-0" />
+                      )}
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-foreground">{doc.title}</p>
+                        {doc.file_name ? <p className="truncate text-xs text-muted-foreground">{doc.file_name}</p> : null}
+                      </div>
+                      {doc.pinned ? <Pin className="w-3 h-3 text-amber-500 shrink-0" /> : null}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="outline" className="text-xs">{doc.category}</Badge>
+                      <Badge variant={doc.published ? "default" : "secondary"} className="text-[10px]">
+                        {doc.published ? "Published" : "Draft"}
+                      </Badge>
+                      <Badge variant="outline" className="text-[10px] capitalize">{doc.visibility}</Badge>
+                    </div>
+                    <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                      <span>{formatFileSize(doc.file_size)}</span>
+                      <span>{doc.created_at ? format(new Date(doc.created_at), "dd MMM yyyy") : "—"}</span>
+                    </div>
+                    <div className="flex justify-end gap-1">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => togglePublish(doc)} title={doc.published ? "Unpublish" : "Publish"}>
+                        {doc.published ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => togglePin(doc)} title={doc.pinned ? "Unpin" : "Pin"}>
+                        <Pin className={`w-4 h-4 ${doc.pinned ? "text-amber-500" : ""}`} />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditDoc(doc); setFormOpen(true); }}>
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setDeleteId(doc.id)}>
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

@@ -468,7 +468,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           </AutoRepairBoundary>
 
           {/* Page Content */}
-          <main className="flex-1 px-2.5 py-4 sm:px-3 lg:px-4 lg:py-6 xl:px-5">
+          <main className="min-w-0 flex-1 px-2.5 py-4 sm:px-3 lg:px-4 lg:py-6 xl:px-5">
             <AutoRepairBoundary title="Page content">
               {children ?? <Outlet />}
             </AutoRepairBoundary>

@@ -117,7 +117,7 @@ const AdminElections = () => {
             <div className="space-y-4">
               <div><Label>Election Title *</Label><Input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="e.g. Executive Committee Election 2027" /></div>
               <div><Label>Description</Label><Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={2} placeholder="Brief description..." /></div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div><Label>Term / Year</Label><Input value={form.term_year} onChange={e => setForm(f => ({ ...f, term_year: e.target.value }))} placeholder="2027–2029" /></div>
                 <div><Label>Type</Label>
                   <Select value={form.election_type} onValueChange={v => setForm(f => ({ ...f, election_type: v }))}>

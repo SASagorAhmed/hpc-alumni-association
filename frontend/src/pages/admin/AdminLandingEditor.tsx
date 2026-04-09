@@ -519,7 +519,7 @@ const SectionEditor = ({
               <Label>Subtitle</Label>
               <Textarea value={String(data.subtitle ?? "")} onChange={(e) => set("subtitle", e.target.value)} className="mt-1" rows={2} />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <Label>Summary number</Label>
                 <Input value={String(data.summaryNumber ?? "")} onChange={(e) => set("summaryNumber", e.target.value)} className="mt-1" />

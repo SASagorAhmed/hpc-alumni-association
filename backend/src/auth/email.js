@@ -1,6 +1,8 @@
 const nodemailer = require("nodemailer");
 const env = require("../config/env");
 
+const BRAND_SENDER_NAME = "HPC Alumni Association";
+
 function createTransporter() {
   if (!env.smtp.host || !env.smtp.user || !env.smtp.pass) return null;
 
@@ -13,6 +15,25 @@ function createTransporter() {
       pass: env.smtp.pass,
     },
   });
+}
+
+function extractSenderAddress(rawFrom) {
+  const from = String(rawFrom || "").trim();
+  if (!from) return "";
+
+  const bracketMatch = from.match(/<([^>]+)>/);
+  if (bracketMatch?.[1]) return bracketMatch[1].trim();
+
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(from)) return from;
+  return "";
+}
+
+function getBrandedFromHeader() {
+  const senderAddress = extractSenderAddress(env.smtp.from) || String(env.smtp.user || "").trim();
+  if (!senderAddress) {
+    throw new Error("SMTP sender is not configured (set SMTP_FROM or SMTP_USER in backend/.env).");
+  }
+  return `${BRAND_SENDER_NAME} <${senderAddress}>`;
 }
 
 async function sendVerificationEmail({ email, verificationLink }) {
@@ -32,7 +53,7 @@ async function sendVerificationEmail({ email, verificationLink }) {
   `;
 
   await transporter.sendMail({
-    from: env.smtp.from,
+    from: getBrandedFromHeader(),
     to: email,
     subject,
     html,
@@ -56,7 +77,7 @@ async function sendPasswordResetEmail({ email, resetLink }) {
   `;
 
   await transporter.sendMail({
-    from: env.smtp.from,
+    from: getBrandedFromHeader(),
     to: email,
     subject,
     html,

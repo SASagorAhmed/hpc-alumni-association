@@ -771,17 +771,19 @@ const AdminCommittee = () => {
                     {posts.length === 0 ? (
                       <p className="p-6 text-sm text-muted-foreground">No posts yet. Use &quot;Default posts&quot; or add manually.</p>
                 ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
+                  <>
+                    <div className="hidden md:block">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
                             <TableHead className="w-20">Order</TableHead>
-                            <TableHead className="min-w-[200px]">Post title</TableHead>
-                            <TableHead className="min-w-[120px]">Section</TableHead>
+                            <TableHead>Post title</TableHead>
+                            <TableHead>Section</TableHead>
                             <TableHead>Type</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
+                            <TableHead className="text-right">Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
                           {posts.map((p, idx) => (
                             <TableRow key={p.id}>
                               <TableCell className="font-mono text-xs">
@@ -802,7 +804,7 @@ const AdminCommittee = () => {
                                   p.board_section ||
                                   "—"}
                               </TableCell>
-                          <TableCell>
+                              <TableCell>
                                 <div className="flex flex-wrap gap-1">
                                   {p.allows_multiple ? (
                                     <Badge variant="secondary">Multiple</Badge>
@@ -811,11 +813,11 @@ const AdminCommittee = () => {
                                   )}
                                   {!!p.is_highlight && <Badge>Highlight</Badge>}
                                 </div>
-                          </TableCell>
-                          <TableCell className="text-right">
+                              </TableCell>
+                              <TableCell className="text-right">
                                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditPost(p)}>
                                   <Pencil className="h-3.5 w-3.5" />
-                              </Button>
+                                </Button>
                                 <Button
                                   variant="ghost"
                                   size="icon"
@@ -824,11 +826,60 @@ const AdminCommittee = () => {
                                 >
                                   <Trash2 className="h-3.5 w-3.5" />
                                 </Button>
-                          </TableCell>
-                        </TableRow>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                    <div className="divide-y divide-border md:hidden">
+                      {posts.map((p, idx) => (
+                        <div key={p.id} className="space-y-2 px-4 py-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="break-words text-sm font-semibold text-foreground">{p.title}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {BOARD_SECTION_OPTIONS.find((o) => o.value === (p.board_section as BoardSectionKey))?.label.split("(")[0].trim() ||
+                                  p.board_section ||
+                                  "—"}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => movePost(posts, idx, -1)}>
+                                <ArrowUp className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => movePost(posts, idx, 1)}>
+                                <ArrowDown className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex flex-wrap gap-1">
+                              {p.allows_multiple ? (
+                                <Badge variant="secondary">Multiple</Badge>
+                              ) : (
+                                <Badge variant="outline">Single</Badge>
+                              )}
+                              {!!p.is_highlight && <Badge>Highlight</Badge>}
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditPost(p)}>
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-destructive"
+                                onClick={() => deletePostMutation.mutate(p.id)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
                       ))}
-                    </TableBody>
-                  </Table>
+                    </div>
+                  </>
                 )}
               </CardContent>
             </Card>
@@ -922,7 +973,7 @@ const AdminCommittee = () => {
           }
         }}
       >
-        <DialogContent>
+        <DialogContent className="max-h-[85dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Fill post from alumni ID</DialogTitle>
             <DialogDescription className="text-left">
@@ -967,7 +1018,7 @@ const AdminCommittee = () => {
 
       {/* Term dialog */}
       <Dialog open={termDialogOpen} onOpenChange={setTermDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[85dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>New committee term</DialogTitle>
             <DialogDescription>e.g. 2025–2027</DialogDescription>
@@ -995,7 +1046,7 @@ const AdminCommittee = () => {
 
       {/* Post dialog */}
       <Dialog open={postDialogOpen} onOpenChange={setPostDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[85dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingPost ? "Edit post" : "New post"}</DialogTitle>
           </DialogHeader>
@@ -1076,7 +1127,7 @@ const AdminCommittee = () => {
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="col-span-2">
                 <Label>Name *</Label>
                 <Input value={memberForm.name} onChange={(e) => setMemberForm({ ...memberForm, name: e.target.value })} />

@@ -564,7 +564,7 @@ const AdminAchievements = () => {
         </div>
 
         <Tabs defaultValue="achievements">
-          <TabsList>
+          <TabsList className="w-full justify-start sm:w-auto sm:justify-center">
             <TabsTrigger value="achievements" className="gap-1.5"><Award className="w-3.5 h-3.5" /> Achievements</TabsTrigger>
             <TabsTrigger value="settings" className="gap-1.5"><Settings className="w-3.5 h-3.5" /> Banner Settings</TabsTrigger>
           </TabsList>
@@ -587,48 +587,94 @@ const AdminAchievements = () => {
 
             <Card>
               <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-12">#</TableHead>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Achievement</TableHead>
-                      <TableHead>Tag</TableHead>
-                      <TableHead>Theme</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filtered.length === 0 ? (
-                      <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No achievements found</TableCell></TableRow>
-                    ) : filtered.map((a) => (
-                      <TableRow key={a.id} className={cn(!a.is_active && "opacity-50")}>
-                        <TableCell>
-                          <div className="flex flex-col gap-0.5">
-                            <button onClick={() => moveOrder(a, "up")} className="text-muted-foreground hover:text-foreground"><ArrowUp className="w-3 h-3" /></button>
-                            <button onClick={() => moveOrder(a, "down")} className="text-muted-foreground hover:text-foreground"><ArrowDown className="w-3 h-3" /></button>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            {a.photo_url ? (
-                              <div
-                                className="relative h-9 w-auto shrink-0 overflow-hidden rounded-md border border-border sm:h-10"
-                                style={{ aspectRatio: ACHIEVEMENT_BANNER_ASPECT_STYLE }}
-                              >
-                                <img src={a.photo_url} alt="" className="h-full w-full object-cover object-center" />
-                              </div>
-                            ) : null}
-                            <div>
-                              <span className="font-medium text-sm">{a.name}</span>
-                              {a.batch && <span className="text-xs text-muted-foreground ml-1">({a.batch})</span>}
+                <div className="hidden md:block">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-12">#</TableHead>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Achievement</TableHead>
+                        <TableHead>Tag</TableHead>
+                        <TableHead>Theme</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filtered.length === 0 ? (
+                        <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No achievements found</TableCell></TableRow>
+                      ) : filtered.map((a) => (
+                        <TableRow key={a.id} className={cn(!a.is_active && "opacity-50")}>
+                          <TableCell>
+                            <div className="flex flex-col gap-0.5">
+                              <button onClick={() => moveOrder(a, "up")} className="text-muted-foreground hover:text-foreground"><ArrowUp className="w-3 h-3" /></button>
+                              <button onClick={() => moveOrder(a, "down")} className="text-muted-foreground hover:text-foreground"><ArrowDown className="w-3 h-3" /></button>
                             </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              {a.photo_url ? (
+                                <div
+                                  className="relative h-9 w-auto shrink-0 overflow-hidden rounded-md border border-border sm:h-10"
+                                  style={{ aspectRatio: ACHIEVEMENT_BANNER_ASPECT_STYLE }}
+                                >
+                                  <img src={a.photo_url} alt="" className="h-full w-full object-cover object-center" />
+                                </div>
+                              ) : null}
+                              <div>
+                                <span className="font-medium text-sm">{a.name}</span>
+                                {a.batch && <span className="text-xs text-muted-foreground ml-1">({a.batch})</span>}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-sm">{a.achievement_title}</TableCell>
+                          <TableCell>{a.tag && <Badge variant="outline" className="text-xs">{a.tag}</Badge>}</TableCell>
+                          <TableCell>
+                            <Badge variant="secondary" className="text-xs">
+                              {a.banner_theme === "tomato" || a.banner_theme === "theme2"
+                                ? "Theme 2"
+                                : a.banner_theme === "theme3"
+                                  ? "Theme 3"
+                                  : "Default"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Switch checked={Boolean(a.is_active)} onCheckedChange={() => toggleActive(a)} />
+                              <button onClick={() => togglePin(a)} className={cn("p-1 rounded", a.is_pinned ? "text-primary" : "text-muted-foreground hover:text-foreground")}>
+                                <Pin className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-1">
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(a)}><Pencil className="w-3.5 h-3.5" /></Button>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDelete(a.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+                <div className="divide-y divide-border md:hidden">
+                  {filtered.length === 0 ? (
+                    <div className="px-4 py-8 text-center text-sm text-muted-foreground">No achievements found</div>
+                  ) : (
+                    filtered.map((a) => (
+                      <div key={a.id} className={cn("space-y-2 px-4 py-3", !a.is_active && "opacity-60")}>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-foreground">{a.name}</p>
+                            <p className="truncate text-xs text-muted-foreground">{a.achievement_title}</p>
                           </div>
-                        </TableCell>
-                        <TableCell className="text-sm">{a.achievement_title}</TableCell>
-                        <TableCell>{a.tag && <Badge variant="outline" className="text-xs">{a.tag}</Badge>}</TableCell>
-                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => moveOrder(a, "up")}><ArrowUp className="w-3.5 h-3.5" /></Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => moveOrder(a, "down")}><ArrowDown className="w-3.5 h-3.5" /></Button>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          {a.tag ? <Badge variant="outline" className="text-xs">{a.tag}</Badge> : null}
                           <Badge variant="secondary" className="text-xs">
                             {a.banner_theme === "tomato" || a.banner_theme === "theme2"
                               ? "Theme 2"
@@ -636,25 +682,24 @@ const AdminAchievements = () => {
                                 ? "Theme 3"
                                 : "Default"}
                           </Badge>
-                        </TableCell>
-                        <TableCell>
+                          {a.batch ? <Badge variant="outline" className="text-xs">Batch {a.batch}</Badge> : null}
+                        </div>
+                        <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <Switch checked={Boolean(a.is_active)} onCheckedChange={() => toggleActive(a)} />
-                            <button onClick={() => togglePin(a)} className={cn("p-1 rounded", a.is_pinned ? "text-primary" : "text-muted-foreground hover:text-foreground")}>
+                            <button onClick={() => togglePin(a)} className={cn("rounded p-1", a.is_pinned ? "text-primary" : "text-muted-foreground hover:text-foreground")}>
                               <Pin className="w-3.5 h-3.5" />
                             </button>
                           </div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-1">
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(a)}><Pencil className="w-3.5 h-3.5" /></Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDelete(a.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                          <div className="flex items-center gap-1">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(a)}><Pencil className="w-3.5 h-3.5" /></Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(a.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
                           </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -776,7 +821,7 @@ const AdminAchievements = () => {
                   </div>
                 </div>
               ) : null}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label>Name *</Label>
                   <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
@@ -1018,7 +1063,7 @@ const AdminAchievements = () => {
                 <Label>Achievement Date</Label>
                 <Input type="date" value={form.achievement_date} onChange={(e) => setForm({ ...form, achievement_date: e.target.value })} />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label>Schedule Start</Label>
                   <Input type="datetime-local" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} />

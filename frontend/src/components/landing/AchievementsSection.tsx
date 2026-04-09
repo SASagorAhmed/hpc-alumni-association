@@ -1,29 +1,29 @@
-import { useState, useEffect, useLayoutEffect, useRef, useCallback, type CSSProperties } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { Award, Calendar, GraduationCap, Camera, Building2, ChevronRight, PartyPopper } from "lucide-react";
 import { API_BASE_URL } from "@/api-production/api.js";
-import { isIosSafariViewport } from "@/lib/iosSafari";
 import { ACHIEVEMENT_BANNER_CROP_ASPECT } from "@/lib/achievementCrop";
-import { BREAKPOINT_MOBILE_MAX, layoutCanvasScale, mqStackedMobile } from "@/lib/breakpoints";
+import { layoutCanvasScale, mqStackedMobile } from "@/lib/breakpoints";
 import { saveNavScrollRestore } from "@/lib/navScrollRestore";
+import { cn } from "@/lib/utils";
 import type { AchievementPublicRecord } from "@/lib/achievementPublic";
 
 type Achievement = AchievementPublicRecord;
 
 /** Desktop reference width for the scaled 3-col grid (lg+ only). */
 const ACHIEVEMENTS_DESIGN_W = 1024;
-/** Proportional zoom below mobile band max (committee / banner pattern). */
-const MOBILE_REF_W = BREAKPOINT_MOBILE_MAX;
 
 function AchievementGridCard({
   a,
   i,
   onMediaSettled,
+  mobileReadable = false,
 }: {
   a: Achievement;
   i: number;
   onMediaSettled?: () => void;
+  mobileReadable?: boolean;
 }) {
   const [imageFailed, setImageFailed] = useState(false);
   const reportedRef = useRef(false);
@@ -76,12 +76,22 @@ function AchievementGridCard({
           )}
         </div>
 
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col items-stretch gap-2 p-3 text-center">
+        <div
+          className={cn(
+            "flex min-h-0 min-w-0 flex-1 flex-col items-stretch gap-2 p-3 text-center",
+            mobileReadable && "gap-2.5 p-3.5"
+          )}
+        >
           <span className="fs-caption font-semibold uppercase tracking-wider text-amber-600">
             #{String(i + 1).padStart(2, "0")} Achievement
           </span>
 
-          <h3 className="font-outfit-section fs-card-title-lg break-words font-bold leading-snug text-foreground [overflow-wrap:anywhere]">
+          <h3
+            className={cn(
+              "font-outfit-section fs-card-title-lg break-words font-bold leading-snug text-foreground [overflow-wrap:anywhere]",
+              mobileReadable && "text-[1.06rem] leading-[1.42] sm:text-[1.1rem]"
+            )}
+          >
             {a.name}
           </h3>
 
@@ -91,22 +101,22 @@ function AchievementGridCard({
             </span>
           )}
 
-          <div className="flex min-w-0 flex-wrap items-center justify-center gap-x-3 gap-y-1">
+          <div className={cn("flex min-w-0 flex-wrap items-center justify-center gap-x-3 gap-y-1", mobileReadable && "gap-y-1.5")}>
             {a.batch && (
-              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                <GraduationCap size={11} className="shrink-0 text-primary" />
+              <span className={cn("inline-flex items-center gap-1 text-xs text-muted-foreground", mobileReadable && "text-sm leading-5")}>
+                <GraduationCap size={mobileReadable ? 12 : 11} className="shrink-0 text-primary" />
                 Batch {a.batch}
               </span>
             )}
             {a.achievement_date && (
-              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                <Calendar className="h-2.5 w-2.5 shrink-0 text-primary" />
+              <span className={cn("inline-flex items-center gap-1 text-xs text-muted-foreground", mobileReadable && "text-sm leading-5")}>
+                <Calendar className={cn("h-2.5 w-2.5 shrink-0 text-primary", mobileReadable && "h-3 w-3")} />
                 {new Date(a.achievement_date).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
               </span>
             )}
             {a.institution && (
-              <span className="inline-flex max-w-full min-w-0 items-center gap-1 break-words text-xs text-muted-foreground [overflow-wrap:anywhere]">
-                <Building2 className="h-2.5 w-2.5 shrink-0 text-primary" />
+              <span className={cn("inline-flex max-w-full min-w-0 items-center gap-1 break-words text-xs text-muted-foreground [overflow-wrap:anywhere]", mobileReadable && "text-sm leading-5")}>
+                <Building2 className={cn("h-2.5 w-2.5 shrink-0 text-primary", mobileReadable && "h-3 w-3")} />
                 {a.institution}
               </span>
             )}
@@ -119,15 +129,20 @@ function AchievementGridCard({
                   <PartyPopper className="h-3 w-3 shrink-0 text-primary" aria-hidden />
                   <span className="fs-caption font-semibold uppercase tracking-wider text-primary">Congratulations</span>
                 </div>
-                <p className="line-clamp-4 break-words text-xs leading-relaxed text-foreground/85 [overflow-wrap:anywhere]">
+                <p
+                  className={cn(
+                    "line-clamp-4 break-words text-xs leading-relaxed text-foreground/85 [overflow-wrap:anywhere]",
+                    mobileReadable && "text-sm leading-[1.55]"
+                  )}
+                >
                   {a.message.trim()}
                 </p>
               </div>
             </div>
           ) : null}
 
-          <div className="mt-auto flex w-full shrink-0 justify-center border-t border-border pt-2">
-            <span className="inline-flex items-center gap-1 text-xs font-medium text-primary">
+          <div className={cn("mt-auto flex w-full shrink-0 justify-center border-t border-border pt-2", mobileReadable && "pt-2.5")}>
+            <span className={cn("inline-flex items-center gap-1 text-xs font-medium text-primary", mobileReadable && "text-sm")}>
               Read full story
               <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden />
             </span>
@@ -301,11 +316,6 @@ const AchievementsSection = ({ embedded = false }: { embedded?: boolean }) => {
     );
   }
 
-  const isMobileGrid = isNarrowViewport && narrowGridW < 540;
-  const mobileZoom = isMobileGrid && narrowGridW < MOBILE_REF_W ? narrowGridW / MOBILE_REF_W : 1;
-  const mobileGridZoomStyle =
-    isNarrowViewport && mobileZoom < 1 && !isIosSafariViewport() ? ({ zoom: mobileZoom } as CSSProperties) : undefined;
-
   return (
     <section id="achievements" className={embedded ? "scroll-mt-20 bg-background py-6 sm:scroll-mt-[5.5rem] sm:py-8" : sectionShellClass}>
       <div className={embedded ? "w-full" : "layout-container"}>
@@ -316,7 +326,6 @@ const AchievementsSection = ({ embedded = false }: { embedded?: boolean }) => {
           <div ref={narrowGridOuterRef} className="w-full min-w-0">
             <div
               className="hpc-ios-touch-text-root grid w-full min-w-0 grid-cols-1 items-stretch gap-3 sm:gap-4 md:gap-5"
-              style={mobileGridZoomStyle}
             >
               {achievements.slice(0, visibleCount).map((a, i) => (
                 <AchievementGridCard
@@ -324,6 +333,7 @@ const AchievementsSection = ({ embedded = false }: { embedded?: boolean }) => {
                   a={a}
                   i={i}
                   onMediaSettled={handleCardMediaSettled}
+                  mobileReadable
                 />
               ))}
             </div>

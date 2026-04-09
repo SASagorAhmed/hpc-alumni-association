@@ -93,7 +93,7 @@ const AdminEvents = () => {
         </div>
         <Button
           size="sm"
-          className="gap-1.5"
+          className="w-full sm:w-auto gap-1.5"
           onClick={() => { setEditingEvent(null); setFormOpen(true); }}
         >
           <Plus className="w-3.5 h-3.5" /> Add Event
@@ -150,7 +150,7 @@ const AdminEvents = () => {
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
+                      <div className="flex items-center gap-1.5 shrink-0 sm:self-auto self-end">
                         <Button
                           variant="ghost"
                           size="icon"
