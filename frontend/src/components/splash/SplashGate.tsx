@@ -18,13 +18,19 @@ export function SplashGate({ children }: { children: ReactNode }) {
   const isRestoring = useIsRestoring();
 
   const isHome = location.pathname === "/" || location.pathname === "";
+  const isPublicAuthRoute =
+    location.pathname === "/login" ||
+    location.pathname === "/register" ||
+    location.pathname === "/forgot-password" ||
+    location.pathname === "/reset-password";
 
   const banner = useAchievementBannerData({ enabled: isHome });
   const landing = useLandingContent({ enabled: isHome });
 
   const homeBlocking = isHome && (banner.isPending || landing.isPending);
 
-  const showSplash = isRestoring || authLoading || homeBlocking;
+  const globalBlocking = !isPublicAuthRoute && (isRestoring || authLoading);
+  const showSplash = homeBlocking || globalBlocking;
 
   useEffect(() => {
     if (showSplash) {

@@ -48,6 +48,10 @@ const Register = () => {
   const { register } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const googleError = searchParams.get("google_error");
+  const googleDraft = searchParams.get("google_draft");
+  const fromLogin = searchParams.get("from_login");
+  const googlePrefill = searchParams.get("google_prefill");
   const [googleRegisterMode, setGoogleRegisterMode] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -106,7 +110,7 @@ const Register = () => {
   }, []);
 
   useEffect(() => {
-    const err = searchParams.get("google_error");
+    const err = googleError;
     if (!err) return;
     const messages: Record<string, string> = {
       oauth: "Google sign-in was cancelled or failed. Try again, or register with email and password.",
@@ -117,14 +121,19 @@ const Register = () => {
     };
     toast.error(messages[err] || "Google sign-up could not continue.");
     navigate("/register", { replace: true });
-  }, [searchParams, navigate]);
+  }, [googleError, navigate]);
 
   useEffect(() => {
     let cancelled = false;
-    const params =
-      typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
-    const stripDraft = params?.get("google_draft") === "1";
-    const fromLogin = params?.get("from_login") === "1";
+    const stripDraft = googleDraft === "1";
+    const fromLoginFlag = fromLogin === "1";
+    const hasGoogleHandoffIntent = stripDraft || fromLoginFlag || googlePrefill === "1";
+
+    if (!hasGoogleHandoffIntent) {
+      return () => {
+        cancelled = true;
+      };
+    }
 
     (async () => {
       try {
@@ -143,7 +152,7 @@ const Register = () => {
         }));
         setGoogleRegisterMode(true);
         if (stripDraft) {
-          if (fromLogin) {
+          if (fromLoginFlag) {
             toast.success(
               "Your Google email is new to this site. Complete this whole form (same requirements as manual registration), then submit once—we only create your account after that."
             );
@@ -160,7 +169,7 @@ const Register = () => {
     return () => {
       cancelled = true;
     };
-  }, [navigate]);
+  }, [navigate, googleDraft, fromLogin, googlePrefill]);
 
   const handlePhotoFileChosen = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

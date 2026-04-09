@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Users, Vote, Award, CalendarDays, FileText, Bell, Shield, Settings, ClipboardList, UserCheck, Trophy, FolderOpen, ScrollText, UserPlus } from "lucide-react";
 import { API_BASE_URL } from "@/api-production/api.js";
 import { getAuthToken } from "@/lib/authToken";
+import { cachedJsonFetch, invalidateRequestCacheByPrefix } from "@/lib/requestCache";
 import BrokenPhotoScanCard from "@/components/admin/BrokenPhotoScanCard";
 
 type AdminUserRow = {
@@ -58,12 +59,17 @@ function isEventActive(row: Record<string, unknown>) {
 }
 
 async function fetchAdminList<T = unknown>(path: string, token: string): Promise<T[]> {
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) return [];
-  const body = await res.json().catch(() => []);
-  return Array.isArray(body) ? (body as T[]) : [];
+  try {
+    const body = await cachedJsonFetch<unknown>({
+      cacheKey: `admin:list:${path}`,
+      url: `${API_BASE_URL}${path}`,
+      headers: { Authorization: `Bearer ${token}` },
+      ttlMs: 45_000,
+    });
+    return Array.isArray(body) ? (body as T[]) : [];
+  } catch {
+    return [];
+  }
 }
 
 
@@ -267,6 +273,7 @@ const AdminDashboard = () => {
         try {
           const payload = JSON.parse((evt as MessageEvent).data || "{}");
           setCleanupResult(payload);
+          invalidateRequestCacheByPrefix("admin:list:");
           setCleanupProgress((prev) => ({ ...(prev || {}), progress: 100, status: "completed" }));
         } catch (_e) {
           setCleanupError("Failed to parse cleanup result stream.");

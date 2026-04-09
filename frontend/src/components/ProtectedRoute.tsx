@@ -14,8 +14,18 @@ const ProtectedRoute = ({ children, requiredRole, allowUnapproved = false }: Pro
 
   if (!isAuthReady || isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      <div className="min-h-screen bg-background">
+        <div className="mx-auto flex h-11 max-w-7xl items-center border-b border-border/70 px-4 lg:px-6">
+          <div className="h-5 w-28 animate-pulse rounded bg-muted" />
+        </div>
+        <div className="mx-auto max-w-7xl p-4 lg:p-6">
+          <div className="mb-4 h-8 w-44 animate-pulse rounded bg-muted" />
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="h-28 animate-pulse rounded-xl border border-border/60 bg-card" />
+            <div className="h-28 animate-pulse rounded-xl border border-border/60 bg-card" />
+            <div className="h-28 animate-pulse rounded-xl border border-border/60 bg-card" />
+          </div>
+        </div>
       </div>
     );
   }

@@ -31,6 +31,9 @@ import {
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { API_BASE_URL } from "@/api-production/api.js";
+import { getAuthToken } from "@/lib/authToken";
+import { primeJsonCache } from "@/lib/requestCache";
 import TopNoticeBar from "@/components/notices/TopNoticeBar";
 import ActiveElectionBanner from "@/components/elections/ActiveElectionBanner";
 import NotificationDropdown from "@/components/notifications/NotificationDropdown";
@@ -88,6 +91,7 @@ const SidebarContent = ({
   user,
   logout,
   onNavigate,
+  onPrefetchRoute,
   showClose,
   dashboardHref,
   panelSubtitle,
@@ -97,6 +101,7 @@ const SidebarContent = ({
   user: any;
   logout: () => void;
   onNavigate?: () => void;
+  onPrefetchRoute?: (href: string) => void;
   showClose?: boolean;
   dashboardHref: string;
   panelSubtitle: string;
@@ -128,6 +133,9 @@ const SidebarContent = ({
             <Link
               to={href}
               onClick={onNavigate}
+              onMouseEnter={() => onPrefetchRoute?.(href)}
+              onFocus={() => onPrefetchRoute?.(href)}
+              onTouchStart={() => onPrefetchRoute?.(href)}
               className={`flex items-center gap-2 px-2.5 py-2 sm:gap-2.5 sm:px-3 sm:py-2.5 rounded-lg text-[12px] sm:text-[13px] lg:text-[14px] transition-all duration-300 ease-in-out ${
                 isActive(href)
                   ? "text-primary font-semibold bg-primary/10 border-l-4 border-primary"
@@ -234,6 +242,46 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     return location.pathname.startsWith(`${base}/`);
   };
 
+  const prefetchRoute = (href: string) => {
+    const token = getAuthToken();
+    if (!token) return;
+    const headers = { Authorization: `Bearer ${token}` };
+    const enqueue = (path: string, key = path) =>
+      void primeJsonCache({
+        cacheKey: `admin:list:${key}`,
+        url: `${API_BASE_URL}${path}`,
+        headers,
+        ttlMs: 45_000,
+      });
+
+    switch (href) {
+      case "/admin/dashboard":
+      case "/admin/users":
+        enqueue("/api/admin/users");
+        break;
+      case "/admin/events":
+        enqueue("/api/admin/events");
+        break;
+      case "/admin/achievements":
+        enqueue("/api/admin/achievements");
+        break;
+      case "/admin/notices":
+        enqueue("/api/admin/notices");
+        break;
+      case "/admin/elections":
+        enqueue("/api/admin/elections");
+        break;
+      case "/admin/documents":
+        enqueue("/api/admin/documents");
+        break;
+      case "/admin/settings":
+        enqueue("/api/admin/admins");
+        break;
+      default:
+        break;
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Backdrop for outside click */}
@@ -258,6 +306,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             logout={logout}
             showClose={sidebarOpen}
             onNavigate={() => setSidebarOpen(false)}
+            onPrefetchRoute={prefetchRoute}
             dashboardHref={dashboardHref}
             panelSubtitle={panelSubtitle}
           />
@@ -273,22 +322,22 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         <div className="flex flex-col min-h-screen">
           {/* Fixed Header */}
           <header
-            className="sticky top-0 z-30 flex h-10 items-center justify-between border-b border-white/[0.07] px-1.5 lg:px-3"
+            className="sticky top-0 z-30 flex h-12 items-center justify-between border-b border-white/[0.07] px-2 lg:h-10 lg:px-3"
             style={{
               background: "var(--theme-header-bg)",
             }}
           >
-            <div className="flex min-w-0 items-center gap-1">
+            <div className="flex min-w-0 items-center gap-1.5">
               {!sidebarOpen && (
                 <button
                   onClick={() => setSidebarOpen(true)}
-                  className="rounded p-1.5 sm:p-1 md:p-0.5 hover:bg-gray-900/10"
+                  className="rounded-md p-2 hover:bg-gray-900/10 sm:p-1 md:p-0.5"
                   aria-label="Open menu"
                 >
-                  <Menu className="h-5 w-5 sm:h-4 sm:w-4 md:h-3.5 md:w-3.5 text-white" />
+                  <Menu className="h-6 w-6 text-white sm:h-5 sm:w-5 md:h-3.5 md:w-3.5" />
                 </button>
               )}
-              <h1 className="hidden truncate text-[12px] font-semibold leading-tight text-white sm:block">
+              <h1 className="block max-w-[42vw] truncate text-[13px] font-semibold leading-tight text-white sm:max-w-none sm:text-[12px]">
                 {menu.find((m) => isActive(m.href))?.label || "Dashboard"}
               </h1>
             </div>
@@ -327,15 +376,15 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
               <div className="relative shrink-0">
                 <button
                   onClick={() => setProfileOpen(!profileOpen)}
-                  className="flex items-center gap-0.5 rounded px-0.5 py-0.5 hover:bg-white/10 transition-colors"
+                  className="flex items-center gap-1 rounded px-1 py-0.5 hover:bg-white/10 transition-colors sm:gap-0.5 sm:px-0.5"
                 >
-                  <div className="flex h-5 w-5 items-center justify-center rounded-full bg-white/20">
-                    <User className="h-2.5 w-2.5 text-white" />
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-white/20 sm:h-5 sm:w-5">
+                    <User className="h-3.5 w-3.5 text-white sm:h-2.5 sm:w-2.5" />
                   </div>
-                  <span className="hidden max-w-[92px] truncate text-[10px] font-medium text-white sm:block">
+                  <span className="hidden max-w-[110px] truncate text-[11px] font-medium text-white sm:block sm:max-w-[92px] sm:text-[10px]">
                     {user?.name}
                   </span>
-                  <ChevronDown className="hidden h-2 w-2 text-white/60 sm:block" />
+                  <ChevronDown className="hidden h-3 w-3 text-white/60 sm:block sm:h-2 sm:w-2" />
                 </button>
 
                 <AnimatePresence>
@@ -381,10 +430,10 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
               <button
                 type="button"
                 onClick={() => logout()}
-                className="shrink-0 rounded p-0.5 hover:bg-white/10 transition-colors"
+                className="shrink-0 rounded p-1 hover:bg-white/10 transition-colors sm:p-0.5"
                 title="Logout"
               >
-                <LogOut className="h-3.5 w-3.5 text-white" />
+                <LogOut className="h-[18px] w-[18px] text-white sm:h-3.5 sm:w-3.5" />
               </button>
             </div>
           </header>

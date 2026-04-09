@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { API_BASE_URL } from "@/api-production/api.js";
 import { getAuthToken } from "@/lib/authToken";
+import { cachedJsonFetch, invalidateRequestCacheByPrefix, primeJsonCache } from "@/lib/requestCache";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSyncedQueryState } from "@/hooks/useSyncedQueryState";
 import {
@@ -72,17 +73,20 @@ const AdminUsers = () => {
   const [rejectTarget, setRejectTarget] = useState<ProfileRow | null>(null);
   const [rejectMessage, setRejectMessage] = useState("");
 
-  const fetchProfiles = async () => {
+  const fetchProfiles = async (force = false) => {
     setLoading(true);
     const token = getAuthToken();
-    const res = await fetch(`${API_BASE_URL}/api/admin/users`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const data = await res.json().catch(() => []);
-    if (!res.ok) {
+    try {
+      const data = await cachedJsonFetch<ProfileRow[]>({
+        cacheKey: "admin:list:/api/admin/users",
+        url: `${API_BASE_URL}/api/admin/users`,
+        headers: { Authorization: `Bearer ${token}` },
+        ttlMs: 45_000,
+        force,
+      });
+      setProfiles(Array.isArray(data) ? data : []);
+    } catch {
       toast.error("Failed to load users");
-    } else {
-      setProfiles((data as ProfileRow[]) || []);
     }
     setLoading(false);
   };
@@ -138,6 +142,13 @@ const AdminUsers = () => {
       setProfiles((prev) =>
         prev.map((p) => (p.id === id ? { ...p, ...updates } as ProfileRow : p))
       );
+      invalidateRequestCacheByPrefix("admin:list:");
+      void primeJsonCache<ProfileRow[]>({
+        cacheKey: "admin:list:/api/admin/users",
+        url: `${API_BASE_URL}/api/admin/users`,
+        headers: { Authorization: `Bearer ${token}` },
+        ttlMs: 45_000,
+      });
     }
     setActionLoading(null);
   };
@@ -212,7 +223,7 @@ const AdminUsers = () => {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <Button size="icon" variant="outline" onClick={fetchProfiles} disabled={loading}>
+          <Button size="icon" variant="outline" onClick={() => fetchProfiles(true)} disabled={loading}>
             <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
           </Button>
         </div>

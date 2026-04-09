@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Settings, Shield, UserPlus, Loader2 } from "lucide-react";
 import { API_BASE_URL } from "@/api-production/api.js";
 import { getAuthToken } from "@/lib/authToken";
+import { cachedJsonFetch, invalidateRequestCacheByPrefix } from "@/lib/requestCache";
 import { toast } from "sonner";
 import BrokenPhotoScanCard from "@/components/admin/BrokenPhotoScanCard";
 
@@ -37,15 +38,12 @@ const AdminSettings = () => {
     setLoadingList(true);
     const token = getAuthToken();
     try {
-      const res = await fetch(`${API_BASE_URL}/api/admin/admins`, {
+      const body = await cachedJsonFetch<{ admins?: AdminRow[] }>({
+        cacheKey: "admin:list:/api/admin/admins",
+        url: `${API_BASE_URL}/api/admin/admins`,
         headers: { Authorization: `Bearer ${token}` },
+        ttlMs: 45_000,
       });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        toast.error(typeof body?.error === "string" ? body.error : "Failed to load administrators");
-        setAdmins([]);
-        return;
-      }
       setAdmins(Array.isArray(body?.admins) ? body.admins : []);
     } catch {
       toast.error("Failed to load administrators");
@@ -84,6 +82,7 @@ const AdminSettings = () => {
       }
       toast.success(typeof body?.message === "string" ? body.message : "Administrator access granted");
       setEmail("");
+      invalidateRequestCacheByPrefix("admin:list:");
       await loadAdmins();
       qc.invalidateQueries({ queryKey: ["alumni-directory"] });
     } catch {
