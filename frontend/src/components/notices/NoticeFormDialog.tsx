@@ -13,7 +13,9 @@ import { NOTICE_TYPES, type Notice, type NoticeFormData } from "@/hooks/useNotic
 import { useDocuments } from "@/hooks/useDocuments";
 import { NOTICE_CROP_ASPECT, getCroppedNoticeImageBlob } from "@/lib/noticeCrop";
 import { toast } from "@/hooks/use-toast";
-import { FileText, Image as ImageIcon, X, Link2, Crop, ArrowLeft } from "lucide-react";
+import { API_BASE_URL } from "@/api-production/api.js";
+import { getAuthToken } from "@/lib/authToken";
+import { FileText, Image as ImageIcon, X, Link2, Crop, ArrowLeft, Eye, AlertTriangle } from "lucide-react";
 
 interface Props {
   open: boolean;
@@ -44,8 +46,8 @@ export default function NoticeFormDialog({ open, onOpenChange, notice, onSubmit 
   const [saving, setSaving] = useState(false);
   const { documents }       = useDocuments();
 
-  // "form" = normal form view | "crop" = inline crop view
-  const [view, setView] = useState<"form" | "crop">("form");
+  // "form" = normal form view | "crop" = inline crop view | "preview" = email preview
+  const [view, setView] = useState<"form" | "crop" | "preview">("form");
 
   // Source image (data URL) kept for re-crop
   const [cropSrc, setCropSrc] = useState<string | null>(null);
@@ -59,6 +61,12 @@ export default function NoticeFormDialog({ open, onOpenChange, notice, onSubmit 
 
   // Preview of committed cropped image
   const [imagePreviewUrl, setImagePreviewUrl]   = useState<string | null>(null);
+  const [previewPresidentName, setPreviewPresidentName] = useState("");
+  const [previewFooterLinks, setPreviewFooterLinks] = useState({
+    website_url: "",
+    facebook_url: "",
+    group_url: "",
+  });
 
   const imageInputRef = useRef<HTMLInputElement>(null);
 
@@ -92,6 +100,31 @@ export default function NoticeFormDialog({ open, onOpenChange, notice, onSubmit 
     setZoom(1);
     setRotation(0);
   }, [notice, open]);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    const run = async () => {
+      const token = getAuthToken();
+      if (!token) return;
+      const res = await fetch(`${API_BASE_URL}/api/admin/notices/email-preview-context`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok || cancelled) return;
+      const data = await res.json().catch(() => ({}));
+      if (cancelled) return;
+      setPreviewPresidentName(String(data?.president_name || "").trim());
+      setPreviewFooterLinks({
+        website_url: String(data?.footer_links?.website_url || "").trim(),
+        facebook_url: String(data?.footer_links?.facebook_url || "").trim(),
+        group_url: String(data?.footer_links?.group_url || "").trim(),
+      });
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   const set = (key: keyof NoticeFormData, value: unknown) =>
@@ -249,6 +282,126 @@ export default function NoticeFormDialog({ open, onOpenChange, notice, onSubmit 
               </Button>
               <Button type="button" onClick={handleApplyCrop} disabled={cropping || !cropSrc}>
                 {cropping ? "Processing…" : "Apply crop"}
+              </Button>
+            </div>
+          </>
+        )}
+
+        {/* ── EMAIL PREVIEW VIEW ──────────────────────────────────────────── */}
+        {view === "preview" && (
+          <>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setView("form")}
+                  className="rounded p-0.5 hover:bg-muted transition-colors"
+                  aria-label="Back to form"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                </button>
+                Notice Email Preview
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-4 rounded-xl border bg-muted/20 p-4 sm:p-5">
+              <div
+                className={`rounded-lg border px-4 py-3 ${
+                  form.urgent
+                    ? "border-destructive/40 bg-destructive/10"
+                    : "border-emerald-400/50 bg-emerald-50/80"
+                }`}
+              >
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  HPC Alumni Association
+                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <span
+                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                      form.urgent
+                        ? "bg-destructive/20 text-destructive"
+                        : "bg-emerald-200 text-emerald-800"
+                    }`}
+                  >
+                    {form.urgent ? <AlertTriangle className="h-3 w-3" /> : null}
+                    {form.urgent ? "Urgent Notice" : "Official Notice"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="rounded-xl border bg-background p-4 sm:p-5">
+                <p className="text-sm text-muted-foreground">Dear Alumni Member,</p>
+                <h3 className="mt-2 text-3xl font-bold tracking-tight text-foreground">
+                  {form.title.trim() || "Your notice title will appear here"}
+                </h3>
+                {form.summary.trim() ? (
+                  <p className="mt-3 text-base leading-relaxed text-foreground/90">{form.summary}</p>
+                ) : (
+                  <p className="mt-3 text-sm text-muted-foreground">Add a short summary for stronger email hierarchy.</p>
+                )}
+
+                {form.content.trim() ? (
+                  <div
+                    className={`mt-4 whitespace-pre-wrap rounded-md border-l-4 bg-emerald-50/80 p-3 pl-4 text-[15px] leading-relaxed text-foreground ${
+                      form.urgent ? "border-destructive/60" : "border-emerald-500/70"
+                    }`}
+                  >
+                    {form.content}
+                  </div>
+                ) : (
+                  <p className="mt-4 text-sm text-muted-foreground">Main notice content will appear here.</p>
+                )}
+
+                {form.external_link.trim() ? (
+                  <div className="mt-5">
+                    <a
+                      href={form.external_link}
+                      target="_blank"
+                      rel="noreferrer"
+                      className={`inline-flex items-center rounded-md px-4 py-2 text-sm font-semibold text-white ${
+                        form.urgent ? "bg-destructive hover:bg-destructive/90" : "bg-emerald-700 hover:bg-emerald-800"
+                      }`}
+                    >
+                      View Full Notice
+                    </a>
+                  </div>
+                ) : null}
+
+                <div className="mt-6 border-t pt-4 text-xs text-muted-foreground">
+                  <p>This is an official communication from HPC Alumni Association.</p>
+                  <p className="mt-1 font-semibold text-foreground">
+                    Sent by {previewPresidentName || "President"}, President
+                  </p>
+                  <div className="mt-2 flex flex-wrap items-center gap-3">
+                    {previewFooterLinks.website_url ? (
+                      <a href={previewFooterLinks.website_url} target="_blank" rel="noreferrer" className="text-emerald-700">
+                        🌐 Website
+                      </a>
+                    ) : (
+                      <span className="text-emerald-700">🌐 Website</span>
+                    )}
+                    {previewFooterLinks.facebook_url ? (
+                      <a href={previewFooterLinks.facebook_url} target="_blank" rel="noreferrer" className="text-blue-700">
+                        📘 Facebook
+                      </a>
+                    ) : (
+                      <span className="text-blue-700">📘 Facebook</span>
+                    )}
+                    {previewFooterLinks.group_url ? (
+                      <a href={previewFooterLinks.group_url} target="_blank" rel="noreferrer" className="text-purple-700">
+                        👥 Alumni Group
+                      </a>
+                    ) : (
+                      <span className="text-purple-700">👥 Alumni Group</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setView("form")}>
+                Back to Edit
               </Button>
             </div>
           </>
@@ -439,6 +592,9 @@ export default function NoticeFormDialog({ open, onOpenChange, notice, onSubmit 
 
               {/* Actions */}
               <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" variant="outline" onClick={() => setView("preview")} className="gap-1.5">
+                  <Eye className="w-4 h-4" /> Email Preview
+                </Button>
                 <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
                 <Button onClick={handleSubmit} disabled={saving || !form.title.trim()}>
                   {saving ? "Saving..." : notice ? "Update Notice" : "Create Notice"}

@@ -53,6 +53,12 @@ const env = {
     from: process.env.SMTP_FROM,
   },
 
+  noticeFooter: {
+    websiteUrl: String(process.env.NOTICE_FOOTER_WEBSITE_URL || "").trim(),
+    facebookUrl: String(process.env.NOTICE_FOOTER_FACEBOOK_URL || "").trim(),
+    groupUrl: String(process.env.NOTICE_FOOTER_GROUP_URL || "").trim(),
+  },
+
   google: {
     clientId: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,

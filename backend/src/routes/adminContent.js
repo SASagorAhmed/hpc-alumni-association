@@ -6,10 +6,34 @@ const { ensureProfileBirthdayColumn } = require("../utils/ensureProfileBirthdayC
 const { ensureProfileNicknameUniShortColumns } = require("../utils/ensureProfileNicknameUniShortColumns");
 const { getOrCreatePool } = require("../db/pool");
 const { requireAuth, verifyJwt } = require("../auth/jwt");
+const env = require("../config/env");
 const cloudinary = require("../config/cloudinary");
 const { getCloudinaryFolder } = require("../utils/uploadFolders");
+const { sendNoticeEmailForPublishedNotice } = require("../notices/emailSender");
+const { ensureNoticeEmailCampaignTables } = require("../utils/ensureNoticeEmailCampaignTables");
+const { ensureNoticeEmailTemplateTable } = require("../utils/ensureNoticeEmailTemplateTable");
+const { listRecipientsWithEligibility, normalizeFilterInput, listFilterOptions } = require("../notices/recipientFilters");
+const {
+  createCampaign,
+  insertCampaignRecipients,
+  getCampaignById,
+  listCampaignHistory,
+  listCampaignRecipients,
+} = require("../notices/campaignRepository");
+const { getQuotaSnapshot } = require("../notices/quotaManager");
+const { startCampaignDispatchInBackground } = require("../notices/campaignDispatcher");
+const { resolveCurrentPresidentName } = require("../notices/presidentResolver");
+const {
+  getNoticeEmailTemplateConfig,
+  saveNoticeEmailTemplateConfig,
+  resetNoticeEmailTemplateConfig,
+} = require("../notices/emailTemplateConfig");
 
 const router = express.Router();
+
+function noticeEmailCampaignsEnabled() {
+  return String(process.env.NOTICE_EMAIL_CAMPAIGNS_ENABLED || "1").trim() === "1";
+}
 
 function extractCloudinaryPublicIdFromUrl(url) {
   if (!url || typeof url !== "string") return null;
@@ -1330,13 +1354,90 @@ router.get("/notices", requireAuth, async (req, res) => {
   }
 });
 
+router.get("/notices/email-preview-context", requireAuth, async (req, res) => {
+  try {
+    const pool = await withAdmin(req, res);
+    if (!pool) return;
+    const presidentName = await resolveCurrentPresidentName(pool);
+    return res.status(200).json({
+      ok: true,
+      president_name: presidentName || "",
+      footer_links: {
+        website_url: env.noticeFooter?.websiteUrl || "",
+        facebook_url: env.noticeFooter?.facebookUrl || "",
+        group_url: env.noticeFooter?.groupUrl || "",
+      },
+    });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message || "Failed to load email preview context" });
+  }
+});
+
+router.get("/notices/email-template-config", requireAuth, async (req, res) => {
+  try {
+    const pool = await withAdmin(req, res);
+    if (!pool) return;
+    await ensureNoticeEmailTemplateTable(pool);
+    const config = await getNoticeEmailTemplateConfig(pool);
+    return res.status(200).json({ ok: true, config });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message || "Failed to load email template config" });
+  }
+});
+
+router.put("/notices/email-template-config", requireAuth, async (req, res) => {
+  try {
+    const pool = await withAdmin(req, res);
+    if (!pool) return;
+    await ensureNoticeEmailTemplateTable(pool);
+    const config = await saveNoticeEmailTemplateConfig(pool, req.body || {}, req.auth?.userId || null);
+    return res.status(200).json({ ok: true, config });
+  } catch (e) {
+    const status = Number(e?.statusCode || 500);
+    return res.status(status).json({ ok: false, error: e.message || "Failed to save email template config" });
+  }
+});
+
+router.post("/notices/email-template-config/reset", requireAuth, async (req, res) => {
+  try {
+    const pool = await withAdmin(req, res);
+    if (!pool) return;
+    await ensureNoticeEmailTemplateTable(pool);
+    const config = await resetNoticeEmailTemplateConfig(pool, req.auth?.userId || null);
+    return res.status(200).json({ ok: true, config });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message || "Failed to reset email template config" });
+  }
+});
+
 router.post("/notices", requireAuth, async (req, res) => {
   try {
     const pool = await withAdmin(req, res);
     if (!pool) return;
     const id = uuidv4();
-    await pool.query("INSERT INTO notices SET ?", [{ id, ...req.body, created_by: req.auth.userId }]);
-    res.status(201).json({ ok: true, id });
+    const payload = { id, ...req.body, created_by: req.auth.userId };
+    await pool.query("INSERT INTO notices SET ?", [payload]);
+
+    let notice_email_dispatch = null;
+    if (Boolean(payload?.published)) {
+      try {
+        notice_email_dispatch = await sendNoticeEmailForPublishedNotice({
+          pool,
+          notice: {
+            ...payload,
+            created_at: new Date().toISOString(),
+          },
+        });
+      } catch (dispatchErr) {
+        notice_email_dispatch = {
+          ok: false,
+          skipped: false,
+          reason: dispatchErr?.message || "notice email dispatch failed",
+        };
+      }
+    }
+
+    res.status(201).json({ ok: true, id, notice_email_dispatch });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message || "Failed to create notice" });
   }
@@ -1346,7 +1447,7 @@ router.put("/notices/:id", requireAuth, async (req, res) => {
   try {
     const pool = await withAdmin(req, res);
     if (!pool) return;
-    const [existingRows] = await pool.query("SELECT image_url FROM notices WHERE id = ? LIMIT 1", [req.params.id]);
+    const [existingRows] = await pool.query("SELECT * FROM notices WHERE id = ? LIMIT 1", [req.params.id]);
     const existing = existingRows?.[0] || null;
     const hadImage = Object.prototype.hasOwnProperty.call(req.body || {}, "image_url");
     const nextImageUrl = hadImage ? nullableTrim(req.body?.image_url) : existing?.image_url;
@@ -1354,9 +1455,309 @@ router.put("/notices/:id", requireAuth, async (req, res) => {
     if (hadImage && existing?.image_url && existing.image_url !== nextImageUrl) {
       await deleteCloudinaryImageByUrl(existing.image_url);
     }
-    res.status(200).json({ ok: true });
+
+    let notice_email_dispatch = null;
+    const isNewlyPublished = !Boolean(existing?.published) && Boolean(req.body?.published);
+    if (isNewlyPublished) {
+      try {
+        notice_email_dispatch = await sendNoticeEmailForPublishedNotice({
+          pool,
+          notice: {
+            ...existing,
+            ...req.body,
+            id: req.params.id,
+          },
+        });
+      } catch (dispatchErr) {
+        notice_email_dispatch = {
+          ok: false,
+          skipped: false,
+          reason: dispatchErr?.message || "notice email dispatch failed",
+        };
+      }
+    }
+
+    res.status(200).json({ ok: true, notice_email_dispatch });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message || "Failed to update notice" });
+  }
+});
+
+router.post("/notices/:id/email-campaigns/preview-recipients", requireAuth, async (req, res) => {
+  try {
+    if (!noticeEmailCampaignsEnabled()) {
+      return res.status(403).json({ ok: false, error: "Notice email campaigns are disabled" });
+    }
+    const pool = await withAdmin(req, res);
+    if (!pool) return;
+    await ensureNoticeEmailCampaignTables(pool);
+    const filters = normalizeFilterInput(req.body || {});
+    const { recipients, summary, normalizedFilter } = await listRecipientsWithEligibility(pool, filters);
+    const quota = await getQuotaSnapshot(pool, {
+      limit: Number(process.env.NOTICE_EMAIL_DAILY_LIMIT || 300),
+    });
+
+    return res.status(200).json({
+      ok: true,
+      filter: normalizedFilter,
+      summary,
+      quota,
+      sendable_now: Math.min(summary.total_eligible_verified, quota.remaining_count),
+      queued_for_next_day: Math.max(summary.total_eligible_verified - quota.remaining_count, 0),
+      eligible_recipients: recipients
+        .filter((r) => r.eligible)
+        .map((r) => ({
+          user_id: r.user_id,
+          name: r.name,
+          email: r.email,
+          photo: r.photo || "",
+        })),
+    });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message || "Failed to preview recipients" });
+  }
+});
+
+router.get("/notices/email-campaigns/filter-options", requireAuth, async (req, res) => {
+  try {
+    if (!noticeEmailCampaignsEnabled()) {
+      return res.status(403).json({ ok: false, error: "Notice email campaigns are disabled" });
+    }
+    const pool = await withAdmin(req, res);
+    if (!pool) return;
+    await ensureNoticeEmailCampaignTables(pool);
+    const options = await listFilterOptions(pool);
+    return res.status(200).json({ ok: true, options });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message || "Failed to load filter options" });
+  }
+});
+
+router.post("/notices/:id/email-campaigns", requireAuth, async (req, res) => {
+  try {
+    if (!noticeEmailCampaignsEnabled()) {
+      return res.status(403).json({ ok: false, error: "Notice email campaigns are disabled" });
+    }
+    const pool = await withAdmin(req, res);
+    if (!pool) return;
+    await ensureNoticeEmailCampaignTables(pool);
+
+    const noticeId = req.params.id;
+    const [noticeRows] = await pool.query("SELECT id FROM notices WHERE id = ? LIMIT 1", [noticeId]);
+    if (!noticeRows?.length) return res.status(404).json({ ok: false, error: "Notice not found" });
+
+    const filters = normalizeFilterInput(req.body || {});
+    const { recipients, summary, normalizedFilter } = await listRecipientsWithEligibility(pool, filters);
+    const quota = await getQuotaSnapshot(pool, {
+      limit: Number(process.env.NOTICE_EMAIL_DAILY_LIMIT || 300),
+    });
+
+    const selectedInput = Array.isArray(req.body?.selected_recipients) ? req.body.selected_recipients : [];
+    const selectedKeys = new Set(
+      selectedInput
+        .map((r) => ({
+          user_id: String(r?.user_id || "").trim(),
+          email: String(r?.email || "").trim().toLowerCase(),
+        }))
+        .filter((r) => r.user_id && r.email)
+        .map((r) => `${r.user_id}::${r.email}`)
+    );
+
+    const eligibleRecipients = recipients.filter((r) => r.eligible);
+    const scopedEligibleRecipients =
+      selectedKeys.size > 0
+        ? eligibleRecipients.filter((r) => selectedKeys.has(`${String(r.user_id || "").trim()}::${String(r.email || "").trim().toLowerCase()}`))
+        : eligibleRecipients;
+
+    const campaignSummary =
+      selectedKeys.size > 0
+        ? {
+            total_selected: scopedEligibleRecipients.length,
+            total_eligible_verified: scopedEligibleRecipients.length,
+            excluded_unverified: 0,
+            excluded_missing_email: 0,
+          }
+        : summary;
+
+    const campaignId = await createCampaign(pool, {
+      notice_id: noticeId,
+      created_by: req.auth.userId,
+      status: "queued",
+      include_admins: normalizedFilter.include_admins,
+      send_mode: normalizedFilter.send_mode,
+      filter_snapshot_json: normalizedFilter,
+      total_selected: campaignSummary.total_selected,
+      total_eligible_verified: campaignSummary.total_eligible_verified,
+      pending_count: campaignSummary.total_eligible_verified,
+      skipped_count: campaignSummary.excluded_missing_email + campaignSummary.excluded_unverified,
+      daily_limit: Number(quota.limit_count || 300),
+      quota_available_at_start: Number(quota.remaining_count || 0),
+    });
+
+    const recipientsToInsert = selectedKeys.size > 0 ? scopedEligibleRecipients : recipients;
+    await insertCampaignRecipients(
+      pool,
+      recipientsToInsert.map((r) => ({
+        campaign_id: campaignId,
+        notice_id: noticeId,
+        user_id: r.user_id,
+        email: r.email || `${r.user_id}@invalid.local`,
+        status: r.eligible ? "pending" : "skipped",
+        failed_reason: r.hasEmail ? (r.verified ? null : "unverified") : "missing_email",
+      }))
+    );
+
+    return res.status(201).json({
+      ok: true,
+      campaign_id: campaignId,
+      summary: campaignSummary,
+      quota,
+      sendable_now: Math.min(scopedEligibleRecipients.length, quota.remaining_count),
+      queued_for_next_day: Math.max(scopedEligibleRecipients.length - quota.remaining_count, 0),
+    });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message || "Failed to create email campaign" });
+  }
+});
+
+router.post("/notices/:id/email-campaigns/:campaignId/start", requireAuth, async (req, res) => {
+  try {
+    if (!noticeEmailCampaignsEnabled()) {
+      return res.status(403).json({ ok: false, error: "Notice email campaigns are disabled" });
+    }
+    const pool = await withAdmin(req, res);
+    if (!pool) return;
+    await ensureNoticeEmailCampaignTables(pool);
+
+    const campaign = await getCampaignById(pool, req.params.campaignId);
+    if (!campaign || String(campaign.notice_id) !== String(req.params.id)) {
+      return res.status(404).json({ ok: false, error: "Campaign not found" });
+    }
+
+    startCampaignDispatchInBackground(pool, campaign.id, { includeQueued: false });
+    return res.status(200).json({ ok: true, campaign_id: campaign.id, status: "sending" });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message || "Failed to start campaign" });
+  }
+});
+
+router.get("/notices/:id/email-campaigns/:campaignId/status", requireAuth, async (req, res) => {
+  try {
+    if (!noticeEmailCampaignsEnabled()) {
+      return res.status(403).json({ ok: false, error: "Notice email campaigns are disabled" });
+    }
+    const pool = await withAdmin(req, res);
+    if (!pool) return;
+    await ensureNoticeEmailCampaignTables(pool);
+
+    const campaign = await getCampaignById(pool, req.params.campaignId);
+    if (!campaign || String(campaign.notice_id) !== String(req.params.id)) {
+      return res.status(404).json({ ok: false, error: "Campaign not found" });
+    }
+
+    const quota = await getQuotaSnapshot(pool, {
+      limit: Number(campaign.daily_limit || process.env.NOTICE_EMAIL_DAILY_LIMIT || 300),
+    });
+    const [statusCounts] = await pool.query(
+      `SELECT status, COUNT(*) AS c
+       FROM notice_email_recipients
+       WHERE campaign_id = ?
+       GROUP BY status`,
+      [campaign.id]
+    );
+
+    const grouped = Object.fromEntries((statusCounts || []).map((r) => [r.status, Number(r.c || 0)]));
+    return res.status(200).json({ ok: true, campaign, quota, grouped });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message || "Failed to load campaign status" });
+  }
+});
+
+router.post("/notices/:id/email-campaigns/:campaignId/continue-pending", requireAuth, async (req, res) => {
+  try {
+    if (!noticeEmailCampaignsEnabled()) {
+      return res.status(403).json({ ok: false, error: "Notice email campaigns are disabled" });
+    }
+    const pool = await withAdmin(req, res);
+    if (!pool) return;
+    await ensureNoticeEmailCampaignTables(pool);
+    const campaign = await getCampaignById(pool, req.params.campaignId);
+    if (!campaign || String(campaign.notice_id) !== String(req.params.id)) {
+      return res.status(404).json({ ok: false, error: "Campaign not found" });
+    }
+    await pool.query(
+      `UPDATE notice_email_recipients
+       SET status = 'pending', failed_reason = NULL
+       WHERE campaign_id = ?
+         AND status = 'queued_next_day'`,
+      [campaign.id]
+    );
+    startCampaignDispatchInBackground(pool, campaign.id, { includeQueued: true });
+    return res.status(200).json({ ok: true, campaign_id: campaign.id, status: "sending" });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message || "Failed to continue pending recipients" });
+  }
+});
+
+router.post("/notices/:id/email-campaigns/:campaignId/resend-failed", requireAuth, async (req, res) => {
+  try {
+    if (!noticeEmailCampaignsEnabled()) {
+      return res.status(403).json({ ok: false, error: "Notice email campaigns are disabled" });
+    }
+    const pool = await withAdmin(req, res);
+    if (!pool) return;
+    await ensureNoticeEmailCampaignTables(pool);
+    const campaign = await getCampaignById(pool, req.params.campaignId);
+    if (!campaign || String(campaign.notice_id) !== String(req.params.id)) {
+      return res.status(404).json({ ok: false, error: "Campaign not found" });
+    }
+    await pool.query(
+      `UPDATE notice_email_recipients
+       SET status = 'pending', failed_reason = NULL
+       WHERE campaign_id = ?
+         AND status = 'failed'`,
+      [campaign.id]
+    );
+    startCampaignDispatchInBackground(pool, campaign.id, { includeQueued: false });
+    return res.status(200).json({ ok: true, campaign_id: campaign.id, status: "sending" });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message || "Failed to resend failed recipients" });
+  }
+});
+
+router.get("/notices/:id/email-campaigns/:campaignId/recipients", requireAuth, async (req, res) => {
+  try {
+    if (!noticeEmailCampaignsEnabled()) {
+      return res.status(403).json({ ok: false, error: "Notice email campaigns are disabled" });
+    }
+    const pool = await withAdmin(req, res);
+    if (!pool) return;
+    await ensureNoticeEmailCampaignTables(pool);
+    const campaign = await getCampaignById(pool, req.params.campaignId);
+    if (!campaign || String(campaign.notice_id) !== String(req.params.id)) {
+      return res.status(404).json({ ok: false, error: "Campaign not found" });
+    }
+    const status = String(req.query.status || "").trim();
+    const rows = await listCampaignRecipients(pool, campaign.id, status || undefined);
+    return res.status(200).json({ ok: true, recipients: rows });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message || "Failed to load campaign recipients" });
+  }
+});
+
+router.get("/notices/email-campaigns/history", requireAuth, async (req, res) => {
+  try {
+    if (!noticeEmailCampaignsEnabled()) {
+      return res.status(403).json({ ok: false, error: "Notice email campaigns are disabled" });
+    }
+    const pool = await withAdmin(req, res);
+    if (!pool) return;
+    await ensureNoticeEmailCampaignTables(pool);
+    const limit = Number(req.query.limit || 50);
+    const rows = await listCampaignHistory(pool, Math.min(Math.max(limit, 1), 200));
+    return res.status(200).json({ ok: true, rows });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message || "Failed to load campaign history" });
   }
 });
 
