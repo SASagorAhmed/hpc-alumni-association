@@ -425,7 +425,11 @@ type NotificationDropdownProps = {
 const NotificationDropdown = ({ compact }: NotificationDropdownProps) => {
   const [open, setOpen] = useState(false);
   const [badgeCount, setBadgeCount] = useState(0);
-  const [panelStyle, setPanelStyle] = useState<{ top: number; right: number }>({ top: 0, right: 12 });
+  const [panelStyle, setPanelStyle] = useState<{ top: number; left: number; maxHeight: number }>({
+    top: 0,
+    left: 8,
+    maxHeight: 360,
+  });
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -474,12 +478,48 @@ const NotificationDropdown = ({ compact }: NotificationDropdownProps) => {
   }, [refreshBadge]);
 
   const updatePanelPosition = useCallback(() => {
-    const el = triggerRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    setPanelStyle({
-      top: rect.bottom + 8,
-      right: Math.max(8, window.innerWidth - rect.right),
+    const trigger = triggerRef.current;
+    if (!trigger) return;
+    const rect = trigger.getBoundingClientRect();
+    const panel = panelRef.current;
+    const viewportW = window.innerWidth;
+    const viewportH = window.innerHeight;
+    const margin = 8;
+    const gap = 8;
+    const minUsableHeight = 140;
+
+    const fallbackWidth = Math.min(384, Math.max(220, viewportW - margin * 2));
+    const panelWidth = panel?.offsetWidth ?? fallbackWidth;
+    const panelHeight = panel?.offsetHeight ?? 320;
+
+    // Default: align panel's right edge to trigger's right edge.
+    let left = rect.right - panelWidth;
+    const maxLeft = Math.max(margin, viewportW - margin - panelWidth);
+    left = Math.min(Math.max(left, margin), maxLeft);
+
+    // Prefer dropdown below trigger, then flip above if space is too tight.
+    let top = rect.bottom + gap;
+    const availableBelow = viewportH - margin - top;
+    const availableAbove = rect.top - gap - margin;
+    let maxHeight = Math.max(minUsableHeight, availableBelow);
+
+    if (availableBelow < minUsableHeight && availableAbove > availableBelow) {
+      maxHeight = Math.max(minUsableHeight, availableAbove);
+      top = Math.max(margin, rect.top - gap - Math.min(panelHeight, maxHeight));
+    }
+
+    const viewportMaxHeight = Math.max(minUsableHeight, viewportH - margin * 2);
+    maxHeight = Math.min(maxHeight, viewportMaxHeight);
+
+    setPanelStyle((prev) => {
+      if (
+        Math.abs(prev.top - top) < 0.5 &&
+        Math.abs(prev.left - left) < 0.5 &&
+        Math.abs(prev.maxHeight - maxHeight) < 0.5
+      ) {
+        return prev;
+      }
+      return { top, left, maxHeight };
     });
   }, []);
 
@@ -488,11 +528,17 @@ const NotificationDropdown = ({ compact }: NotificationDropdownProps) => {
     updatePanelPosition();
     window.addEventListener("scroll", updatePanelPosition, true);
     window.addEventListener("resize", updatePanelPosition);
+    window.addEventListener("orientationchange", updatePanelPosition);
+    const resizeObserver = new ResizeObserver(() => updatePanelPosition());
+    if (panelRef.current) resizeObserver.observe(panelRef.current);
+    if (triggerRef.current) resizeObserver.observe(triggerRef.current);
     return () => {
       window.removeEventListener("scroll", updatePanelPosition, true);
       window.removeEventListener("resize", updatePanelPosition);
+      window.removeEventListener("orientationchange", updatePanelPosition);
+      resizeObserver.disconnect();
     };
-  }, [open, updatePanelPosition]);
+  }, [open, updatePanelPosition, isAdmin]);
 
   useEffect(() => {
     if (!open) return;
@@ -529,7 +575,8 @@ const NotificationDropdown = ({ compact }: NotificationDropdownProps) => {
         style={{
           position: "fixed",
           top: panelStyle.top,
-          right: panelStyle.right,
+          left: panelStyle.left,
+          maxHeight: panelStyle.maxHeight,
           zIndex: 9999,
         }}
         className="w-[min(100vw-1rem,24rem)] overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-xl sm:w-96"
