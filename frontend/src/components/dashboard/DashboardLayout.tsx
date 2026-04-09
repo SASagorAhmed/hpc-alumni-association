@@ -145,7 +145,7 @@ const SidebarContent = ({
         ))}
       </ul>
     </nav>
-    <div className="sticky bottom-0 mt-auto border-t border-border bg-sidebar px-3 py-3">
+    <div className="mt-auto shrink-0 border-t border-border bg-sidebar px-3 py-3">
       <button
         onClick={() => { logout(); onNavigate?.(); }}
         className="flex items-center gap-2 px-2.5 py-2 sm:gap-2.5 sm:px-3 sm:py-2.5 rounded-lg text-[12px] sm:text-[13px] lg:text-[14px] font-medium bg-red-600 text-white hover:bg-red-700 transition-colors w-full"
@@ -246,11 +246,11 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
       {/* Fixed Sidebar */}
       <aside
-        className={`fixed top-0 left-0 z-50 flex h-screen flex-col overflow-hidden border-r border-border/80 bg-sidebar transition-all duration-300 ease-in-out ${
+        className={`fixed top-0 left-0 z-50 flex h-[100dvh] max-h-[100dvh] flex-col overflow-hidden border-r border-border/80 bg-sidebar transition-all duration-300 ease-in-out ${
           sidebarOpen ? "w-[55vw] lg:w-64" : "w-0"
         }`}
       >
-        <div className="h-full w-full min-w-0 flex flex-col">
+        <div className="h-full w-full min-h-0 min-w-0 flex flex-col">
           <SidebarContent
             menu={menu}
             isActive={isActive}
