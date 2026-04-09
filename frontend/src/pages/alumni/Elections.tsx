@@ -15,6 +15,7 @@ import { parseLiveResultSettings } from "@/components/elections/LiveResultSettin
 import LiveResultDisplay from "@/components/elections/LiveResultDisplay";
 import ElectionCountdown from "@/components/elections/ElectionCountdown";
 import { computeElectionStage } from "@/utils/electionStatus";
+import AutoRepairBoundary from "@/components/ui/AutoRepairBoundary";
 
 const Elections = () => {
   const { data: elections, isLoading } = useElections();
@@ -24,14 +25,16 @@ const Elections = () => {
   const visibleElections = elections?.filter(e => e.status !== "draft") || [];
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <div className="mx-auto w-full max-w-screen-2xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Elections</h1>
         <p className="text-sm text-muted-foreground">View and participate in alumni elections</p>
       </div>
 
       {selectedId ? (
-        <ElectionDetail electionId={selectedId} onBack={() => setSelectedId(null)} />
+        <AutoRepairBoundary title="Election detail">
+          <ElectionDetail electionId={selectedId} onBack={() => setSelectedId(null)} />
+        </AutoRepairBoundary>
       ) : isLoading ? (
         <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>
       ) : !visibleElections.length ? (
@@ -149,15 +152,16 @@ function ElectionDetail({ electionId, onBack }: { electionId: string; onBack: ()
           {posts?.map(post => {
             const postCandidates = candidates?.filter(c => c.post_id === post.id && c.status === "published") || [];
             return (
-              <LiveResultDisplay
-                key={post.id}
-                post={post}
-                candidates={postCandidates}
-                voteCounts={voteCounts.candidateCounts}
-                postTotal={voteCounts.postTotals[post.id] || 0}
-                settings={liveSettings}
-                isAdmin={false}
-              />
+              <AutoRepairBoundary key={post.id} title={`Live result: ${post.post_name}`}>
+                <LiveResultDisplay
+                  post={post}
+                  candidates={postCandidates}
+                  voteCounts={voteCounts.candidateCounts}
+                  postTotal={voteCounts.postTotals[post.id] || 0}
+                  settings={liveSettings}
+                  isAdmin={false}
+                />
+              </AutoRepairBoundary>
             );
           })}
         </div>

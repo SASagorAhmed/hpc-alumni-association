@@ -34,6 +34,9 @@ import { Label } from "@/components/ui/label";
 import { API_BASE_URL } from "@/api-production/api.js";
 import { getAuthToken } from "@/lib/authToken";
 import { primeJsonCache } from "@/lib/requestCache";
+import { queryClient } from "@/lib/queryClient";
+import { ACHIEVEMENT_BANNER_QUERY_KEY, fetchAchievementBannerData } from "@/hooks/useAchievementBannerData";
+import { fetchLandingContent, LANDING_CONTENT_QUERY_KEY } from "@/hooks/useLandingContent";
 import TopNoticeBar from "@/components/notices/TopNoticeBar";
 import ActiveElectionBanner from "@/components/elections/ActiveElectionBanner";
 import NotificationDropdown from "@/components/notifications/NotificationDropdown";
@@ -132,7 +135,9 @@ const SidebarContent = ({
           <li key={href}>
             <Link
               to={href}
-              onClick={onNavigate}
+              onClick={() => {
+                onNavigate?.();
+              }}
               onMouseEnter={() => onPrefetchRoute?.(href)}
               onFocus={() => onPrefetchRoute?.(href)}
               onTouchStart={() => onPrefetchRoute?.(href)}
@@ -243,6 +248,18 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   };
 
   const prefetchRoute = (href: string) => {
+    if (href === "/") {
+      void queryClient.prefetchQuery({
+        queryKey: LANDING_CONTENT_QUERY_KEY,
+        queryFn: fetchLandingContent,
+      });
+      void queryClient.prefetchQuery({
+        queryKey: ACHIEVEMENT_BANNER_QUERY_KEY,
+        queryFn: fetchAchievementBannerData,
+      });
+      return;
+    }
+
     const token = getAuthToken();
     if (!token) return;
     const headers = { Authorization: `Bearer ${token}` };
@@ -287,14 +304,14 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       {/* Backdrop for outside click */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/20 transition-opacity duration-300"
+          className="fixed inset-0 z-40 bg-black/20 transition-opacity duration-150 lg:duration-300"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       {/* Fixed Sidebar */}
       <aside
-        className={`fixed top-0 left-0 z-50 flex h-[100dvh] max-h-[100dvh] flex-col overflow-hidden border-r border-border/80 bg-sidebar transition-all duration-300 ease-in-out ${
+        className={`fixed top-0 left-0 z-50 flex h-[100dvh] max-h-[100dvh] flex-col overflow-hidden border-r border-border/80 bg-sidebar transition-all duration-150 lg:duration-300 ease-in-out ${
           sidebarOpen ? "w-[55vw] lg:w-64" : "w-0"
         }`}
       >
@@ -315,7 +332,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
       {/* Main wrapper: keep mobile as overlay (no push), keep desktop push for wide view */}
       <div
-        className={`flex min-h-screen flex-col transition-[margin] duration-300 ease-in-out ${
+        className={`flex min-h-screen flex-col transition-[margin] duration-150 lg:duration-300 ease-in-out ${
           sidebarOpen ? "ml-0 lg:ml-64" : "ml-0"
         }`}
       >
@@ -331,10 +348,10 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
               {!sidebarOpen && (
                 <button
                   onClick={() => setSidebarOpen(true)}
-                  className="rounded-md p-2 hover:bg-gray-900/10 sm:p-1 md:p-0.5"
+                  className="rounded-md p-2.5 hover:bg-gray-900/10 sm:p-2 md:p-1.5"
                   aria-label="Open menu"
                 >
-                  <Menu className="h-6 w-6 text-white sm:h-5 sm:w-5 md:h-3.5 md:w-3.5" />
+                  <Menu className="h-6 w-6 text-white sm:h-[22px] sm:w-[22px] md:h-5 md:w-5" />
                 </button>
               )}
               <h1 className="block max-w-[42vw] truncate text-[13px] font-semibold leading-tight text-white sm:max-w-none sm:text-[12px]">
@@ -368,23 +385,25 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                   iconClassName="!h-3 !w-3 !text-white"
                 />
               ) : null}
-              <div className="shrink-0">
-                <NotificationDropdown compact />
-              </div>
+              <AutoRepairBoundary title="Notifications" className="shrink-0">
+                <div className="shrink-0">
+                  <NotificationDropdown compact />
+                </div>
+              </AutoRepairBoundary>
 
               {/* Profile dropdown */}
               <div className="relative shrink-0">
                 <button
                   onClick={() => setProfileOpen(!profileOpen)}
-                  className="flex items-center gap-1 rounded px-1 py-0.5 hover:bg-white/10 transition-colors sm:gap-0.5 sm:px-0.5"
+                  className="flex items-center gap-1.5 rounded px-1.5 py-1 hover:bg-white/10 transition-colors sm:gap-1 sm:px-1"
                 >
-                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-white/20 sm:h-5 sm:w-5">
-                    <User className="h-3.5 w-3.5 text-white sm:h-2.5 sm:w-2.5" />
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-white/20 sm:h-6 sm:w-6">
+                    <User className="h-4 w-4 text-white sm:h-3.5 sm:w-3.5" />
                   </div>
-                  <span className="hidden max-w-[110px] truncate text-[11px] font-medium text-white sm:block sm:max-w-[92px] sm:text-[10px]">
+                  <span className="hidden max-w-[120px] truncate text-[12px] font-medium text-white sm:block sm:max-w-[100px] sm:text-[11px]">
                     {user?.name}
                   </span>
-                  <ChevronDown className="hidden h-3 w-3 text-white/60 sm:block sm:h-2 sm:w-2" />
+                  <ChevronDown className="hidden h-3.5 w-3.5 text-white/60 sm:block sm:h-3 sm:w-3" />
                 </button>
 
                 <AnimatePresence>
@@ -430,22 +449,26 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
               <button
                 type="button"
                 onClick={() => logout()}
-                className="shrink-0 rounded p-1 hover:bg-white/10 transition-colors sm:p-0.5"
+                className="shrink-0 rounded p-1.5 hover:bg-white/10 transition-colors sm:p-1"
                 title="Logout"
               >
-                <LogOut className="h-[18px] w-[18px] text-white sm:h-3.5 sm:w-3.5" />
+                <LogOut className="h-5 w-5 text-white sm:h-[18px] sm:w-[18px]" />
               </button>
             </div>
           </header>
 
           {/* Active Election Banner */}
-          <ActiveElectionBanner />
+          <AutoRepairBoundary title="Active election banner">
+            <ActiveElectionBanner />
+          </AutoRepairBoundary>
 
           {/* Top Notice Bar */}
-          <TopNoticeBar />
+          <AutoRepairBoundary title="Top notice bar">
+            <TopNoticeBar />
+          </AutoRepairBoundary>
 
           {/* Page Content */}
-          <main className="flex-1 p-4 lg:p-6">
+          <main className="flex-1 px-2.5 py-4 sm:px-3 lg:px-4 lg:py-6 xl:px-5">
             <AutoRepairBoundary title="Page content">
               {children ?? <Outlet />}
             </AutoRepairBoundary>

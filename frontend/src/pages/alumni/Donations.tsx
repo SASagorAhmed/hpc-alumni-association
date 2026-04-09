@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Bell } from "lucide-react";
 
 const Donations = () => (
-  <div className="max-w-6xl mx-auto space-y-6">
+  <div className="mx-auto w-full max-w-screen-2xl space-y-6">
     <div>
       <h1 className="text-2xl font-bold text-foreground">Donations</h1>
       <p className="text-sm text-muted-foreground">Active donation campaigns</p>

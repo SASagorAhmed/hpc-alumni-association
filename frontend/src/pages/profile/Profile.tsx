@@ -220,7 +220,7 @@ const Profile = () => {
   const set = (key: string, value: string) => setForm((f) => ({ ...f, [key]: value }));
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-0">
+    <div className="mx-auto w-full max-w-screen-2xl">
       {user?.profilePending && (
         <div className="mb-6 flex items-start gap-2 rounded-md border border-accent bg-accent/20 p-3 text-sm text-accent-foreground">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />

@@ -17,6 +17,7 @@ import ContactSection from "@/components/landing/ContactSection";
 import Footer from "@/components/landing/Footer";
 import { useLandingContent } from "@/hooks/useLandingContent";
 import { useLandingScrollRestoreOnRefresh } from "@/hooks/useLandingScrollRestoreOnRefresh";
+import AutoRepairBoundary from "@/components/ui/AutoRepairBoundary";
 
 const Index = () => {
   const { data: content } = useLandingContent();
@@ -35,8 +36,12 @@ const Index = () => {
         When no notice exists (returns null) there is zero extra space.
       */}
       <div className="pt-12">
-        <TopNoticeBar />
-        <AchievementBanner />
+        <AutoRepairBoundary title="Top notice bar">
+          <TopNoticeBar />
+        </AutoRepairBoundary>
+        <AutoRepairBoundary title="Achievement banner">
+          <AchievementBanner />
+        </AutoRepairBoundary>
       </div>
 
       <div className="landing-copy-scale min-w-0">
@@ -44,9 +49,15 @@ const Index = () => {
         <AboutSection content={content?.about} />
         <GoalsSection content={content?.goals} />
         <FeaturesTeaserSection content={content?.features} />
-        <CommitteeSection />
-        <AchievementsSection />
-        <NoticesSection content={content?.notices} />
+        <AutoRepairBoundary title="Committee section">
+          <CommitteeSection />
+        </AutoRepairBoundary>
+        <AutoRepairBoundary title="Achievements section">
+          <AchievementsSection />
+        </AutoRepairBoundary>
+        <AutoRepairBoundary title="Notices section">
+          <NoticesSection content={content?.notices} />
+        </AutoRepairBoundary>
         <MemoriesSection />
         <AcademicsSection content={content?.academics} />
         <CampusSection content={content?.campus} />

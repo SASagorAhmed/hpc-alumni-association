@@ -10,6 +10,7 @@ import AchievementsSection from "@/components/landing/AchievementsSection";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { API_BASE_URL } from "@/api-production/api.js";
+import { cachedJsonFetch } from "@/lib/requestCache";
 import { saveNavScrollRestore } from "@/lib/navScrollRestore";
 import AutoRepairBoundary from "@/components/ui/AutoRepairBoundary";
 
@@ -34,37 +35,56 @@ const AlumniDashboard = () => {
   const { user } = useAuth();
   const [notices, setNotices] = useState<Notice[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
+  const [dashboardLoading, setDashboardLoading] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
     const fetchData = async () => {
-      const [noticesRes, eventsRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/public/notices?limit=5`, { method: "GET" }),
-        fetch(`${API_BASE_URL}/api/public/events?status=published&limit=10`, { method: "GET" }),
-      ]);
+      // Avoid a full skeleton flash when cache resolves quickly.
+      const showLoadingTimer = window.setTimeout(() => {
+        if (!cancelled) setDashboardLoading(true);
+      }, 120);
+      try {
+        const [noticesData, eventsData] = await Promise.all([
+          cachedJsonFetch<Notice[]>({
+            cacheKey: "alumni:dashboard:notices",
+            url: `${API_BASE_URL}/api/public/notices?limit=5`,
+            ttlMs: 45_000,
+          }),
+          cachedJsonFetch<Event[]>({
+            cacheKey: "alumni:dashboard:events",
+            url: `${API_BASE_URL}/api/public/events?status=published&limit=10`,
+            ttlMs: 45_000,
+          }),
+        ]);
 
-      const noticesData = await noticesRes.json();
-      const eventsData = await eventsRes.json();
+        if (!cancelled && Array.isArray(noticesData)) setNotices(noticesData as Notice[]);
 
-      if (Array.isArray(noticesData)) setNotices(noticesData as Notice[]);
-
-      if (Array.isArray(eventsData)) {
-        const now = new Date();
-        const upcoming = (eventsData as Event[]).filter((e) => {
-          // Show event if end_time hasn't passed, or start_time hasn't passed, or event_date is today or future
-          const ref = e.start_time || e.event_date;
-          if (!ref) return true;
-          // Use end of day for event_date comparison
-          const refDate = new Date(ref);
-          return refDate >= now || (e.event_date && new Date(e.event_date).toDateString() === now.toDateString());
-        });
-        setEvents(upcoming.slice(0, 5));
+        if (!cancelled && Array.isArray(eventsData)) {
+          const now = new Date();
+          const upcoming = (eventsData as Event[]).filter((e) => {
+            // Show event if end_time hasn't passed, or start_time hasn't passed, or event_date is today or future
+            const ref = e.start_time || e.event_date;
+            if (!ref) return true;
+            // Use end of day for event_date comparison
+            const refDate = new Date(ref);
+            return refDate >= now || (e.event_date && new Date(e.event_date).toDateString() === now.toDateString());
+          });
+          setEvents(upcoming.slice(0, 5));
+        }
+      } finally {
+        window.clearTimeout(showLoadingTimer);
+        if (!cancelled) setDashboardLoading(false);
       }
     };
-    fetchData();
+    void fetchData();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="mx-auto w-full max-w-screen-2xl space-y-6">
         {/* Welcome */}
         <div>
           <h1 className="text-2xl font-bold text-foreground">Welcome back, {user?.name}!</h1>
@@ -79,14 +99,19 @@ const AlumniDashboard = () => {
 
         {/* Notices & Events */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card>
+          <Card className="overflow-hidden">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <Megaphone className="w-4 h-4 text-primary" /> Latest Notices
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              {notices.length > 0 ? (
+            <CardContent className="px-3.5 pb-3.5 sm:px-4 sm:pb-4">
+              {dashboardLoading ? (
+                <div className="space-y-3">
+                  <div className="h-20 animate-pulse rounded-lg border border-border bg-muted/35" />
+                  <div className="h-20 animate-pulse rounded-lg border border-border bg-muted/35" />
+                </div>
+              ) : notices.length > 0 ? (
                 <div className="space-y-3">
                   {notices.map((n) => (
                     <Link
@@ -115,14 +140,19 @@ const AlumniDashboard = () => {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="overflow-hidden">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <CalendarDays className="w-4 h-4 text-primary" /> Upcoming Events
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              {events.length > 0 ? (
+            <CardContent className="px-3.5 pb-3.5 sm:px-4 sm:pb-4">
+              {dashboardLoading ? (
+                <div className="space-y-3">
+                  <div className="h-20 animate-pulse rounded-lg border border-border bg-muted/35" />
+                  <div className="h-20 animate-pulse rounded-lg border border-border bg-muted/35" />
+                </div>
+              ) : events.length > 0 ? (
                 <div className="space-y-3">
                   {events.map((e) => (
                     <Link
@@ -159,35 +189,35 @@ const AlumniDashboard = () => {
         </div>
 
         {/* Achievement Banner Slider */}
-        <div className="rounded-2xl border border-border p-2 sm:p-2.5">
+        <div className="rounded-2xl border border-border p-0 overflow-hidden">
           <AutoRepairBoundary title="Achievement banner">
-            <AchievementBanner />
+            <AchievementBanner embedded />
           </AutoRepairBoundary>
         </div>
 
         {/* Executive Committee */}
-        <div className="rounded-2xl border border-border p-2 sm:p-2.5">
+        <div className="rounded-2xl border border-border p-0 overflow-hidden">
           <AutoRepairBoundary title="Committee section">
-            <CommitteeSection />
+            <CommitteeSection embedded />
           </AutoRepairBoundary>
         </div>
 
         {/* Achievements of Our Alumni */}
-        <div className="rounded-2xl border border-border p-2 sm:p-2.5">
+        <div className="rounded-2xl border border-border p-0 overflow-hidden">
           <AutoRepairBoundary title="Achievements section">
-            <AchievementsSection />
+            <AchievementsSection embedded />
           </AutoRepairBoundary>
         </div>
 
         {/* Election Status */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card>
+          <Card className="overflow-hidden">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <Vote className="w-4 h-4 text-primary" /> Election Status
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="px-3.5 pb-3.5 sm:px-4 sm:pb-4">
               <div className="h-32 rounded-lg bg-muted flex items-center justify-center">
                 <p className="text-sm text-muted-foreground">No active elections</p>
               </div>

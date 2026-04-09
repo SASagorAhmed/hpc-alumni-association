@@ -40,7 +40,7 @@ export default function TopNoticeBar() {
             : "bg-primary text-primary-foreground"
         }`}
       >
-        <div className="max-w-7xl mx-auto flex items-center justify-between px-4 py-2">
+        <div className="flex w-full items-center justify-between px-2.5 py-2 sm:px-3 lg:px-4">
           <Link
             to={`/notices/${notice.id}`}
             className="flex items-center gap-2 flex-1 min-w-0 hover:underline"

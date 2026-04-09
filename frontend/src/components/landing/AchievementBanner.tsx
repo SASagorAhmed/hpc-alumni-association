@@ -864,7 +864,7 @@ const DESIGN_W = 960;
 /** In stacked mode only: scale whole block when card width is below this (narrow 1–330 reference). */
 const NARROW_ZOOM_DESIGN_W = 330;
 
-const AchievementBanner = () => {
+const AchievementBanner = ({ embedded = false }: { embedded?: boolean }) => {
   const {
     data: bannerData,
     isLoading: bannerLoading,
@@ -1091,8 +1091,13 @@ const AchievementBanner = () => {
 
   return (
     <div className="w-full min-w-0 overflow-x-hidden bg-background" style={bannerThemeVars}>
-      <div className="layout-container min-w-0 pb-2 pt-2 sm:pb-2.5 sm:pt-2.5 md:pb-3 md:pt-3">
-        <div className="relative mx-auto flex w-full min-w-0 max-w-full items-center justify-center gap-2 overflow-x-hidden px-0.5 sm:gap-3 md:gap-3.5">
+      <div className={embedded ? "min-w-0 pb-0 pt-0" : "layout-container min-w-0 pb-2 pt-2 sm:pb-2.5 sm:pt-2.5 md:pb-3 md:pt-3"}>
+        <div
+          className={cn(
+            "relative mx-auto flex w-full min-w-0 max-w-full items-center justify-center overflow-x-hidden",
+            embedded ? "gap-0 px-0" : "gap-2 px-0.5 sm:gap-3 md:gap-3.5"
+          )}
+        >
         <div
           className="@container/achievement-banner hpc-banner-typography-root relative flex min-w-0 w-full flex-1 max-w-full flex-col overflow-hidden rounded-xl border border-border/90 bg-background shadow-md ring-1 ring-border/40"
           onMouseEnter={() => setIsPaused(true)}

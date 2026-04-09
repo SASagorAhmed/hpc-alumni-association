@@ -946,8 +946,8 @@
     line-height: 1.2;
   }
   .nav-icon-trigger {
-    width: clamp(1.2rem, 1.08rem + 0.34vw, 1.45rem);
-    height: clamp(1.2rem, 1.08rem + 0.34vw, 1.45rem);
+    width: clamp(1.35rem, 1.2rem + 0.4vw, 1.65rem);
+    height: clamp(1.35rem, 1.2rem + 0.4vw, 1.65rem);
   }
   .nav-icon-inline {
     width: clamp(0.9rem, 0.84rem + 0.2vw, 1.05rem);

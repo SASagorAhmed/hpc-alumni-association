@@ -551,19 +551,19 @@ const NotificationDropdown = ({ compact }: NotificationDropdownProps) => {
         onClick={() => setOpen((prev) => !prev)}
         className={cn(
           "relative rounded-md transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50",
-          compact ? "p-0.5" : "p-2",
+          compact ? "p-1" : "p-2",
           badgeCount > 0 && "ring-2 ring-amber-400/90 ring-offset-2 ring-offset-black/40"
         )}
         title={badgeCount > 0 ? `Notifications — ${badgeCount} unread` : "Notifications"}
         aria-label={badgeCount > 0 ? `Notifications, ${badgeCount} unread` : "Notifications, no unread"}
       >
-        <Bell className={cn("shrink-0 text-white drop-shadow-sm", compact ? "h-3.5 w-3.5" : "h-5 w-5")} />
+        <Bell className={cn("shrink-0 text-white drop-shadow-sm", compact ? "h-[18px] w-[18px]" : "h-5 w-5")} />
         {badgeCount > 0 ? (
           <span
             className={cn(
               "absolute flex items-center justify-center rounded-full bg-destructive font-bold text-destructive-foreground shadow-md ring-2 ring-white/30",
               compact
-                ? "-right-px -top-px h-3.5 min-w-3.5 px-0.5 text-[8px] leading-none"
+                ? "-right-1 -top-1 h-4 min-w-4 px-0.5 text-[9px] leading-none"
                 : "-right-0.5 -top-0.5 min-h-[18px] min-w-[18px] px-1 text-[10px]"
             )}
           >

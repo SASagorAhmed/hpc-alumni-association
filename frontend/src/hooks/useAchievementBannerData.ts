@@ -28,6 +28,32 @@ export interface AchievementBannerSettings {
   banner_theme?: "default" | "theme2" | "theme3";
 }
 
+const warnedInvalidDateKeys = new Set<string>();
+
+function parseAchievementWindowDate(
+  raw: string | null | undefined,
+  field: "start_date" | "end_date",
+  id: string
+): number | null {
+  const value = raw?.trim();
+  if (!value) return null;
+  const ms = Date.parse(value);
+  if (Number.isFinite(ms)) return ms;
+  if (import.meta.env.DEV) {
+    const key = `${id}:${field}:${value}`;
+    if (!warnedInvalidDateKeys.has(key)) {
+      warnedInvalidDateKeys.add(key);
+      // Keep this warning dev-only to avoid noisy production logs.
+      console.warn(`[achievement-banner] Ignoring item with invalid ${field}:`, {
+        id,
+        field,
+        value,
+      });
+    }
+  }
+  return Number.NaN;
+}
+
 /** MySQL / JSON may send 0/1; ignore error-shaped bodies */
 function normalizeAchievementSettings(raw: unknown): AchievementBannerSettings | null {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
@@ -80,10 +106,20 @@ export async function fetchAchievementBannerData(): Promise<{
   const achData = achRes.ok ? await achRes.json().catch(() => []) : [];
   let achievements: Achievement[] = [];
   if (Array.isArray(achData)) {
-    const now = new Date().toISOString();
+    const nowMs = Date.now();
     const filtered = (achData as Achievement[]).filter((a) => {
-      if (a.start_date && a.start_date > now) return false;
-      if (a.end_date && a.end_date < now) return false;
+      const startMs = parseAchievementWindowDate(a.start_date, "start_date", a.id);
+      if (startMs !== null) {
+        if (!Number.isFinite(startMs)) return false;
+        // Inclusive start boundary.
+        if (nowMs < startMs) return false;
+      }
+      const endMs = parseAchievementWindowDate(a.end_date, "end_date", a.id);
+      if (endMs !== null) {
+        if (!Number.isFinite(endMs)) return false;
+        // Hide strictly after end boundary.
+        if (nowMs > endMs) return false;
+      }
       return true;
     });
     const eff = settings;
@@ -99,7 +135,9 @@ export function useAchievementBannerData(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ACHIEVEMENT_BANNER_QUERY_KEY,
     queryFn: fetchAchievementBannerData,
-    staleTime: 1000 * 60 * 5,
+    staleTime: 1000 * 30,
+    refetchInterval: 1000 * 60,
+    refetchIntervalInBackground: true,
     enabled: options?.enabled !== false,
   });
 }

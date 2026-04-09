@@ -6,6 +6,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdminViewAsAlumni } from "@/contexts/AdminViewAsAlumniContext";
 import { cn } from "@/lib/utils";
+import { getAuthToken } from "@/lib/authToken";
+import { primeJsonCache } from "@/lib/requestCache";
 import hpcLogo from "@/assets/hpc-logo.png";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import type { StructuredCommitteePayload } from "@/components/committee/StructuredCommitteeDisplay";
@@ -356,6 +358,7 @@ const Navbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const showThemeToggle = false; // Keep code for later; hidden for now.
+  const isLandingRoute = location.pathname === "/";
 
   const { data: committeeStructured } = useQuery({
     queryKey: ["committee-active-public"],
@@ -366,7 +369,9 @@ const Navbar = () => {
       if (!raw || !raw.term) return null;
       return raw as StructuredCommitteePayload;
     },
-    staleTime: 60_000,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+    enabled: isLandingRoute,
   });
   const committeeNavItems = committeeAssignedNavItems(committeeStructured);
 
@@ -378,9 +383,9 @@ const Navbar = () => {
       const raw = await res.json();
       return Array.isArray(raw) ? (raw as AchievementPublicRecord[]) : [];
     },
-    staleTime: 0,
-    refetchInterval: 30_000,
-    refetchOnWindowFocus: true,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+    enabled: isLandingRoute,
   });
   const achievementNavItems = useMemo(
     () => achievementNavItemsFrom(achievementsRaw),
@@ -395,9 +400,9 @@ const Navbar = () => {
       const raw = await res.json();
       return Array.isArray(raw) ? (raw as PublicNoticeNavRow[]) : [];
     },
-    staleTime: 0,
-    refetchInterval: 30_000,
-    refetchOnWindowFocus: true,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+    enabled: isLandingRoute,
   });
   const noticeNavItems = useMemo(() => noticeNavItemsFrom(noticesRaw), [noticesRaw]);
 
@@ -408,13 +413,13 @@ const Navbar = () => {
       if (!res.ok) throw new Error("Failed to load memories");
       return res.json() as Promise<MemoryPublicNavRow[]>;
     },
-    staleTime: 0,
-    refetchInterval: 30_000,
-    refetchOnWindowFocus: true,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+    enabled: isLandingRoute,
   });
   const memoryNavItems = useMemo(() => memoryNavItemsFrom(memoriesRaw), [memoriesRaw]);
 
-  const { data: landingContent } = useLandingContent();
+  const { data: landingContent } = useLandingContent({ enabled: isLandingRoute });
   const communityNavItems = useMemo(
     () =>
       communityNavItemsFromLanding(
@@ -426,6 +431,44 @@ const Navbar = () => {
   const dashboardPath =
     user?.role === "admin" && !viewAsAlumni ? "/admin/dashboard" : "/dashboard";
   const authPending = !isAuthReady || isLoading;
+
+  const prefetchDashboardDestination = useCallback(() => {
+    if (!user) return;
+    if (dashboardPath === "/admin/dashboard") {
+      const token = getAuthToken();
+      if (!token) return;
+      const headers = { Authorization: `Bearer ${token}` };
+      const enqueue = (path: string, key = path) =>
+        void primeJsonCache({
+          cacheKey: `admin:list:${key}`,
+          url: `${API_BASE_URL}${path}`,
+          headers,
+          ttlMs: 45_000,
+        });
+      enqueue("/api/admin/users");
+      enqueue("/api/admin/events");
+      enqueue("/api/admin/achievements");
+      enqueue("/api/admin/notices");
+      enqueue("/api/admin/elections");
+      enqueue("/api/admin/documents");
+      enqueue("/api/admin/admins");
+      return;
+    }
+    void primeJsonCache({
+      cacheKey: "alumni:dashboard:notices",
+      url: `${API_BASE_URL}/api/public/notices?limit=5`,
+      ttlMs: 45_000,
+    });
+    void primeJsonCache({
+      cacheKey: "alumni:dashboard:events",
+      url: `${API_BASE_URL}/api/public/events?status=published&limit=10`,
+      ttlMs: 45_000,
+    });
+  }, [dashboardPath, user]);
+
+  const handleDashboardTap = useCallback(() => {
+    prefetchDashboardDestination();
+  }, [prefetchDashboardDestination]);
 
   const closeMobileMenu = useCallback(() => {
     setMobileOpen(false);
@@ -468,9 +511,7 @@ const Navbar = () => {
   const handleMobileLandingNavClick = useCallback(
     (href: string) => {
       closeMobileMenu();
-      window.setTimeout(() => {
-        runLandingNavigation(href);
-      }, 0);
+      runLandingNavigation(href);
     },
     [closeMobileMenu, runLandingNavigation]
   );
@@ -495,6 +536,14 @@ const Navbar = () => {
       window.removeEventListener("resize", closeIfDesktop);
     };
   }, [mobileOpen]);
+
+  useEffect(() => {
+    // Ensure mobile menu never lingers across route changes.
+    if (mobileOpen) setMobileOpen(false);
+    if (window.matchMedia("(max-width: 1024px)").matches) {
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    }
+  }, [location.pathname]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -669,6 +718,10 @@ const Navbar = () => {
             <div className="ml-2 flex shrink-0 items-center gap-2 border-l border-border/40 pl-3">
               <Link
                 to={dashboardPath}
+                onMouseEnter={prefetchDashboardDestination}
+                onFocus={prefetchDashboardDestination}
+                onTouchStart={prefetchDashboardDestination}
+                onClick={handleDashboardTap}
                 className="nav-role-action nav-role-action-logged topnav-btn-text inline-flex h-9 min-h-0 items-center justify-center whitespace-nowrap rounded-md border border-transparent bg-primary px-3.5 font-semibold text-primary-foreground transition-all hover:bg-primary/90 active:scale-[0.98]"
               >
                 Dashboard
@@ -717,7 +770,7 @@ const Navbar = () => {
             pendingLandingScrollCancelRef.current = null;
             setMobileOpen((prev) => !prev);
           }}
-          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-foreground hover:bg-muted/50 sm:h-10 sm:w-10 lg:hidden"
+          className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-foreground hover:bg-muted/50 sm:h-11 sm:w-11 lg:hidden"
         >
           {mobileOpen ? (
             <X className="nav-icon-trigger" strokeWidth={2} />
@@ -735,7 +788,7 @@ const Navbar = () => {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.2, ease: "easeInOut" }}
+            transition={{ duration: 0.14, ease: "easeOut" }}
             className="overflow-hidden border-t border-border/50 bg-card lg:hidden"
           >
             <div className="flex max-h-[min(70vh,calc(100dvh-2.75rem))] flex-col gap-0.5 overflow-y-auto overscroll-contain px-4 py-2.5 sm:max-h-[min(70vh,calc(100dvh-3rem))]">
@@ -823,7 +876,10 @@ const Navbar = () => {
                 <>
                   <Link
                     to={dashboardPath}
-                    onClick={closeMobileMenu}
+                    onMouseEnter={prefetchDashboardDestination}
+                    onFocus={prefetchDashboardDestination}
+                    onTouchStart={prefetchDashboardDestination}
+                    onClick={handleDashboardTap}
                     className="nav-role-action topnav-btn-text mt-2 rounded-md bg-primary px-4 py-2 text-center font-semibold text-primary-foreground shadow-sm"
                   >
                     Dashboard
@@ -840,14 +896,12 @@ const Navbar = () => {
                 <>
                   <Link
                     to="/login"
-                    onClick={closeMobileMenu}
                     className="nav-role-action topnav-btn-text mt-2 rounded-md border border-border px-4 py-2 text-center font-semibold text-foreground"
                   >
                     Login
                   </Link>
                   <Link
                     to="/register"
-                    onClick={closeMobileMenu}
                     className="nav-role-action topnav-btn-text mt-1 rounded-md bg-primary px-4 py-2 text-center font-semibold text-primary-foreground shadow-sm"
                   >
                     Join Alumni

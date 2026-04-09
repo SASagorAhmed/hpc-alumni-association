@@ -29,7 +29,7 @@ export default function Notices() {
   const regular = filtered.filter((n) => !n.pinned);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-8 pb-10">
+    <div className="mx-auto w-full max-w-screen-2xl space-y-8 pb-10">
       <header className="border-b border-border/80 pb-6">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>

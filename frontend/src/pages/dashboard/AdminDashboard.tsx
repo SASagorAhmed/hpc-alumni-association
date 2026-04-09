@@ -305,7 +305,7 @@ const AdminDashboard = () => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="mx-auto w-full max-w-screen-2xl space-y-6">
         {/* Welcome + Quick Actions */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>

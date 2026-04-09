@@ -141,7 +141,7 @@ function AchievementGridCard({
 const sectionShellClass =
   "scroll-mt-20 border-t border-border/60 bg-background py-10 sm:scroll-mt-[5.5rem] sm:py-20";
 
-const AchievementsSection = () => {
+const AchievementsSection = ({ embedded = false }: { embedded?: boolean }) => {
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [loading, setLoading] = useState(true);
   const [visibleCount, setVisibleCount] = useState(3);
@@ -267,8 +267,8 @@ const AchievementsSection = () => {
 
   if (loading) {
     return (
-      <section id="achievements" className={sectionShellClass}>
-        <div className="layout-container">
+      <section id="achievements" className={embedded ? "scroll-mt-20 bg-background py-6 sm:scroll-mt-[5.5rem] sm:py-8" : sectionShellClass}>
+        <div className={embedded ? "w-full" : "layout-container"}>
           {headerBlock}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 3 }).map((_, idx) => (
@@ -292,8 +292,8 @@ const AchievementsSection = () => {
 
   if (achievements.length === 0) {
     return (
-      <section id="achievements" className={sectionShellClass}>
-        <div className="layout-container">
+      <section id="achievements" className={embedded ? "scroll-mt-20 bg-background py-6 sm:scroll-mt-[5.5rem] sm:py-8" : sectionShellClass}>
+        <div className={embedded ? "w-full" : "layout-container"}>
           {headerBlock}
           <p className="text-center text-sm text-muted-foreground">No achievements to show yet.</p>
         </div>
@@ -307,8 +307,8 @@ const AchievementsSection = () => {
     isNarrowViewport && mobileZoom < 1 && !isIosSafariViewport() ? ({ zoom: mobileZoom } as CSSProperties) : undefined;
 
   return (
-    <section id="achievements" className={sectionShellClass}>
-      <div className="layout-container">
+    <section id="achievements" className={embedded ? "scroll-mt-20 bg-background py-6 sm:scroll-mt-[5.5rem] sm:py-8" : sectionShellClass}>
+      <div className={embedded ? "w-full" : "layout-container"}>
         {headerBlock}
 
         {/* Narrow/mobile: one card per row */}

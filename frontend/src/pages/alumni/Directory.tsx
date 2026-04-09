@@ -187,7 +187,7 @@ const Directory = () => {
   // Unverified gate
   if (!user?.verified) {
     return (
-      <div className="max-w-2xl mx-auto px-4 py-12 text-center space-y-4">
+      <div className="mx-auto w-full max-w-screen-md px-2 py-12 text-center space-y-4 sm:px-3">
         <div className="w-16 h-16 mx-auto rounded-full bg-muted flex items-center justify-center">
           <User className="w-8 h-8 text-muted-foreground" />
         </div>
@@ -200,7 +200,7 @@ const Directory = () => {
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-4 px-2 sm:px-0">
+    <div className="mx-auto w-full max-w-screen-2xl space-y-4">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>

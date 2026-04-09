@@ -48,7 +48,7 @@ const Committee = () => {
   const showStructured = Boolean(displayData?.term?.id);
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-8 px-4 pb-12 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-screen-2xl space-y-8 pb-12">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Alumni Executive Committee</h1>
         <p className="text-sm text-muted-foreground">Leadership of the HPC Alumni Association (not the general alumni directory).</p>
@@ -83,7 +83,7 @@ const Committee = () => {
           <Skeleton className="h-28 w-full rounded-xl" />
         </div>
       ) : showStructured && displayData ? (
-        <div className="rounded-xl border border-border bg-card p-6 shadow-sm sm:p-8">
+        <div className="overflow-hidden rounded-xl border border-border bg-card p-0 shadow-sm">
           <AutoRepairBoundary title="Committee board">
             <AlumniExecutiveCommitteeBoard data={displayData} showAll compactIntro />
           </AutoRepairBoundary>
@@ -95,9 +95,9 @@ const Committee = () => {
           </CardContent>
         </Card>
       ) : (
-        <div className="rounded-xl border border-border bg-card p-2 shadow-sm sm:p-2.5">
+        <div className="overflow-hidden rounded-xl border border-border bg-card p-0 shadow-sm">
           <AutoRepairBoundary title="Committee section">
-            <CommitteeSection showAll />
+            <CommitteeSection showAll embedded />
           </AutoRepairBoundary>
         </div>
       )}

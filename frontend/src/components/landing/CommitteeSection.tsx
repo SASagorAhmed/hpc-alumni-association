@@ -18,7 +18,7 @@ import { BREAKPOINT_MOBILE_MAX, layoutCanvasScale } from "@/lib/breakpoints";
 const COMMITTEE_DESIGN_W = 1024;
 const MOBILE_REF_W = BREAKPOINT_MOBILE_MAX;
 
-const CommitteeSection = ({ showAll = false }: { showAll?: boolean }) => {
+const CommitteeSection = ({ showAll = false, embedded = false }: { showAll?: boolean; embedded?: boolean }) => {
   const [visibleCount, setVisibleCount] = useState(6);
   const legacyOuterRef = useRef<HTMLDivElement>(null);
   const legacyInnerRef = useRef<HTMLDivElement>(null);
@@ -86,8 +86,11 @@ const CommitteeSection = ({ showAll = false }: { showAll?: boolean }) => {
 
   if (structuredLoading || structuredFetching) {
     return (
-      <section id="committee" className="relative overflow-hidden border-t border-border/60 bg-background py-10 sm:py-16">
-        <div className="layout-container relative">
+      <section
+        id="committee"
+        className={embedded ? "relative overflow-hidden bg-background py-6 sm:py-8" : "relative overflow-hidden border-t border-border/60 bg-background py-10 sm:py-16"}
+      >
+        <div className={embedded ? "relative w-full" : "layout-container relative"}>
           <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden p-6 sm:p-8 space-y-5">
             <Skeleton className="h-8 w-full rounded-lg" />
             <Skeleton className="h-[300px] w-full rounded-xl" />
@@ -100,8 +103,11 @@ const CommitteeSection = ({ showAll = false }: { showAll?: boolean }) => {
 
   if (useStructured && structured) {
     return (
-      <section id="committee" className="relative overflow-hidden border-t border-border/60 bg-background py-10 sm:py-16">
-        <div className="layout-container relative">
+      <section
+        id="committee"
+        className={embedded ? "relative overflow-hidden bg-background py-6 sm:py-8" : "relative overflow-hidden border-t border-border/60 bg-background py-10 sm:py-16"}
+      >
+        <div className={embedded ? "relative w-full" : "layout-container relative"}>
           <AlumniExecutiveCommitteeBoard data={structured} showAll={showAll} />
         </div>
       </section>
@@ -111,8 +117,11 @@ const CommitteeSection = ({ showAll = false }: { showAll?: boolean }) => {
   // Still loading the legacy query — show skeleton
   if (dbLoading) {
     return (
-      <section id="committee" className="relative overflow-hidden border-t border-border/60 bg-background py-10 sm:py-16">
-        <div className="layout-container relative">
+      <section
+        id="committee"
+        className={embedded ? "relative overflow-hidden bg-background py-6 sm:py-8" : "relative overflow-hidden border-t border-border/60 bg-background py-10 sm:py-16"}
+      >
+        <div className={embedded ? "relative w-full" : "layout-container relative"}>
           <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden p-6 sm:p-8 space-y-5">
             <Skeleton className="h-8 w-full rounded-lg" />
             <Skeleton className="h-[300px] w-full rounded-xl" />
@@ -138,8 +147,11 @@ const CommitteeSection = ({ showAll = false }: { showAll?: boolean }) => {
   const legacyTwoColMobile = false;
 
   return (
-    <section id="committee" className="relative overflow-hidden border-t border-border/60 bg-background py-10 sm:py-16">
-      <div className="layout-container relative">
+    <section
+      id="committee"
+      className={embedded ? "relative overflow-hidden bg-background py-6 sm:py-8" : "relative overflow-hidden border-t border-border/60 bg-background py-10 sm:py-16"}
+    >
+      <div className={embedded ? "relative w-full" : "layout-container relative"}>
         <AlumniExecutiveCommitteeIntro totalMembers={1 + otherMembers.length} />
 
         <div ref={legacyOuterRef} className="w-full min-w-0">
