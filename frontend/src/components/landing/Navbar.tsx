@@ -316,6 +316,7 @@ function scrollToLandingSection(href: string) {
 function startLandingSectionScrollWhenReady(href: string): () => void {
   let cancelled = false;
   const timers: number[] = [];
+  const startedAt = performance.now();
 
   const stop = () => {
     if (cancelled) return;
@@ -325,7 +326,11 @@ function startLandingSectionScrollWhenReady(href: string): () => void {
     window.removeEventListener("touchmove", cancelByUserInput);
   };
 
-  const cancelByUserInput = () => stop();
+  const cancelByUserInput = () => {
+    // Ignore tiny finger jitter right after tap; only real user scrolling should cancel retries.
+    if (performance.now() - startedAt < 120) return;
+    stop();
+  };
 
   const tryScroll = (attempt = 0) => {
     if (cancelled) return;
@@ -353,6 +358,8 @@ const Navbar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeSection, setActiveSection] = useState("#");
   const pendingLandingScrollCancelRef = useRef<(() => void) | null>(null);
+  const pendingMobileNavRafRef = useRef<number | null>(null);
+  const pendingMobileNavTimeoutRef = useRef<number | null>(null);
   const { user, isLoading, isAuthReady, logout } = useAuth();
   const { viewAsAlumni } = useAdminViewAsAlumni();
   const location = useLocation();
@@ -474,6 +481,17 @@ const Navbar = () => {
     setMobileOpen(false);
   }, []);
 
+  const clearPendingMobileNavSchedule = useCallback(() => {
+    if (pendingMobileNavRafRef.current != null) {
+      window.cancelAnimationFrame(pendingMobileNavRafRef.current);
+      pendingMobileNavRafRef.current = null;
+    }
+    if (pendingMobileNavTimeoutRef.current != null) {
+      window.clearTimeout(pendingMobileNavTimeoutRef.current);
+      pendingMobileNavTimeoutRef.current = null;
+    }
+  }, []);
+
   /** SPA-safe: go to `/` + hash and scroll (hash-only links break off-home and often don’t scroll with RR). */
   const runLandingNavigation = useCallback(
     (href: string) => {
@@ -508,20 +526,47 @@ const Navbar = () => {
     [runLandingNavigation]
   );
 
+  const runMobileLandingNavigationAfterClose = useCallback(
+    (href: string) => {
+      clearPendingMobileNavSchedule();
+      let executed = false;
+      const execute = () => {
+        if (executed) return;
+        executed = true;
+        clearPendingMobileNavSchedule();
+        runLandingNavigation(href);
+      };
+      let frameCount = 0;
+      const tick = () => {
+        frameCount += 1;
+        if (frameCount >= 2) {
+          execute();
+          return;
+        }
+        pendingMobileNavRafRef.current = window.requestAnimationFrame(tick);
+      };
+      pendingMobileNavRafRef.current = window.requestAnimationFrame(tick);
+      // Fallback for browsers throttling RAF during overlays.
+      pendingMobileNavTimeoutRef.current = window.setTimeout(execute, 120);
+    },
+    [clearPendingMobileNavSchedule, runLandingNavigation]
+  );
+
   const handleMobileLandingNavClick = useCallback(
     (href: string) => {
       closeMobileMenu();
-      runLandingNavigation(href);
+      runMobileLandingNavigationAfterClose(href);
     },
-    [closeMobileMenu, runLandingNavigation]
+    [closeMobileMenu, runMobileLandingNavigationAfterClose]
   );
 
   useEffect(() => {
     return () => {
       pendingLandingScrollCancelRef.current?.();
       pendingLandingScrollCancelRef.current = null;
+      clearPendingMobileNavSchedule();
     };
-  }, []);
+  }, [clearPendingMobileNavSchedule]);
 
   useEffect(() => {
     if (!mobileOpen) return;
