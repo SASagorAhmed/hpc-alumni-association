@@ -37,7 +37,7 @@ export default function TopNoticeBar() {
         className={`w-full fs-notice-bar ${
           notice.urgent
             ? "bg-destructive text-destructive-foreground"
-            : "bg-primary text-primary-foreground"
+            : "bg-blue-600 text-white"
         }`}
       >
         <div className="flex w-full items-center justify-between px-2.5 py-2 sm:px-3 lg:px-4">
