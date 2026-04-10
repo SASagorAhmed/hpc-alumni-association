@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -127,13 +127,18 @@ export default function NoticeEmailTemplateEditor({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="min-w-0 max-w-4xl max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Email Template Text Editor</DialogTitle>
+          <DialogDescription>
+            Edit urgent and normal notice email text blocks. Saved values are used for future sends until changed.
+          </DialogDescription>
         </DialogHeader>
 
         {error ? (
-          <div className="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-xs text-destructive">{error}</div>
+          <div className="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-xs text-destructive break-words">
+            {error}
+          </div>
         ) : null}
 
         {!canEdit || loading ? (
@@ -153,14 +158,20 @@ export default function NoticeEmailTemplateEditor({
           </Tabs>
         )}
 
-        <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={onReset} disabled={!canEdit || !!loading || !!saving || !!resetting}>
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button
+            type="button"
+            className="w-full sm:w-auto"
+            variant="outline"
+            onClick={onReset}
+            disabled={!canEdit || !!loading || !!saving || !!resetting}
+          >
             {resetting ? "Resetting..." : "Reset to Default"}
           </Button>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <Button type="button" className="w-full sm:w-auto" variant="outline" onClick={() => onOpenChange(false)}>
             Close
           </Button>
-          <Button type="button" onClick={onSave} disabled={!canEdit || !!loading || !!saving || !!resetting}>
+          <Button type="button" className="w-full sm:w-auto" onClick={onSave} disabled={!canEdit || !!loading || !!saving || !!resetting}>
             {saving ? "Saving..." : "Save Template"}
           </Button>
         </div>

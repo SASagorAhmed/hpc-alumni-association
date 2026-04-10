@@ -45,7 +45,11 @@ export default function NoticeEmailHistoryTable({ rows, onOpenDetail }: Props) {
                   <Badge variant="default">Sent {row.sent_count || 0}</Badge>
                   <Badge variant="destructive">Failed {row.failed_count || 0}</Badge>
                   <Badge variant="secondary">Pending {row.pending_count || 0}</Badge>
-                  <Button size="sm" variant="outline" onClick={() => onOpenDetail(row.id)}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onOpenDetail(row.id)}
+                  >
                     Details
                   </Button>
                 </div>

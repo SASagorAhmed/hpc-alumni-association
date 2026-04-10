@@ -13,7 +13,7 @@ import NoticeEmailProgressPanel from "@/components/notices/NoticeEmailProgressPa
 import NoticeEmailHistoryTable from "@/components/notices/NoticeEmailHistoryTable";
 import NoticeEmailCampaignDetail from "@/components/notices/NoticeEmailCampaignDetail";
 import NoticeEmailTemplateEditor, { type NoticeEmailTemplateConfig } from "@/components/notices/NoticeEmailTemplateEditor";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   Plus, Search, Pin, AlertTriangle, Eye, EyeOff, Pencil, Trash2, Send,
   FileText, Image as ImageIcon, ExternalLink, Monitor,
@@ -121,6 +121,7 @@ export default function AdminNotices() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailCampaignId, setDetailCampaignId] = useState<string | null>(null);
   const [detailRecipients, setDetailRecipients] = useState<CampaignRecipientRow[]>([]);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [campaignError, setCampaignError] = useState<string | null>(null);
   const lastErrorRef = useRef<{ message: string; at: number } | null>(null);
   const [templateEditorOpen, setTemplateEditorOpen] = useState(false);
@@ -466,22 +467,28 @@ export default function AdminNotices() {
     const noticeId = historyRows.find((r) => r.id === campaignId)?.notice_id as string | undefined;
     if (!noticeId) return;
     try {
+      setCampaignError(null);
+      closeCampaignPopups();
+      setDetailCampaignId(campaignId);
+      setActiveCampaignNoticeId(noticeId);
+      setDetailRecipients([]);
+      setDetailLoading(true);
+      setDetailOpen(true);
+
       const res = await fetch(`${API_BASE_URL}/api/admin/notices/${noticeId}/email-campaigns/${campaignId}/recipients`, {
         headers: { Authorization: authHeaders.Authorization },
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         reportCampaignError(String(data?.error || "Failed to load campaign details"));
+        setDetailLoading(false);
         return;
       }
-      setCampaignError(null);
-      closeCampaignPopups();
-      setDetailCampaignId(campaignId);
-      setActiveCampaignNoticeId(noticeId);
       setDetailRecipients(data?.recipients || []);
-      setDetailOpen(true);
+      setDetailLoading(false);
     } catch {
       reportCampaignError("Failed to load campaign details");
+      setDetailLoading(false);
     }
   };
 
@@ -552,7 +559,7 @@ export default function AdminNotices() {
                 <div className="flex flex-col sm:flex-row sm:items-start gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-sm font-semibold text-foreground">{n.title}</h3>
+                      <h3 className="min-w-0 break-words text-sm font-semibold text-foreground">{n.title}</h3>
                       {n.pinned && (
                         <Badge variant="secondary" className="text-[10px] gap-1">
                           <Pin className="w-3 h-3" /> Pinned
@@ -578,7 +585,7 @@ export default function AdminNotices() {
                     {n.content && (
                       <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{n.content}</p>
                     )}
-                    <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                       {n.created_at && <span>{format(new Date(n.created_at), "dd MMM yyyy")}</span>}
                       {n.attachment_url && (
                         <span className="flex items-center gap-1">
@@ -600,7 +607,7 @@ export default function AdminNotices() {
                           <FileText className="w-3 h-3 text-primary" /> Doc Linked
                         </span>
                       )}
-                      <span className="capitalize">Audience: {n.audience}</span>
+                      <span className="capitalize break-words">Audience: {n.audience}</span>
                     </div>
                   </div>
 
@@ -668,14 +675,19 @@ export default function AdminNotices() {
       </AlertDialog>
 
       <Dialog open={!!campaignNotice} onOpenChange={(open) => !open && setCampaignNotice(null)}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="min-w-0 max-w-3xl max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Email Campaign · {campaignNotice?.title || ""}</DialogTitle>
+            <DialogTitle className="break-words">
+              Email Campaign · {campaignNotice?.title || ""}
+            </DialogTitle>
+            <DialogDescription>
+              Filter, preview, and select recipients before starting this notice email campaign.
+            </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             {campaignError ? (
-              <div className="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-xs text-destructive">
+              <div className="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-xs text-destructive break-words">
                 {campaignError}
               </div>
             ) : null}
@@ -695,7 +707,7 @@ export default function AdminNotices() {
             <div className="rounded-lg border bg-background p-3">
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <p className="text-sm font-semibold text-foreground">Available Recipient Emails</p>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center justify-end gap-2">
                   <Badge variant="outline">Selected: {selectedRecipientKeys.length}</Badge>
                   <Button type="button" variant="outline" size="sm" onClick={selectAllPreviewRecipients}>
                     Select All
@@ -710,7 +722,7 @@ export default function AdminNotices() {
               ) : (
                 <div className="max-h-56 space-y-2 overflow-y-auto pr-1">
                   {previewRecipients.map((r) => (
-                    <div key={`${r.user_id}-${r.email}`} className="flex items-center gap-2 rounded-md border p-2">
+                    <div key={`${r.user_id}-${r.email}`} className="flex min-w-0 items-center gap-2 rounded-md border p-2">
                       <Checkbox
                         checked={selectedRecipientKeys.includes(recipientKeyOf(r))}
                         onCheckedChange={(checked) => toggleRecipientSelection(r, checked === true)}
@@ -733,11 +745,11 @@ export default function AdminNotices() {
               )}
             </div>
 
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setCampaignNotice(null)}>
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button className="w-full sm:w-auto" variant="outline" onClick={() => setCampaignNotice(null)}>
                 Cancel
               </Button>
-              <Button onClick={createAndStartCampaign} disabled={creatingCampaign}>
+              <Button className="w-full sm:w-auto" onClick={createAndStartCampaign} disabled={creatingCampaign}>
                 {creatingCampaign ? "Starting..." : "Create & Start Sending"}
               </Button>
             </div>
@@ -750,6 +762,7 @@ export default function AdminNotices() {
         onOpenChange={setDetailOpen}
         campaignId={detailCampaignId}
         recipients={detailRecipients}
+        loading={detailLoading}
         errorMessage={campaignError}
       />
 

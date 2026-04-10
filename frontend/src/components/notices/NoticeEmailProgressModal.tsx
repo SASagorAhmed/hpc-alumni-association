@@ -1,4 +1,4 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -43,6 +43,9 @@ export default function NoticeEmailProgressModal({
       <DialogContent className="max-w-xl">
         <DialogHeader>
           <DialogTitle>Notice Email Sending Progress</DialogTitle>
+          <DialogDescription>
+            Live sending status for the active notice email campaign.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">

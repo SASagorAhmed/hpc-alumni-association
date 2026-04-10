@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Cropper, { type Area } from "react-easy-crop";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -200,7 +200,10 @@ export default function NoticeFormDialog({ open, onOpenChange, notice, onSubmit 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="min-w-0 max-w-2xl max-h-[90dvh] overflow-y-auto">
+        <DialogDescription className="sr-only">
+          Create or edit notice content, attachments, audience, and email preview settings.
+        </DialogDescription>
 
         {/* ── CROP VIEW ───────────────────────────────────────────────────── */}
         {view === "crop" && (
@@ -263,9 +266,10 @@ export default function NoticeFormDialog({ open, onOpenChange, notice, onSubmit 
             </div>
 
             {/* Crop actions */}
-            <div className="flex justify-end gap-2 pt-1">
+            <div className="flex flex-wrap justify-end gap-2 pt-1">
               <Button
                 type="button"
+                className="w-full sm:w-auto"
                 variant="outline"
                 onClick={() => { setCrop({ x: 0, y: 0 }); setZoom(1); setRotation(0); }}
                 disabled={cropping}
@@ -274,13 +278,14 @@ export default function NoticeFormDialog({ open, onOpenChange, notice, onSubmit 
               </Button>
               <Button
                 type="button"
+                className="w-full sm:w-auto"
                 variant="outline"
                 onClick={() => setView("form")}
                 disabled={cropping}
               >
                 Cancel
               </Button>
-              <Button type="button" onClick={handleApplyCrop} disabled={cropping || !cropSrc}>
+              <Button type="button" className="w-full sm:w-auto" onClick={handleApplyCrop} disabled={cropping || !cropSrc}>
                 {cropping ? "Processing…" : "Apply crop"}
               </Button>
             </div>
@@ -329,9 +334,9 @@ export default function NoticeFormDialog({ open, onOpenChange, notice, onSubmit 
                 </div>
               </div>
 
-              <div className="rounded-xl border bg-background p-4 sm:p-5">
+              <div className="min-w-0 rounded-xl border bg-background p-4 sm:p-5">
                 <p className="text-sm text-muted-foreground">Dear Alumni Member,</p>
-                <h3 className="mt-2 text-3xl font-bold tracking-tight text-foreground">
+                <h3 className="mt-2 break-words text-3xl font-bold tracking-tight text-foreground">
                   {form.title.trim() || "Your notice title will appear here"}
                 </h3>
                 {form.summary.trim() ? (
@@ -342,7 +347,7 @@ export default function NoticeFormDialog({ open, onOpenChange, notice, onSubmit 
 
                 {form.content.trim() ? (
                   <div
-                    className={`mt-4 whitespace-pre-wrap rounded-md border-l-4 bg-emerald-50/80 p-3 pl-4 text-[15px] leading-relaxed text-foreground ${
+                    className={`mt-4 min-w-0 overflow-x-auto whitespace-pre-wrap break-words rounded-md border-l-4 bg-emerald-50/80 p-3 pl-4 text-[15px] leading-relaxed text-foreground ${
                       form.urgent ? "border-destructive/60" : "border-emerald-500/70"
                     }`}
                   >
@@ -399,8 +404,8 @@ export default function NoticeFormDialog({ open, onOpenChange, notice, onSubmit 
               </div>
             </div>
 
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => setView("form")}>
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button type="button" className="w-full sm:w-auto" variant="outline" onClick={() => setView("form")}>
                 Back to Edit
               </Button>
             </div>
@@ -506,10 +511,10 @@ export default function NoticeFormDialog({ open, onOpenChange, notice, onSubmit 
               {/* PDF */}
               <div className="space-y-1.5">
                 <Label>PDF Attachment</Label>
-                <div className="flex items-center gap-3">
-                  <label className="flex items-center gap-2 px-3 py-2 rounded-md border border-input bg-background text-sm cursor-pointer hover:bg-muted transition-colors">
+                <div className="flex min-w-0 items-center gap-3">
+                  <label className="flex min-w-0 items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer transition-colors hover:bg-muted">
                     <FileText className="w-4 h-4" />
-                    {form.attachment_file ? form.attachment_file.name : "Choose PDF"}
+                    <span className="min-w-0 truncate">{form.attachment_file ? form.attachment_file.name : "Choose PDF"}</span>
                     <input
                       type="file"
                       accept=".pdf"
@@ -571,7 +576,7 @@ export default function NoticeFormDialog({ open, onOpenChange, notice, onSubmit 
               </div>
 
               {/* Toggle controls */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="flex items-center justify-between rounded-lg border p-3">
                   <Label className="text-sm">Pin to Top</Label>
                   <Switch checked={form.pinned} onCheckedChange={(v) => set("pinned", v)} />
@@ -591,12 +596,12 @@ export default function NoticeFormDialog({ open, onOpenChange, notice, onSubmit 
               </div>
 
               {/* Actions */}
-              <div className="flex justify-end gap-2 pt-2">
-                <Button type="button" variant="outline" onClick={() => setView("preview")} className="gap-1.5">
+              <div className="flex flex-wrap justify-end gap-2 pt-2">
+                <Button type="button" variant="outline" onClick={() => setView("preview")} className="w-full gap-1.5 sm:w-auto">
                   <Eye className="w-4 h-4" /> Email Preview
                 </Button>
-                <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-                <Button onClick={handleSubmit} disabled={saving || !form.title.trim()}>
+                <Button className="w-full sm:w-auto" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+                <Button className="w-full sm:w-auto" onClick={handleSubmit} disabled={saving || !form.title.trim()}>
                   {saving ? "Saving..." : notice ? "Update Notice" : "Create Notice"}
                 </Button>
               </div>
