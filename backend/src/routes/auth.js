@@ -543,7 +543,13 @@ router.post("/register", registerLimiter, profileUpload.single("photo"), async (
 
     const verificationLink = buildEmailVerificationLink(req, token);
     try {
-      await sendVerificationEmail({ email: emailStr, verificationLink });
+      await sendVerificationEmail({
+        pool,
+        email: emailStr,
+        verificationLink,
+        recipientUserId: userId,
+        initiatedBy: userId,
+      });
       return res.status(201).json({
         ok: true,
         message: "Registration successful. Check your email for verification.",
@@ -640,7 +646,13 @@ router.post("/resend-verification", resendVerifyLimiter, async (req, res) => {
     );
 
     const verificationLink = buildEmailVerificationLink(req, token);
-    await sendVerificationEmail({ email, verificationLink });
+    await sendVerificationEmail({
+      pool,
+      email,
+      verificationLink,
+      recipientUserId: user.id,
+      initiatedBy: user.id,
+    });
 
     return res.status(200).json({ ok: true, message: "Verification email sent. Please check your inbox." });
   } catch (e) {
@@ -681,7 +693,13 @@ router.post("/forgot-password", forgotPasswordLimiter, async (req, res) => {
 
     const resetLink = `${env.frontendOrigin.replace(/\/$/, "")}/reset-password?token=${encodeURIComponent(rawToken)}`;
     try {
-      await sendPasswordResetEmail({ email, resetLink });
+      await sendPasswordResetEmail({
+        pool,
+        email,
+        resetLink,
+        recipientUserId: user.id,
+        initiatedBy: user.id,
+      });
     } catch (mailErr) {
       console.error("[auth] forgot-password email:", mailErr?.message || mailErr);
       return res.status(503).json({

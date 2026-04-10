@@ -113,7 +113,7 @@ async function saveNoticeEmailTemplateConfig(pool, payload, updatedBy) {
 
   await pool.query(
     `INSERT INTO notice_email_template_config (id, urgent_template_json, normal_template_json, updated_by)
-     VALUES (?, CAST(? AS JSON), CAST(? AS JSON), ?)
+     VALUES (?, ?, ?, ?)
      ON DUPLICATE KEY UPDATE
        urgent_template_json = VALUES(urgent_template_json),
        normal_template_json = VALUES(normal_template_json),
@@ -121,7 +121,9 @@ async function saveNoticeEmailTemplateConfig(pool, payload, updatedBy) {
     [TEMPLATE_ROW_ID, JSON.stringify(merged.urgent), JSON.stringify(merged.normal), updatedBy || null]
   );
 
-  return merged;
+  // Canonical source of truth: always return what the DB now stores.
+  const persisted = await getNoticeEmailTemplateConfig(pool);
+  return persisted;
 }
 
 async function resetNoticeEmailTemplateConfig(pool, updatedBy) {

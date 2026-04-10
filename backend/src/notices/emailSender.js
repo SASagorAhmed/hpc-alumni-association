@@ -3,10 +3,9 @@ const env = require("../config/env");
 const { renderNoticeEmail } = require("./emailTemplate");
 const { resolveCurrentPresidentName } = require("./presidentResolver");
 const { getNoticeEmailTemplateConfig } = require("./emailTemplateConfig");
+const { EMAIL_STATUS, EMAIL_TYPES, getGlobalDailyLimit, logEmailAudit, reserveGlobalQuota } = require("../email/governance");
 
 const ENABLE_FLAG = "NOTICE_EMAIL_ON_PUBLISH";
-const DAILY_LIMIT_FLAG = "NOTICE_EMAIL_DAILY_LIMIT";
-const DEFAULT_DAILY_LIMIT = 300;
 const SEND_BATCH_SIZE = 20;
 const BATCH_DELAY_MS = 350;
 const BRAND_SENDER_NAME = "HPC Alumni Association";
@@ -17,12 +16,6 @@ function sleep(ms) {
 
 function isEmailEnabled() {
   return String(process.env[ENABLE_FLAG] || "").trim() === "1";
-}
-
-function getDailyLimit() {
-  const parsed = Number(process.env[DAILY_LIMIT_FLAG] || DEFAULT_DAILY_LIMIT);
-  if (!Number.isFinite(parsed) || parsed <= 0) return DEFAULT_DAILY_LIMIT;
-  return Math.floor(parsed);
 }
 
 function createTransporter() {
@@ -111,10 +104,11 @@ async function sendNoticeEmailForPublishedNotice({ pool, notice }) {
   }
 
   const recipients = await listEligibleRecipients(pool, notice?.audience);
-  const dailyLimit = getDailyLimit();
-  const allowedNow = Math.min(dailyLimit, recipients.length);
+  const reserve = await reserveGlobalQuota(pool, recipients.length);
+  const allowedNow = Number(reserve?.reserved_count || 0);
   const pending = Math.max(recipients.length - allowedNow, 0);
   const sendNow = recipients.slice(0, allowedNow);
+  const queuedLater = recipients.slice(allowedNow);
 
   let sent = 0;
   let failed = 0;
@@ -122,6 +116,22 @@ async function sendNoticeEmailForPublishedNotice({ pool, notice }) {
   const frontendBaseUrl = resolveFrontendBaseUrl();
   const presidentName = await resolveCurrentPresidentName(pool);
   const templateConfig = await getNoticeEmailTemplateConfig(pool);
+  const initiatedBy = notice?.created_by || null;
+  const noticeTitle = String(notice?.title || "").trim();
+
+  for (const recipient of queuedLater) {
+    await logEmailAudit(pool, {
+      email_type: EMAIL_TYPES.NOTICE_PUBLISH,
+      status: EMAIL_STATUS.QUEUED_NEXT_DAY,
+      recipient_email: recipient.email,
+      recipient_user_id: recipient.user_id,
+      initiated_by: initiatedBy,
+      notice_id: notice?.id || null,
+      counted_against_quota: false,
+      reason: "Queued for next day due to daily limit",
+      meta_json: { notice_title: noticeTitle },
+    });
+  }
 
   for (let i = 0; i < sendNow.length; i += SEND_BATCH_SIZE) {
     const batch = sendNow.slice(i, i + SEND_BATCH_SIZE);
@@ -145,8 +155,29 @@ async function sendNoticeEmailForPublishedNotice({ pool, notice }) {
             text: rendered.text,
           });
           sent += 1;
+          await logEmailAudit(pool, {
+            email_type: EMAIL_TYPES.NOTICE_PUBLISH,
+            status: EMAIL_STATUS.SENT,
+            recipient_email: recipient.email,
+            recipient_user_id: recipient.user_id,
+            initiated_by: initiatedBy,
+            notice_id: notice?.id || null,
+            counted_against_quota: true,
+            meta_json: { subject: rendered.subject, notice_title: noticeTitle },
+          });
         } catch (error) {
           failed += 1;
+          await logEmailAudit(pool, {
+            email_type: EMAIL_TYPES.NOTICE_PUBLISH,
+            status: EMAIL_STATUS.FAILED,
+            recipient_email: recipient.email,
+            recipient_user_id: recipient.user_id,
+            initiated_by: initiatedBy,
+            notice_id: notice?.id || null,
+            counted_against_quota: true,
+            reason: error?.message || "send failed",
+            meta_json: { subject: rendered.subject, notice_title: noticeTitle },
+          });
           failures.push({
             email: recipient.email,
             reason: error?.message || "send failed",
@@ -167,8 +198,8 @@ async function sendNoticeEmailForPublishedNotice({ pool, notice }) {
     sent,
     failed,
     pending,
-    quota_limit: dailyLimit,
-    quota_remaining_after_dispatch: Math.max(dailyLimit - sent, 0),
+    quota_limit: getGlobalDailyLimit(),
+    quota_remaining_after_dispatch: Number(reserve?.remaining_after || 0),
     failures,
   };
 }

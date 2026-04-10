@@ -12,6 +12,7 @@ const { getCloudinaryFolder } = require("../utils/uploadFolders");
 const { sendNoticeEmailForPublishedNotice } = require("../notices/emailSender");
 const { ensureNoticeEmailCampaignTables } = require("../utils/ensureNoticeEmailCampaignTables");
 const { ensureNoticeEmailTemplateTable } = require("../utils/ensureNoticeEmailTemplateTable");
+const { ensureEmailGovernanceTables } = require("../utils/ensureEmailGovernanceTables");
 const { listRecipientsWithEligibility, normalizeFilterInput, listFilterOptions } = require("../notices/recipientFilters");
 const {
   createCampaign,
@@ -23,6 +24,7 @@ const {
 const { getQuotaSnapshot } = require("../notices/quotaManager");
 const { startCampaignDispatchInBackground } = require("../notices/campaignDispatcher");
 const { resolveCurrentPresidentName } = require("../notices/presidentResolver");
+const { EMAIL_TYPES, getGlobalDailyLimit } = require("../email/governance");
 const {
   getNoticeEmailTemplateConfig,
   saveNoticeEmailTemplateConfig,
@@ -448,6 +450,12 @@ async function withAdmin(req, res) {
     return null;
   }
   return pool;
+}
+
+function normalizeDateKeyOrToday(raw) {
+  const s = String(raw || "").trim();
+  if (!s) return new Date().toISOString().slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : new Date().toISOString().slice(0, 10);
 }
 
 /** Safe DATETIME for MySQL (avoids invalid ISO / timezone surprises on date-only strings). */
@@ -1390,7 +1398,8 @@ router.put("/notices/email-template-config", requireAuth, async (req, res) => {
     const pool = await withAdmin(req, res);
     if (!pool) return;
     await ensureNoticeEmailTemplateTable(pool);
-    const config = await saveNoticeEmailTemplateConfig(pool, req.body || {}, req.auth?.userId || null);
+    await saveNoticeEmailTemplateConfig(pool, req.body || {}, req.auth?.userId || null);
+    const config = await getNoticeEmailTemplateConfig(pool);
     return res.status(200).json({ ok: true, config });
   } catch (e) {
     const status = Number(e?.statusCode || 500);
@@ -1407,6 +1416,143 @@ router.post("/notices/email-template-config/reset", requireAuth, async (req, res
     return res.status(200).json({ ok: true, config });
   } catch (e) {
     return res.status(500).json({ ok: false, error: e.message || "Failed to reset email template config" });
+  }
+});
+
+router.get("/email-governance/summary", requireAuth, async (req, res) => {
+  try {
+    const pool = await withAdmin(req, res);
+    if (!pool) return;
+    await ensureNoticeEmailCampaignTables(pool);
+    await ensureEmailGovernanceTables(pool);
+
+    const dateKey = normalizeDateKeyOrToday(req.query.date);
+    const provider = "brevo";
+    const baseLimit = getGlobalDailyLimit();
+
+    const [quotaRows] = await pool.query(
+      `SELECT limit_count, sent_count
+       FROM email_daily_quota
+       WHERE quota_date = ? AND provider = ?
+       LIMIT 1`,
+      [dateKey, provider]
+    );
+    const limitCount = Number(quotaRows?.[0]?.limit_count || baseLimit);
+    const sentCount = Number(quotaRows?.[0]?.sent_count || 0);
+    const availableCount = Math.max(limitCount - sentCount, 0);
+
+    const [typeRows] = await pool.query(
+      `SELECT email_type, COUNT(*) AS c
+       FROM email_audit_log
+       WHERE quota_date = ?
+       GROUP BY email_type`,
+      [dateKey]
+    );
+    const [statusRows] = await pool.query(
+      `SELECT status, COUNT(*) AS c
+       FROM email_audit_log
+       WHERE quota_date = ?
+       GROUP BY status`,
+      [dateKey]
+    );
+
+    const byType = Object.fromEntries((typeRows || []).map((r) => [String(r.email_type), Number(r.c || 0)]));
+    const byStatus = Object.fromEntries((statusRows || []).map((r) => [String(r.status), Number(r.c || 0)]));
+    const knownTypes = Object.values(EMAIL_TYPES);
+    for (const t of knownTypes) {
+      if (!Object.prototype.hasOwnProperty.call(byType, t)) byType[t] = 0;
+    }
+
+    return res.status(200).json({
+      ok: true,
+      date: dateKey,
+      provider,
+      daily_limit: limitCount,
+      sent_today: sentCount,
+      available_today: availableCount,
+      grouped_by_type: byType,
+      grouped_by_status: byStatus,
+    });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message || "Failed to load email governance summary" });
+  }
+});
+
+router.get("/email-governance/audit", requireAuth, async (req, res) => {
+  try {
+    const pool = await withAdmin(req, res);
+    if (!pool) return;
+    await ensureEmailGovernanceTables(pool);
+
+    const dateKey = normalizeDateKeyOrToday(req.query.date);
+    const type = String(req.query.type || "").trim().toLowerCase();
+    const status = String(req.query.status || "").trim().toLowerCase();
+    const page = Math.max(Number(req.query.page || 1), 1);
+    const pageSize = Math.min(Math.max(Number(req.query.pageSize || 20), 5), 100);
+    const offset = (page - 1) * pageSize;
+
+    const where = ["a.quota_date = ?"];
+    const params = [dateKey];
+    if (type) {
+      where.push("a.email_type = ?");
+      params.push(type);
+    }
+    if (status) {
+      where.push("a.status = ?");
+      params.push(status);
+    }
+    const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+
+    const [countRows] = await pool.query(
+      `SELECT COUNT(*) AS c
+       FROM email_audit_log a
+       ${whereSql}`,
+      params
+    );
+
+    const [rows] = await pool.query(
+      `SELECT
+          a.id,
+          a.quota_date,
+          a.provider,
+          a.email_type,
+          a.status,
+          a.recipient_email,
+          a.recipient_user_id,
+          a.initiated_by,
+          u.email AS initiated_by_email,
+          a.notice_id,
+          a.campaign_id,
+          a.counted_against_quota,
+          a.reason,
+          a.meta_json,
+          COALESCE(
+            NULLIF(JSON_UNQUOTE(JSON_EXTRACT(a.meta_json, '$.subject')), ''),
+            NULLIF(JSON_UNQUOTE(JSON_EXTRACT(a.meta_json, '$.notice_title')), ''),
+            NULLIF(n.title, ''),
+            '-'
+          ) AS title,
+          a.created_at,
+          UNIX_TIMESTAMP(a.created_at) AS created_at_unix
+       FROM email_audit_log a
+       LEFT JOIN users u ON u.id = a.initiated_by
+       LEFT JOIN notices n ON n.id = a.notice_id
+       ${whereSql}
+       ORDER BY a.created_at DESC
+       LIMIT ? OFFSET ?`,
+      [...params, pageSize, offset]
+    );
+
+    return res.status(200).json({
+      ok: true,
+      date: dateKey,
+      page,
+      pageSize,
+      total: Number(countRows?.[0]?.c || 0),
+      rows: rows || [],
+    });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message || "Failed to load email governance audit" });
   }
 });
 

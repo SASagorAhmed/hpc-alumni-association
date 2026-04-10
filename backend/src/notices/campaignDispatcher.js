@@ -8,10 +8,10 @@ const {
   markRecipientsQueuedNextDay,
   bumpRecipientAttempt,
 } = require("./campaignRepository");
-const { reserveQuota } = require("./quotaManager");
 const { renderNoticeEmail } = require("./emailTemplate");
 const { resolveCurrentPresidentName } = require("./presidentResolver");
 const { getNoticeEmailTemplateConfig } = require("./emailTemplateConfig");
+const { EMAIL_STATUS, EMAIL_TYPES, logEmailAudit, reserveGlobalQuota } = require("../email/governance");
 
 const SEND_BATCH_SIZE = 20;
 const BATCH_DELAY_MS = 450;
@@ -98,10 +98,7 @@ async function dispatchCampaign(pool, campaignId, options = {}) {
       return { ok: true, message: "No pending recipients" };
     }
 
-    const reserve = await reserveQuota(pool, {
-      requestedCount,
-      limit: Number(campaign.daily_limit || options.dailyLimit || 300),
-    });
+    const reserve = await reserveGlobalQuota(pool, requestedCount);
 
     const sendNow = workRows.slice(0, reserve.reserved_count);
     const queuedLater = workRows.slice(reserve.reserved_count);
@@ -112,6 +109,20 @@ async function dispatchCampaign(pool, campaignId, options = {}) {
         campaignId,
         queuedLater.map((r) => r.id)
       );
+      for (const recipient of queuedLater) {
+        await logEmailAudit(pool, {
+          email_type: EMAIL_TYPES.NOTICE_CAMPAIGN,
+          status: EMAIL_STATUS.QUEUED_NEXT_DAY,
+          recipient_email: recipient.email,
+          recipient_user_id: recipient.user_id || null,
+          initiated_by: campaign.created_by || null,
+          notice_id: campaign.notice_id || null,
+          campaign_id: campaign.id,
+          counted_against_quota: false,
+          reason: "Queued for next day due to daily limit",
+          meta_json: { notice_title: noticeTitle },
+        });
+      }
     }
 
     let sent = Number(campaign.sent_count || 0);
@@ -121,6 +132,7 @@ async function dispatchCampaign(pool, campaignId, options = {}) {
     const presidentName = await resolveCurrentPresidentName(pool);
     const templateConfig = await getNoticeEmailTemplateConfig(pool);
     const frontendBaseUrl = String(env.frontendOrigin || "").replace(/\/$/, "");
+    const noticeTitle = String(notice?.title || "").trim();
 
     for (let i = 0; i < sendNow.length; i += SEND_BATCH_SIZE) {
       const batch = sendNow.slice(i, i + SEND_BATCH_SIZE);
@@ -157,6 +169,17 @@ async function dispatchCampaign(pool, campaignId, options = {}) {
             });
             sent += 1;
             quotaUsed += 1;
+            await logEmailAudit(pool, {
+              email_type: EMAIL_TYPES.NOTICE_CAMPAIGN,
+              status: EMAIL_STATUS.SENT,
+              recipient_email: recipient.email,
+              recipient_user_id: recipient.user_id || null,
+              initiated_by: campaign.created_by || null,
+              notice_id: campaign.notice_id || null,
+              campaign_id: campaign.id,
+              counted_against_quota: true,
+              meta_json: { subject: rendered.subject, notice_title: noticeTitle },
+            });
           }
         } catch (err) {
           for (const recipient of batch) {
@@ -169,18 +192,30 @@ async function dispatchCampaign(pool, campaignId, options = {}) {
             });
             failed += 1;
             quotaUsed += 1;
+            await logEmailAudit(pool, {
+              email_type: EMAIL_TYPES.NOTICE_CAMPAIGN,
+              status: EMAIL_STATUS.FAILED,
+              recipient_email: recipient.email,
+              recipient_user_id: recipient.user_id || null,
+              initiated_by: campaign.created_by || null,
+              notice_id: campaign.notice_id || null,
+              campaign_id: campaign.id,
+              counted_against_quota: true,
+              reason: err?.message || "send failed",
+              meta_json: { subject: rendered.subject, notice_title: noticeTitle },
+            });
           }
         }
       } else {
         for (const recipient of batch) {
+          const rendered = renderNoticeEmail({
+            notice,
+            recipient,
+            frontendBaseUrl,
+            presidentName,
+            templateConfig,
+          });
           try {
-            const rendered = renderNoticeEmail({
-              notice,
-              recipient,
-              frontendBaseUrl,
-              presidentName,
-              templateConfig,
-            });
             await transporter.sendMail({
               from,
               to: recipient.email,
@@ -197,6 +232,17 @@ async function dispatchCampaign(pool, campaignId, options = {}) {
             });
             sent += 1;
             quotaUsed += 1;
+            await logEmailAudit(pool, {
+              email_type: EMAIL_TYPES.NOTICE_CAMPAIGN,
+              status: EMAIL_STATUS.SENT,
+              recipient_email: recipient.email,
+              recipient_user_id: recipient.user_id || null,
+              initiated_by: campaign.created_by || null,
+              notice_id: campaign.notice_id || null,
+              campaign_id: campaign.id,
+              counted_against_quota: true,
+              meta_json: { subject: rendered.subject, notice_title: noticeTitle },
+            });
           } catch (err) {
             await bumpRecipientAttempt(pool, recipient.id, {
               status: "failed",
@@ -207,6 +253,18 @@ async function dispatchCampaign(pool, campaignId, options = {}) {
             });
             failed += 1;
             quotaUsed += 1;
+            await logEmailAudit(pool, {
+              email_type: EMAIL_TYPES.NOTICE_CAMPAIGN,
+              status: EMAIL_STATUS.FAILED,
+              recipient_email: recipient.email,
+              recipient_user_id: recipient.user_id || null,
+              initiated_by: campaign.created_by || null,
+              notice_id: campaign.notice_id || null,
+              campaign_id: campaign.id,
+              counted_against_quota: true,
+              reason: err?.message || "send failed",
+              meta_json: { subject: rendered.subject, notice_title: noticeTitle },
+            });
           }
         }
       }

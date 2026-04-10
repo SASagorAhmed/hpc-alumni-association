@@ -1,5 +1,6 @@
 const nodemailer = require("nodemailer");
 const env = require("../config/env");
+const { EMAIL_TYPES, sendGovernedEmail } = require("../email/governance");
 
 const BRAND_SENDER_NAME = "HPC Alumni Association";
 
@@ -36,7 +37,7 @@ function getBrandedFromHeader() {
   return `${BRAND_SENDER_NAME} <${senderAddress}>`;
 }
 
-async function sendVerificationEmail({ email, verificationLink }) {
+async function sendVerificationEmail({ pool, email, verificationLink, recipientUserId, initiatedBy }) {
   const transporter = createTransporter();
   if (!transporter) {
     throw new Error("SMTP is not configured (set SMTP_HOST/SMTP_USER/SMTP_PASS in backend/.env).");
@@ -52,15 +53,26 @@ async function sendVerificationEmail({ email, verificationLink }) {
     </div>
   `;
 
-  await transporter.sendMail({
-    from: getBrandedFromHeader(),
-    to: email,
-    subject,
-    html,
+  const result = await sendGovernedEmail({
+    pool,
+    transporter,
+    emailType: EMAIL_TYPES.AUTH_VERIFY,
+    recipientEmail: email,
+    recipientUserId,
+    initiatedBy,
+    mailOptions: {
+      from: getBrandedFromHeader(),
+      to: email,
+      subject,
+      html,
+    },
   });
+  if (!result.ok) {
+    throw new Error(result.reason || "Verification email was not sent");
+  }
 }
 
-async function sendPasswordResetEmail({ email, resetLink }) {
+async function sendPasswordResetEmail({ pool, email, resetLink, recipientUserId, initiatedBy }) {
   const transporter = createTransporter();
   if (!transporter) {
     throw new Error("SMTP is not configured (set SMTP_HOST/SMTP_USER/SMTP_PASS in backend/.env).");
@@ -76,12 +88,23 @@ async function sendPasswordResetEmail({ email, resetLink }) {
     </div>
   `;
 
-  await transporter.sendMail({
-    from: getBrandedFromHeader(),
-    to: email,
-    subject,
-    html,
+  const result = await sendGovernedEmail({
+    pool,
+    transporter,
+    emailType: EMAIL_TYPES.AUTH_RESET,
+    recipientEmail: email,
+    recipientUserId,
+    initiatedBy,
+    mailOptions: {
+      from: getBrandedFromHeader(),
+      to: email,
+      subject,
+      html,
+    },
   });
+  if (!result.ok) {
+    throw new Error(result.reason || "Password reset email was not sent");
+  }
 }
 
 module.exports = {

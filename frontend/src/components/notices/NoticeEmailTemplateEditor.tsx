@@ -34,6 +34,7 @@ type Props = {
   saving?: boolean;
   resetting?: boolean;
   error?: string | null;
+  savedAt?: string | null;
   onChange: (next: NoticeEmailTemplateConfig) => void;
   onSave: () => void;
   onReset: () => void;
@@ -118,6 +119,7 @@ export default function NoticeEmailTemplateEditor({
   saving,
   resetting,
   error,
+  savedAt,
   onChange,
   onSave,
   onReset,
@@ -157,6 +159,12 @@ export default function NoticeEmailTemplateEditor({
             </TabsContent>
           </Tabs>
         )}
+
+        {savedAt ? (
+          <p className="text-xs text-emerald-700">
+            Saved successfully at {new Date(savedAt).toLocaleTimeString()}.
+          </p>
+        ) : null}
 
         <div className="flex flex-wrap justify-end gap-2">
           <Button

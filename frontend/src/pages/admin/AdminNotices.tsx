@@ -91,6 +91,55 @@ type PreviewRecipient = {
   photo?: string;
 };
 
+type EmailGovernanceSummary = {
+  date: string;
+  provider: string;
+  daily_limit: number;
+  sent_today: number;
+  available_today: number;
+  grouped_by_type: Record<string, number>;
+  grouped_by_status: Record<string, number>;
+};
+
+type EmailAuditRow = {
+  id: string;
+  created_at: string;
+  created_at_unix?: number | string;
+  title?: string;
+  email_type: string;
+  status: string;
+  recipient_email: string;
+  initiated_by_email?: string | null;
+  campaign_id?: string | null;
+  notice_id?: string | null;
+  reason?: string | null;
+};
+
+function todayDateKey() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+const AUDIT_BD_TIME_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  timeZone: "Asia/Dhaka",
+  day: "2-digit",
+  month: "short",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: true,
+});
+
+function formatAuditTimeBd(row: EmailAuditRow) {
+  const unix = Number(row.created_at_unix);
+  let date: Date | null = null;
+  if (Number.isFinite(unix) && unix > 0) {
+    date = new Date(unix * 1000);
+  } else if (row.created_at) {
+    date = new Date(row.created_at);
+  }
+  if (!date || Number.isNaN(date.getTime())) return "-";
+  return AUDIT_BD_TIME_FORMATTER.format(date);
+}
+
 function recipientKeyOf(r: { user_id: string; email: string }) {
   return `${String(r.user_id || "").trim()}::${String(r.email || "").trim().toLowerCase()}`;
 }
@@ -130,6 +179,19 @@ export default function AdminNotices() {
   const [templateSaving, setTemplateSaving] = useState(false);
   const [templateResetting, setTemplateResetting] = useState(false);
   const [templateError, setTemplateError] = useState<string | null>(null);
+  const [templateSavedAt, setTemplateSavedAt] = useState<string | null>(null);
+  const [governanceDate, setGovernanceDate] = useState<string>(todayDateKey());
+  const [governanceSummary, setGovernanceSummary] = useState<EmailGovernanceSummary | null>(null);
+  const [governanceSummaryLoading, setGovernanceSummaryLoading] = useState(false);
+  const [governanceSummaryError, setGovernanceSummaryError] = useState<string | null>(null);
+  const [auditRows, setAuditRows] = useState<EmailAuditRow[]>([]);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditError, setAuditError] = useState<string | null>(null);
+  const [auditTypeFilter, setAuditTypeFilter] = useState<string>("all");
+  const [auditStatusFilter, setAuditStatusFilter] = useState<string>("all");
+  const [auditPage, setAuditPage] = useState(1);
+  const [auditTotal, setAuditTotal] = useState(0);
+  const auditPageSize = 12;
 
   const filtered = notices.filter((n) => {
     const matchSearch = n.title.toLowerCase().includes(search.toLowerCase());
@@ -180,6 +242,63 @@ export default function AdminNotices() {
     void fetchHistory();
   }, []);
 
+  const fetchGovernanceSummary = async () => {
+    setGovernanceSummaryLoading(true);
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/api/admin/email-governance/summary?date=${encodeURIComponent(governanceDate)}`,
+        { headers: { Authorization: authHeaders.Authorization } }
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setGovernanceSummaryError(String(data?.error || "Failed to load email governance summary"));
+        return;
+      }
+      setGovernanceSummary(data as EmailGovernanceSummary);
+      setGovernanceSummaryError(null);
+    } catch {
+      setGovernanceSummaryError("Failed to load email governance summary");
+    } finally {
+      setGovernanceSummaryLoading(false);
+    }
+  };
+
+  const fetchGovernanceAudit = async () => {
+    setAuditLoading(true);
+    try {
+      const q = new URLSearchParams();
+      q.set("date", governanceDate);
+      if (auditTypeFilter !== "all") q.set("type", auditTypeFilter);
+      if (auditStatusFilter !== "all") q.set("status", auditStatusFilter);
+      q.set("page", String(auditPage));
+      q.set("pageSize", String(auditPageSize));
+
+      const res = await fetch(`${API_BASE_URL}/api/admin/email-governance/audit?${q.toString()}`, {
+        headers: { Authorization: authHeaders.Authorization },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setAuditError(String(data?.error || "Failed to load email audit"));
+        return;
+      }
+      setAuditRows(Array.isArray(data?.rows) ? data.rows : []);
+      setAuditTotal(Number(data?.total || 0));
+      setAuditError(null);
+    } catch {
+      setAuditError("Failed to load email audit");
+    } finally {
+      setAuditLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void fetchGovernanceSummary();
+  }, [governanceDate]);
+
+  useEffect(() => {
+    void fetchGovernanceAudit();
+  }, [governanceDate, auditTypeFilter, auditStatusFilter, auditPage]);
+
   const closeCampaignPopups = () => {
     setCampaignNotice(null);
     setProgressOpen(false);
@@ -198,18 +317,21 @@ export default function AdminNotices() {
   const loadTemplateConfig = async () => {
     setTemplateLoading(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/admin/notices/email-template-config`, {
+      const res = await fetch(`${API_BASE_URL}/api/admin/notices/email-template-config?t=${Date.now()}`, {
+        cache: "no-store",
         headers: { Authorization: authHeaders.Authorization },
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setTemplateError(String(data?.error || "Failed to load template config"));
-        return;
+        return null;
       }
       setTemplateConfig(data?.config || null);
       setTemplateError(null);
+      return data?.config || null;
     } catch {
       setTemplateError("Failed to load template config");
+      return null;
     } finally {
       setTemplateLoading(false);
     }
@@ -219,6 +341,7 @@ export default function AdminNotices() {
     closeCampaignPopups();
     setTemplateEditorOpen(true);
     setTemplateError(null);
+    setTemplateSavedAt(null);
     void loadTemplateConfig();
   };
 
@@ -228,18 +351,27 @@ export default function AdminNotices() {
     try {
       const res = await fetch(`${API_BASE_URL}/api/admin/notices/email-template-config`, {
         method: "PUT",
+        cache: "no-store",
         headers: authHeaders,
         body: JSON.stringify(templateConfig),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setTemplateError(String(data?.error || "Failed to save template config"));
+        setTemplateSavedAt(null);
         return;
       }
-      setTemplateConfig(data?.config || templateConfig);
+      const canonical = await loadTemplateConfig();
+      if (canonical) {
+        setTemplateConfig(canonical);
+        setTemplateSavedAt(new Date().toISOString());
+      } else {
+        setTemplateSavedAt(null);
+      }
       setTemplateError(null);
     } catch {
       setTemplateError("Failed to save template config");
+      setTemplateSavedAt(null);
     } finally {
       setTemplateSaving(false);
     }
@@ -255,12 +387,15 @@ export default function AdminNotices() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setTemplateError(String(data?.error || "Failed to reset template config"));
+        setTemplateSavedAt(null);
         return;
       }
       setTemplateConfig(data?.config || null);
       setTemplateError(null);
+      setTemplateSavedAt(new Date().toISOString());
     } catch {
       setTemplateError("Failed to reset template config");
+      setTemplateSavedAt(null);
     } finally {
       setTemplateResetting(false);
     }
@@ -508,6 +643,166 @@ export default function AdminNotices() {
           </Button>
         </div>
       </div>
+
+      <Card>
+        <CardContent className="p-4 sm:p-5 space-y-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-base font-semibold text-foreground">Email Governance</h2>
+              <p className="text-xs text-muted-foreground">
+                Global Brevo quota and daily audit across verification, reset, notices, and notification emails.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Input
+                type="date"
+                value={governanceDate}
+                onChange={(e) => {
+                  setGovernanceDate(e.target.value || todayDateKey());
+                  setAuditPage(1);
+                }}
+                className="h-8 w-[170px]"
+              />
+              <Button type="button" size="sm" variant="outline" onClick={() => { void fetchGovernanceSummary(); void fetchGovernanceAudit(); }}>
+                Refresh
+              </Button>
+            </div>
+          </div>
+
+          {governanceSummaryError ? (
+            <div className="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-xs text-destructive break-words">
+              {governanceSummaryError}
+            </div>
+          ) : null}
+
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <div className="rounded-md border p-3">
+              <p className="text-[11px] text-muted-foreground">Daily Limit</p>
+              <p className="text-xl font-bold text-foreground">{governanceSummary?.daily_limit ?? 300}</p>
+            </div>
+            <div className="rounded-md border p-3">
+              <p className="text-[11px] text-muted-foreground">Sent Today</p>
+              <p className="text-xl font-bold text-foreground">{governanceSummary?.sent_today ?? 0}</p>
+            </div>
+            <div className="rounded-md border p-3">
+              <p className="text-[11px] text-muted-foreground">Available Today</p>
+              <p className="text-xl font-bold text-emerald-700">{governanceSummary?.available_today ?? 0}</p>
+            </div>
+          </div>
+
+          <div className="rounded-md border p-3 space-y-2">
+            <p className="text-sm font-semibold text-foreground">Type Counts</p>
+            <div className="flex flex-wrap gap-2">
+              {Object.entries(governanceSummary?.grouped_by_type || {}).map(([k, v]) => (
+                <Badge key={k} variant="outline">{k}: {v}</Badge>
+              ))}
+              {governanceSummaryLoading ? <Badge variant="secondary">Loading...</Badge> : null}
+            </div>
+          </div>
+
+          <div className="rounded-md border p-3 space-y-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm font-semibold text-foreground">Email Audit</p>
+              <div className="flex flex-wrap gap-2">
+                <Select value={auditTypeFilter} onValueChange={(v) => { setAuditTypeFilter(v); setAuditPage(1); }}>
+                  <SelectTrigger className="h-8 w-[170px]"><SelectValue placeholder="Type" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value="auth_verify">auth_verify</SelectItem>
+                    <SelectItem value="auth_reset">auth_reset</SelectItem>
+                    <SelectItem value="auth_login_otp">auth_login_otp</SelectItem>
+                    <SelectItem value="notice_publish">notice_publish</SelectItem>
+                    <SelectItem value="notice_campaign">notice_campaign</SelectItem>
+                    <SelectItem value="notification">notification</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={auditStatusFilter} onValueChange={(v) => { setAuditStatusFilter(v); setAuditPage(1); }}>
+                  <SelectTrigger className="h-8 w-[170px]"><SelectValue placeholder="Status" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="sent">sent</SelectItem>
+                    <SelectItem value="failed">failed</SelectItem>
+                    <SelectItem value="blocked_limit">blocked_limit</SelectItem>
+                    <SelectItem value="queued_next_day">queued_next_day</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {auditError ? (
+              <div className="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-xs text-destructive break-words">
+                {auditError}
+              </div>
+            ) : null}
+
+            <div className="max-h-80 overflow-auto rounded-md border">
+              <table className="w-full text-xs">
+                <thead className="bg-muted/40">
+                  <tr className="text-left">
+                    <th className="px-2 py-2">Time</th>
+                    <th className="px-2 py-2">Title</th>
+                    <th className="px-2 py-2">Type</th>
+                    <th className="px-2 py-2">Status</th>
+                    <th className="px-2 py-2">Recipient</th>
+                    <th className="px-2 py-2">Reason</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {auditLoading ? (
+                    <tr>
+                      <td colSpan={6} className="px-2 py-3 text-muted-foreground">Loading audit...</td>
+                    </tr>
+                  ) : auditRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-2 py-3 text-muted-foreground">No email audit records for this filter/date.</td>
+                    </tr>
+                  ) : (
+                    auditRows.map((row) => (
+                      <tr key={row.id} className="border-t align-top">
+                        <td className="px-2 py-2 whitespace-nowrap">{formatAuditTimeBd(row)}</td>
+                        <td className="px-2 py-2 max-w-[260px]">
+                          <p className="truncate" title={row.title || "-"}>
+                            {row.title || "-"}
+                          </p>
+                        </td>
+                        <td className="px-2 py-2">{row.email_type}</td>
+                        <td className="px-2 py-2"><Badge variant="outline">{row.status}</Badge></td>
+                        <td className="px-2 py-2 break-all">{row.recipient_email || "-"}</td>
+                        <td className="px-2 py-2 break-words">{row.reason || "-"}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-[11px] text-muted-foreground">Total records: {auditTotal}</p>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setAuditPage((p) => Math.max(1, p - 1))}
+                  disabled={auditPage <= 1}
+                >
+                  Previous
+                </Button>
+                <Badge variant="secondary">Page {auditPage}</Badge>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setAuditPage((p) => p + 1)}
+                  disabled={auditPage * auditPageSize >= auditTotal}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
@@ -774,6 +1069,7 @@ export default function AdminNotices() {
         saving={templateSaving}
         resetting={templateResetting}
         error={templateError}
+        savedAt={templateSavedAt}
         onChange={setTemplateConfig}
         onSave={saveTemplateConfig}
         onReset={resetTemplateConfig}
