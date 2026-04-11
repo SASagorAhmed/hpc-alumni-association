@@ -421,12 +421,23 @@ function parseSseToken(req) {
 }
 
 async function requireAdmin(pool, userId) {
+  const now = Date.now();
+  const cached = requireAdminCache.get(userId);
+  if (cached && cached.expiresAt > now) return cached.allowed;
   const [rows] = await pool.query(
     "SELECT id FROM user_roles WHERE user_id = ? AND role = 'admin' LIMIT 1",
     [userId]
   );
-  return (rows || []).length > 0;
+  const allowed = (rows || []).length > 0;
+  requireAdminCache.set(userId, {
+    allowed,
+    expiresAt: now + REQUIRE_ADMIN_CACHE_TTL_MS,
+  });
+  return allowed;
 }
+
+const REQUIRE_ADMIN_CACHE_TTL_MS = 5 * 60 * 1000;
+const requireAdminCache = new Map();
 
 const PRIMARY_ADMIN_EMAIL = String(process.env.PRIMARY_ADMIN_EMAIL || "sagormimmarriage@gmail.com")
   .trim()
@@ -474,6 +485,40 @@ function normalizeDateKeyOrToday(raw) {
   const s = String(raw || "").trim();
   if (!s) return new Date().toISOString().slice(0, 10);
   return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : new Date().toISOString().slice(0, 10);
+}
+
+let ensureAdminUserProfileSchemaReadyPromise = null;
+async function ensureAdminUserPerfIndexes(pool) {
+  const indexStatements = [
+    "CREATE INDEX idx_user_roles_user_role ON user_roles (user_id, role)",
+    "CREATE INDEX idx_profile_edit_audit_profile_edited ON profile_edit_audit (profile_id, edited_at, id)",
+    "CREATE INDEX idx_profiles_created_at ON profiles (created_at)",
+  ];
+  for (const sql of indexStatements) {
+    try {
+      await pool.query(sql);
+    } catch (err) {
+      const msg = String(err?.message || err);
+      if (!/Duplicate key name|already exists/i.test(msg)) throw err;
+    }
+  }
+}
+
+async function ensureAdminUserProfileSchemaReady(pool) {
+  if (!ensureAdminUserProfileSchemaReadyPromise) {
+    ensureAdminUserProfileSchemaReadyPromise = (async () => {
+      await ensureProfileReviewNoteColumn(pool);
+      await ensureProfileDirectoryVisibleColumn(pool);
+      await ensureProfileBirthdayColumn(pool);
+      await ensureProfileNicknameUniShortColumns(pool);
+      await ensureProfileEditAuditTable(pool);
+      await ensureAdminUserPerfIndexes(pool);
+    })().catch((err) => {
+      ensureAdminUserProfileSchemaReadyPromise = null;
+      throw err;
+    });
+  }
+  return ensureAdminUserProfileSchemaReadyPromise;
 }
 
 /** Safe DATETIME for MySQL (avoids invalid ISO / timezone surprises on date-only strings). */
@@ -663,15 +708,14 @@ router.get("/users", requireAuth, async (req, res) => {
   try {
     const pool = await withAdmin(req, res);
     if (!pool) return;
-    await ensureProfileReviewNoteColumn(pool);
-    await ensureProfileDirectoryVisibleColumn(pool);
-    await ensureProfileBirthdayColumn(pool);
-    await ensureProfileNicknameUniShortColumns(pool);
+    await ensureAdminUserProfileSchemaReady(pool);
     const [rows] = await pool.query(
       `SELECT p.*, u.email, u.email_verified,
-        (SELECT COUNT(*) FROM user_roles ur WHERE ur.user_id = p.id AND ur.role = 'admin') AS admin_role_count
+        COUNT(ur.id) AS admin_role_count
        FROM profiles p
        LEFT JOIN users u ON u.id = p.id
+       LEFT JOIN user_roles ur ON ur.user_id = p.id AND ur.role = 'admin'
+       GROUP BY p.id
        ORDER BY p.created_at DESC`
     );
     res.status(200).json((rows || []).map((r) => mapProfileRowWithAdminFlag(r)));
@@ -684,17 +728,15 @@ router.get("/users/:id", requireAuth, async (req, res) => {
   try {
     const pool = await withAdmin(req, res);
     if (!pool) return;
-    await ensureProfileReviewNoteColumn(pool);
-    await ensureProfileDirectoryVisibleColumn(pool);
-    await ensureProfileBirthdayColumn(pool);
-    await ensureProfileNicknameUniShortColumns(pool);
-    await ensureProfileEditAuditTable(pool);
+    await ensureAdminUserProfileSchemaReady(pool);
     const [rows] = await pool.query(
       `SELECT p.*, u.email, u.email_verified,
-        (SELECT COUNT(*) FROM user_roles ur WHERE ur.user_id = p.id AND ur.role = 'admin') AS admin_role_count
+        COUNT(ur.id) AS admin_role_count
        FROM profiles p
        LEFT JOIN users u ON u.id = p.id
+       LEFT JOIN user_roles ur ON ur.user_id = p.id AND ur.role = 'admin'
        WHERE p.id = ?
+       GROUP BY p.id
        LIMIT 1`,
       [req.params.id]
     );
@@ -762,8 +804,7 @@ router.patch("/users/:id", requireAuth, async (req, res) => {
   try {
     const pool = await withAdmin(req, res);
     if (!pool) return;
-    await ensureProfileReviewNoteColumn(pool);
-    await ensureProfileDirectoryVisibleColumn(pool);
+    await ensureAdminUserProfileSchemaReady(pool);
     const allowed = [
       "verified",
       "approved",

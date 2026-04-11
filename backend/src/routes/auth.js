@@ -250,6 +250,7 @@ function resolveAdminUsersDashboardLink() {
 
 const EMAIL_OTP_TTL_MS = 10 * 60 * 1000;
 const EMAIL_OTP_MAX_ATTEMPTS = 5;
+const STALE_UNVERIFIED_REGISTRATION_TTL_MS = 10 * 60 * 1000;
 
 function getOtpHashSecret() {
   return String(process.env.EMAIL_OTP_SECRET || env.jwt.secret || "change_me").trim();
@@ -291,6 +292,37 @@ async function createAndStoreEmailOtpChallenge({ pool, userId, email }) {
   );
 
   return { otp, challengeId, expiresAt };
+}
+
+async function cleanupStaleUnverifiedRegistrationByEmail(pool, email) {
+  const emailNorm = String(email || "").trim().toLowerCase();
+  if (!pool || !emailNorm) return { existed: false, deleted: false };
+
+  const [rows] = await pool.query(
+    `SELECT u.id, u.email_verified, u.created_at, p.photo
+     FROM users u
+     LEFT JOIN profiles p ON p.id = u.id
+     WHERE u.email = ?
+     LIMIT 1`,
+    [emailNorm]
+  );
+  const row = rows?.[0];
+  if (!row) return { existed: false, deleted: false };
+  if (Boolean(row.email_verified)) return { existed: true, deleted: false };
+
+  const createdAtMs = row.created_at ? new Date(row.created_at).getTime() : NaN;
+  if (!Number.isFinite(createdAtMs)) return { existed: true, deleted: false };
+  if (Date.now() - createdAtMs < STALE_UNVERIFIED_REGISTRATION_TTL_MS) {
+    return { existed: true, deleted: false };
+  }
+
+  await deleteCloudinaryImageByUrl(row.photo || null);
+  const [del] = await pool.query(
+    "DELETE FROM users WHERE id = ? AND email_verified = 0 LIMIT 1",
+    [row.id]
+  );
+  const affected = Number(del?.affectedRows ?? del?.[0]?.affectedRows ?? 0);
+  return { existed: true, deleted: affected > 0 };
 }
 
 /** @returns {string|null|false} null if empty, false if invalid */
@@ -472,6 +504,7 @@ router.post("/register", registerLimiter, profileUpload.single("photo"), async (
     }
 
     const emailStr = String(email).toLowerCase().trim();
+    await cleanupStaleUnverifiedRegistrationByEmail(pool, emailStr);
     if (wantsGoogleRegister && googleDraft && emailStr !== googleDraft.email) {
       return res.status(400).json({ ok: false, error: "Email must match your Google account." });
     }
@@ -802,6 +835,7 @@ router.post("/resend-verification", resendVerifyLimiter, async (req, res) => {
 
     const email = String(req.body?.email || "").toLowerCase().trim();
     if (!email) return res.status(400).json({ ok: false, error: "Email is required" });
+    await cleanupStaleUnverifiedRegistrationByEmail(pool, email);
 
     const [users] = await pool.query("SELECT id, email_verified FROM users WHERE email = ? LIMIT 1", [email]);
     const user = users?.[0];
@@ -851,6 +885,10 @@ router.post("/verify-otp", verifyOtpLimiter, async (req, res) => {
     }
     if (!/^\d{6}$/.test(otp)) {
       return res.status(400).json({ ok: false, error: "OTP must be 6 digits." });
+    }
+    const staleCleanup = await cleanupStaleUnverifiedRegistrationByEmail(pool, email);
+    if (staleCleanup.deleted) {
+      return res.status(400).json({ ok: false, error: "Registration expired. Please register again." });
     }
 
     const [users] = await pool.query("SELECT id, email_verified FROM users WHERE email = ? LIMIT 1", [email]);
