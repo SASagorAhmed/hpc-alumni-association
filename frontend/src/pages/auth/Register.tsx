@@ -91,7 +91,7 @@ const Register = () => {
     university: "",
     universityShortName: "",
     company: "",
-    committeeMember: "" as "" | "yes" | "no",
+    committeeMember: "no" as "" | "yes" | "no",
     committeePost: "",
     profession: "",
     address: "",
@@ -295,7 +295,6 @@ const Register = () => {
     if (!form.university.trim()) e.university = "University is required";
     if (!form.universityShortName.trim()) e.universityShortName = "University short name is required";
     if (form.universityShortName.trim().length > 100) e.universityShortName = "University short name is too long (max 100 characters)";
-    if (!form.committeeMember) e.committeeMember = "Please select yes or no";
     if (form.committeeMember === "yes" && !form.committeePost.trim()) e.committeePost = "Please select a committee post";
     if (!form.profession.trim()) e.profession = "Profession is required";
     if (!form.bloodGroup) e.bloodGroup = "Blood group is required";
