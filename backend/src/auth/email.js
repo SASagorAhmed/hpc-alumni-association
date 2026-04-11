@@ -102,9 +102,9 @@ async function sendVerificationEmail({ pool, email, otpCode, expiresMinutes = 10
     initiatedBy,
     mailOptions: {
       from: getBrandedFromHeader(),
-      to: email,
-      subject,
-      html,
+    to: email,
+    subject,
+    html,
     },
   });
   if (!result.ok) {
@@ -137,9 +137,9 @@ async function sendPasswordResetEmail({ pool, email, resetLink, recipientUserId,
     initiatedBy,
     mailOptions: {
       from: getBrandedFromHeader(),
-      to: email,
-      subject,
-      html,
+    to: email,
+    subject,
+    html,
     },
   });
   if (!result.ok) {

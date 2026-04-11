@@ -168,7 +168,7 @@ const AdminUserProfile = () => {
   };
 
   if (loading || !profile) {
-    return <div className="mx-auto max-w-5xl py-8 text-sm text-muted-foreground">Loading full profile...</div>;
+    return <div className="mx-auto max-w-5xl px-3 sm:px-4 py-8 text-sm text-muted-foreground">Loading full profile...</div>;
   }
 
   const fields: Array<[string, unknown]> = [
@@ -221,8 +221,8 @@ const AdminUserProfile = () => {
   const directoryVisible = Number(profile.directory_visible ?? 1) !== 0;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-4">
-      <div className="flex items-center justify-between">
+    <div className="mx-auto max-w-5xl space-y-4 px-3 sm:px-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Button variant="outline" size="sm" asChild>
           <Link to="/admin/users">
             <ArrowLeft className="mr-1 h-4 w-4" /> Back to Users
@@ -265,11 +265,11 @@ const AdminUserProfile = () => {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-col gap-4 md:flex-row">
-            <div className="w-full max-w-[220px]">
+            <div className="w-full max-w-[280px] sm:max-w-[320px] mx-auto md:mx-0">
               {profile.photo ? (
-                <img src={String(profile.photo)} alt={String(profile.name || "Profile photo")} className="h-56 w-56 rounded-lg border object-cover" />
+                <img src={String(profile.photo)} alt={String(profile.name || "Profile photo")} className="h-72 sm:h-80 w-full max-w-[280px] sm:max-w-[320px] rounded-lg border object-cover" />
               ) : (
-                <div className="flex h-56 w-56 items-center justify-center rounded-lg border bg-muted text-sm text-muted-foreground">No photo</div>
+                <div className="flex h-72 sm:h-80 w-full max-w-[280px] sm:max-w-[320px] items-center justify-center rounded-lg border bg-muted text-sm text-muted-foreground">No photo</div>
               )}
             </div>
             <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2">
@@ -319,25 +319,25 @@ const AdminUserProfile = () => {
             ) : null}
             {canModerateThisProfile && profile.profile_pending ? (
               <>
-                <Button disabled={saving} onClick={() => patchUser({ profile_pending: false, approved: true, profile_review_note: null }, "Profile approved.")}>
+                <Button className="w-full sm:w-auto justify-center" disabled={saving} onClick={() => patchUser({ profile_pending: false, approved: true, profile_review_note: null }, "Profile approved.")}>
                   <CheckCircle2 className="mr-1 h-4 w-4" /> Approve
                 </Button>
               </>
             ) : null}
             {canModerateThisProfile && !(profile.verified && profile.approved) ? (
-              <Button variant="outline" className="text-amber-700" disabled={saving} onClick={() => setRejectOpen(true)}>
+              <Button variant="outline" className="text-amber-700 w-full sm:w-auto justify-center" disabled={saving} onClick={() => setRejectOpen(true)}>
                 <XCircle className="mr-1 h-4 w-4" /> Send Correction
               </Button>
             ) : null}
             {canModerateThisProfile ? (
               profile.verified && profile.approved ? (
-                <Button variant="outline" disabled={saving} onClick={() => patchUser({ verified: false, approved: false }, "User unverified.")}>
+                <Button className="w-full sm:w-auto justify-center" variant="outline" disabled={saving} onClick={() => patchUser({ verified: false, approved: false }, "User unverified.")}>
                   <ShieldOff className="mr-1 h-4 w-4" /> Unverify
                 </Button>
               ) : (
                 <Button
                   variant="outline"
-                  className="text-emerald-700"
+                  className="text-emerald-700 w-full sm:w-auto justify-center"
                   disabled={saving}
                   onClick={() =>
                     patchUser(
@@ -352,17 +352,17 @@ const AdminUserProfile = () => {
             ) : null}
             {canModerateThisProfile ? (
               !profile.blocked ? (
-                <Button variant="destructive" disabled={saving} onClick={() => patchUser({ blocked: true }, "User blocked.")}>
+                <Button className="w-full sm:w-auto justify-center" variant="destructive" disabled={saving} onClick={() => patchUser({ blocked: true }, "User blocked.")}>
                   <Ban className="mr-1 h-4 w-4" /> Block
                 </Button>
               ) : (
-                <Button variant="outline" disabled={saving} onClick={() => patchUser({ blocked: false }, "User unblocked.")}>
+                <Button className="w-full sm:w-auto justify-center" variant="outline" disabled={saving} onClick={() => patchUser({ blocked: false }, "User unblocked.")}>
                   <Ban className="mr-1 h-4 w-4" /> Unblock
                 </Button>
               )
             ) : null}
             {canDeleteUser ? (
-              <Button variant="destructive" disabled={saving} onClick={deleteUser}>
+              <Button className="w-full sm:w-auto justify-center" variant="destructive" disabled={saving} onClick={deleteUser}>
                 <Trash2 className="mr-1 h-4 w-4" /> Delete User
               </Button>
             ) : isPrimaryTarget ? (
@@ -393,7 +393,8 @@ const AdminUserProfile = () => {
           {!profile.profile_edit_history?.length ? (
             <p className="text-sm text-muted-foreground">No self-service edits recorded yet.</p>
           ) : (
-            <Table>
+            <div className="overflow-x-auto">
+            <Table className="min-w-[640px]">
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[1%] whitespace-nowrap">Time</TableHead>
@@ -421,12 +422,13 @@ const AdminUserProfile = () => {
                 ))}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>
 
       <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
-        <DialogContent>
+        <DialogContent className="w-[calc(100vw-1.5rem)] max-w-lg">
           <DialogHeader>
             <DialogTitle>Send Correction Feedback</DialogTitle>
             <DialogDescription>

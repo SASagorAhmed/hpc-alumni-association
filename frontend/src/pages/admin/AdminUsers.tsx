@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/table";
 import {
   Search, CheckCircle2, XCircle, Ban, ShieldCheck, ShieldOff, Eye, EyeOff,
-  RefreshCw, Users, Clock, UserCheck, UserX, Crown,
+  RefreshCw, Users, Clock, UserCheck, UserX, Crown, User,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -59,6 +59,16 @@ type Filter = "all" | "pending" | "verified" | "unverified" | "blocked";
 
 const FILTER_VALUES: readonly Filter[] = ["all", "pending", "verified", "unverified", "blocked"];
 const FILTER_SET = new Set<string>(FILTER_VALUES);
+
+const initialsFromName = (name: string | null | undefined) => {
+  const safe = String(name || "").trim();
+  if (!safe) return "A";
+  const parts = safe.split(/\s+/).slice(0, 2);
+  return parts
+    .map((p) => p[0]?.toUpperCase() || "")
+    .join("")
+    .slice(0, 2) || "A";
+};
 
 const AdminUsers = () => {
   const { user: currentUser } = useAuth();
@@ -283,9 +293,6 @@ const AdminUsers = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Name</TableHead>
-                      <TableHead>Batch</TableHead>
-                      <TableHead>Session</TableHead>
-                      <TableHead>Department</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
@@ -296,28 +303,39 @@ const AdminUsers = () => {
                       return (
                       <TableRow key={p.id}>
                         <TableCell>
-                          <div className="flex items-center gap-2 min-w-0">
+                          <div className="flex items-center gap-3 min-w-0">
+                            {p.photo ? (
+                              <img
+                                src={p.photo}
+                                alt={p.name || "Profile photo"}
+                                className="h-14 w-14 rounded-full border object-cover shrink-0"
+                              />
+                            ) : (
+                              <div className="h-14 w-14 rounded-full border bg-muted text-muted-foreground flex items-center justify-center shrink-0">
+                                {p.name ? <span className="text-xs font-semibold">{initialsFromName(p.name)}</span> : <User className="w-5 h-5" />}
+                              </div>
+                            )}
                             {p.is_admin ? (
                               <span title="Administrator" className="shrink-0 text-amber-600 dark:text-amber-400">
                                 <Crown className="w-4 h-4" aria-hidden />
                               </span>
                             ) : null}
-                            <Link
-                              to={`/admin/users/${p.id}`}
-                              onMouseEnter={() => prefetchUserDetail(p.id)}
-                              onFocus={() => prefetchUserDetail(p.id)}
-                              className="text-left font-medium text-foreground hover:underline truncate min-w-0"
-                            >
-                              {p.name || "—"}
-                            </Link>
+                            <div className="min-w-0">
+                              <Link
+                                to={`/admin/users/${p.id}`}
+                                onMouseEnter={() => prefetchUserDetail(p.id)}
+                                onFocus={() => prefetchUserDetail(p.id)}
+                                className="text-left font-medium text-foreground hover:underline truncate min-w-0 block"
+                              >
+                                {p.name || "—"}
+                              </Link>
+                              <p className="text-xs text-muted-foreground">Alumni ID: {p.registration_number || "—"}</p>
+                              {p.phone && (
+                                <p className="text-xs text-muted-foreground">{p.phone}</p>
+                              )}
+                            </div>
                           </div>
-                          {p.phone && (
-                            <p className="text-xs text-muted-foreground">{p.phone}</p>
-                          )}
                         </TableCell>
-                        <TableCell className="text-sm">{p.batch || "—"}</TableCell>
-                        <TableCell className="text-sm whitespace-nowrap">{p.session || p.passing_year || "—"}</TableCell>
-                        <TableCell className="text-sm">{p.department || "—"}</TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1">
                             {p.profile_pending && (
@@ -414,9 +432,20 @@ const AdminUsers = () => {
                 {filtered.map((p) => {
                   const rowIsSelf = Boolean(myId && p.id === myId);
                   return (
-                  <div key={p.id} className="p-4 space-y-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex items-start gap-2">
+                  <div key={p.id} className="p-4 space-y-3 overflow-x-hidden">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex items-start gap-3">
+                        {p.photo ? (
+                          <img
+                            src={p.photo}
+                            alt={p.name || "Profile photo"}
+                            className="h-14 w-14 rounded-full border object-cover shrink-0"
+                          />
+                        ) : (
+                          <div className="h-14 w-14 rounded-full border bg-muted text-muted-foreground flex items-center justify-center shrink-0">
+                            {p.name ? <span className="text-xs font-semibold">{initialsFromName(p.name)}</span> : <User className="w-5 h-5" />}
+                          </div>
+                        )}
                         {p.is_admin ? (
                           <span title="Administrator" className="shrink-0 text-amber-600 dark:text-amber-400 mt-0.5">
                             <Crown className="w-4 h-4" aria-hidden />
@@ -431,12 +460,11 @@ const AdminUsers = () => {
                           >
                             {p.name || "—"}
                           </Link>
-                          <p className="text-xs text-muted-foreground">
-                            {[p.batch, p.session || p.passing_year, p.department].filter(Boolean).join(" · ") || "—"}
-                          </p>
+                          <p className="text-xs text-muted-foreground">Alumni ID: {p.registration_number || "—"}</p>
+                          {p.phone ? <p className="text-xs text-muted-foreground">{p.phone}</p> : null}
                         </div>
                       </div>
-                      <div className="flex flex-shrink-0 flex-wrap justify-end gap-1">
+                      <div className="max-w-[46%] flex flex-wrap justify-end gap-1.5">
                         {p.profile_pending && (
                           <Badge variant="outline" className="text-amber-600 border-amber-300 bg-amber-50 text-[10px]">
                             Pending
@@ -465,10 +493,15 @@ const AdminUsers = () => {
                         ) : null}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       {!rowIsSelf && p.profile_pending && (
                         <>
-                          <Button size="sm" className="h-7 text-xs gap-1 flex-1" onClick={() => approveProfile(p.id)} disabled={actionLoading === p.id}>
+                          <Button
+                            size="sm"
+                            className="h-8 text-xs gap-1 min-w-[calc(50%-0.25rem)] flex-1 justify-center"
+                            onClick={() => approveProfile(p.id)}
+                            disabled={actionLoading === p.id}
+                          >
                             <CheckCircle2 className="w-3 h-3" /> Approve
                           </Button>
                         </>
@@ -477,7 +510,7 @@ const AdminUsers = () => {
                         <Button
                           size="sm"
                           variant="outline"
-                          className="h-7 text-xs gap-1 text-amber-700"
+                          className="h-8 text-xs gap-1 text-amber-700 min-w-[calc(50%-0.25rem)] flex-1 justify-center"
                           onClick={() => openRejectDialog(p)}
                           disabled={actionLoading === p.id}
                         >
@@ -489,7 +522,7 @@ const AdminUsers = () => {
                         <Button
                           size="sm"
                           variant="outline"
-                          className="h-7 text-xs gap-1"
+                          className="h-8 text-xs gap-1 min-w-[calc(50%-0.25rem)] flex-1 justify-center"
                           onClick={() => unverifyUser(p.id)}
                           disabled={actionLoading === p.id}
                         >
@@ -499,7 +532,7 @@ const AdminUsers = () => {
                         <Button
                           size="sm"
                           variant="outline"
-                          className="h-7 text-xs gap-1 text-emerald-700"
+                          className="h-8 text-xs gap-1 text-emerald-700 min-w-[calc(50%-0.25rem)] flex-1 justify-center"
                           onClick={() => verifyUser(p.id)}
                           disabled={actionLoading === p.id}
                         >
@@ -507,7 +540,7 @@ const AdminUsers = () => {
                         </Button>
                       )
                       )}
-                      <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" asChild>
+                      <Button size="sm" variant="ghost" className="h-8 text-xs gap-1 min-w-[calc(50%-0.25rem)] flex-1 justify-center" asChild>
                         <Link
                           to={`/admin/users/${p.id}`}
                           onMouseEnter={() => prefetchUserDetail(p.id)}
