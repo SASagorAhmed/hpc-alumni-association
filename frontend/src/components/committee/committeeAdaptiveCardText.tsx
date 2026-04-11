@@ -231,12 +231,23 @@ export function useAdaptiveInstitutionBreakValue(
       flushSync(() => setText(full));
       const el = elRef.current;
       if (!el) return;
-      if (!shortTrim) return;
+      setOverflowSingleLineFit(el);
+      el.style.textOverflow = "";
+      if (!shortTrim) {
+        applyHeadingEllipsisIfNeeded(el);
+        return;
+      }
       const prevWs = el.style.whiteSpace;
       el.style.whiteSpace = "nowrap";
       const overflow = el.scrollWidth > el.clientWidth + FIT_WIDTH_SLOP_PX;
       el.style.whiteSpace = prevWs;
-      if (overflow) flushSync(() => setText(shortTrim));
+      if (overflow) {
+        flushSync(() => setText(shortTrim));
+      }
+      const elAfter = elRef.current;
+      if (!elAfter) return;
+      setOverflowSingleLineFit(elAfter);
+      applyHeadingEllipsisIfNeeded(elAfter);
     });
   }, [full, shortTrim, resizeTick]);
 

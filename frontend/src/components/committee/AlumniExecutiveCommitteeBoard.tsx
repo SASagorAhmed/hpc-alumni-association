@@ -475,11 +475,11 @@ export function PresidentHeroCard({
                   {fallbackCollege}
                 </span>
               </span>
-              <span className="inline-flex min-w-0 max-w-full items-start gap-1 break-words">
+              <span className="inline-flex min-w-0 max-w-full items-center gap-1 whitespace-nowrap">
                 <Building2 className="mt-0.5 h-[13px] w-[13px] shrink-0" style={{ color: primary }} />
                 <span className="min-w-0">
                   <span className="font-bold" style={{ color: primary }}>University: </span>
-                  <span ref={presidentUniRef} className="break-words">
+                  <span ref={presidentUniRef} className="inline-block max-w-full overflow-hidden text-ellipsis whitespace-nowrap align-bottom">
                     {presidentUniDisplay}
                   </span>
                 </span>
@@ -693,11 +693,11 @@ export function ExecutiveMemberCard({
                 </span>
                 {governingBody ? (
                   <>
-                    <span className="inline-flex min-w-0 max-w-full items-start gap-1.5 break-words">
+                    <span className="inline-flex min-w-0 max-w-full items-center gap-1.5 whitespace-nowrap">
                       <Building2 className="mt-0.5 h-[12.9px] w-[12.9px] shrink-0" style={{ color: "#FFFFFF" }} />
                       <span className="min-w-0">
                         <span className="font-bold" style={{ color: "#FFFFFF" }}>University: </span>
-                        <span ref={instRef} className="break-words">
+                        <span ref={instRef} className="inline-block max-w-full overflow-hidden text-ellipsis whitespace-nowrap align-bottom">
                           {instDisplay}
                         </span>
                       </span>
@@ -721,11 +721,11 @@ export function ExecutiveMemberCard({
               className="mt-2 flex flex-col gap-y-1 text-xs"
               style={{ fontFamily: "Georgia, 'Times New Roman', serif", color: "#FFFFFF" }}
             >
-              <span className="inline-flex min-w-0 max-w-full items-start gap-1.5 break-words">
+              <span className="inline-flex min-w-0 max-w-full items-center gap-1.5 whitespace-nowrap">
                 <Building2 className="mt-0.5 h-[12.9px] w-[12.9px] shrink-0" style={{ color: "#FFFFFF" }} />
                 <span className="min-w-0">
                   <span className="font-bold" style={{ color: "#FFFFFF" }}>University: </span>
-                  <span ref={instRef} className="break-words">
+                  <span ref={instRef} className="inline-block max-w-full overflow-hidden text-ellipsis whitespace-nowrap align-bottom">
                     {instDisplay}
                   </span>
                 </span>
@@ -968,7 +968,7 @@ export function MobilePresidentCard({
               <div className="flex min-w-0 items-start gap-[0.3em] leading-[1.3]">
                 <Building2 className="mt-[0.12em] h-[0.95em] w-[0.95em] shrink-0" style={{ color: primary }} />
                 <p className="m-0 min-w-0 flex-1 min-w-0">
-                  <span ref={universityRowRef} className="block break-words [overflow-wrap:anywhere] font-semibold" style={{ color: primary }}>
+                  <span ref={universityRowRef} className="block min-w-0 overflow-hidden text-ellipsis whitespace-nowrap font-semibold" style={{ color: primary }}>
                     {universityLineDisplay}
                   </span>
                 </p>
