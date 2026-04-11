@@ -54,6 +54,8 @@ const Register = () => {
   const googlePrefill = searchParams.get("google_prefill");
   const fallbackPrefillEmail = String(searchParams.get("prefill_email") || "").trim();
   const fallbackPrefillName = String(searchParams.get("prefill_name") || "").trim();
+  const rememberedGoogleEmail = String(sessionStorage.getItem("google_prefill_email") || "").trim();
+  const rememberedGoogleName = String(sessionStorage.getItem("google_prefill_name") || "").trim();
   const [googleRegisterMode, setGoogleRegisterMode] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -66,9 +68,9 @@ const Register = () => {
   const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
   const cropObjectUrlRef = useRef<string | null>(null);
   const [form, setForm] = useState({
-    name: "",
+    name: rememberedGoogleName,
     nickname: "",
-    email: "",
+    email: rememberedGoogleEmail,
     password: "",
     confirmPassword: "",
     phone: "",
@@ -112,6 +114,11 @@ const Register = () => {
   }, []);
 
   useEffect(() => {
+    if (!rememberedGoogleEmail && !rememberedGoogleName) return;
+    setGoogleRegisterMode(true);
+  }, [rememberedGoogleEmail, rememberedGoogleName]);
+
+  useEffect(() => {
     const err = googleError;
     if (!err) return;
     const messages: Record<string, string> = {
@@ -131,28 +138,6 @@ const Register = () => {
     const fromLoginFlag = fromLogin === "1";
     const hasGoogleHandoffIntent =
       stripDraft || fromLoginFlag || googlePrefill === "1" || Boolean(fallbackPrefillEmail || fallbackPrefillName);
-    // #region agent log
-    fetch("http://127.0.0.1:7400/ingest/63ecb49f-78d9-48ec-8f46-b5a9359e5916", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "39a755" },
-      body: JSON.stringify({
-        sessionId: "39a755",
-        runId: "google-prefill-initial",
-        hypothesisId: "H3",
-        location: "frontend/src/pages/auth/Register.tsx:google-prefill:effect-start",
-        message: "register google prefill effect started",
-        data: {
-          stripDraft,
-          fromLoginFlag,
-          hasGooglePrefillFlag: googlePrefill === "1",
-          hasFallbackEmail: Boolean(fallbackPrefillEmail),
-          hasFallbackName: Boolean(fallbackPrefillName),
-          hasGoogleHandoffIntent,
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
 
     if (!hasGoogleHandoffIntent) {
       return () => {
@@ -173,57 +158,19 @@ const Register = () => {
         const fetchedName = String(body?.name || "").trim();
         const prefillEmail = fetchedEmail || fallbackPrefillEmail;
         const prefillName = fetchedName || fallbackPrefillName;
-        // #region agent log
-        fetch("http://127.0.0.1:7400/ingest/63ecb49f-78d9-48ec-8f46-b5a9359e5916", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "39a755" },
-          body: JSON.stringify({
-            sessionId: "39a755",
-            runId: "google-prefill-initial",
-            hypothesisId: "H4",
-            location: "frontend/src/pages/auth/Register.tsx:google-prefill:after-fetch",
-            message: "register google prefill fetch result",
-            data: {
-              responseOk: res.ok,
-              responseStatus: res.status,
-              hasFetchedEmail: Boolean(fetchedEmail),
-              hasFetchedName: Boolean(fetchedName),
-              usedFallbackEmail: !fetchedEmail && Boolean(fallbackPrefillEmail),
-              usedFallbackName: !fetchedName && Boolean(fallbackPrefillName),
-              hasFinalPrefillEmail: Boolean(prefillEmail),
-              hasFinalPrefillName: Boolean(prefillName),
-            },
-            timestamp: Date.now(),
-          }),
-        }).catch(() => {});
-        // #endregion
         if (!prefillEmail) return;
-
-        // #region agent log
-        fetch("http://127.0.0.1:7400/ingest/63ecb49f-78d9-48ec-8f46-b5a9359e5916", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "39a755" },
-          body: JSON.stringify({
-            sessionId: "39a755",
-            runId: "google-prefill-initial",
-            hypothesisId: "H5",
-            location: "frontend/src/pages/auth/Register.tsx:google-prefill:apply-form",
-            message: "register prefill applied to form",
-            data: {
-              applyingEmail: Boolean(prefillEmail),
-              applyingName: Boolean(prefillName),
-              willStripDraft: stripDraft,
-            },
-            timestamp: Date.now(),
-          }),
-        }).catch(() => {});
-        // #endregion
         setForm((f) => ({
           ...f,
           email: prefillEmail,
           name: prefillName || f.name,
           nickname: prefillName || f.nickname,
         }));
+        try {
+          sessionStorage.setItem("google_prefill_email", prefillEmail);
+          sessionStorage.setItem("google_prefill_name", prefillName || "");
+        } catch {
+          // no-op
+        }
         setGoogleRegisterMode(true);
         if (stripDraft) {
           if (fromLoginFlag) {
@@ -239,7 +186,17 @@ const Register = () => {
                 : "Google account connected. Your email is set from Google; please enter your full name manually."
             );
           }
-          navigate("/register", { replace: true });
+          try {
+            const url = new URL(window.location.href);
+            url.searchParams.delete("google_draft");
+            url.searchParams.delete("google_prefill");
+            url.searchParams.delete("prefill_email");
+            url.searchParams.delete("prefill_name");
+            url.searchParams.delete("from_login");
+            window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+          } catch {
+            // no-op
+          }
         }
       } catch {
         /* ignore */
@@ -365,6 +322,12 @@ const Register = () => {
     });
     setLoading(false);
     if (result.success) {
+      try {
+        sessionStorage.removeItem("google_prefill_email");
+        sessionStorage.removeItem("google_prefill_name");
+      } catch {
+        // no-op
+      }
       const assignedId = result.alumniId?.trim();
       const verificationEmail = String(result.verifyEmail || form.email || "").trim().toLowerCase();
       if (assignedId) {
@@ -446,7 +409,8 @@ const Register = () => {
                   variant="outline"
                   className="w-full sm:w-auto"
                   onClick={() => {
-                    window.location.href = `${API_BASE_URL}/api/auth/google?register=1`;
+                    const target = `${API_BASE_URL}/api/auth/google?register=1`;
+                    window.location.href = target;
                   }}
                 >
                   <GoogleMark className="w-5 h-5 mr-2" />

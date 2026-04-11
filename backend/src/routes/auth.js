@@ -1008,10 +1008,12 @@ router.get("/me", requireAuth, async (req, res) => {
 // GET /api/auth/google?register=1 — OAuth for completing the register form (draft only; no user until POST /register)
 router.get("/google", (req, res, next) => {
   const register = req.query.register === "1" || req.query.register === "true";
+  const computedCallbackUrl = `${publicApiBaseUrlFromRequest(req)}/api/auth/google/callback`;
   passport.authenticate("google", {
     scope: ["profile", "email"],
     session: false,
     state: register ? "register" : "login",
+    callbackURL: computedCallbackUrl,
   })(req, res, next);
 });
 
@@ -1028,41 +1030,11 @@ router.post("/oauth-handoff", (req, res) => {
 // POST /api/auth/google-register-handoff — expose Google email/name for /register (cookie kept until registration succeeds or expires)
 router.post("/google-register-handoff", (req, res) => {
   const raw = req.cookies?.[GOOGLE_REGISTER_DRAFT_COOKIE];
-  // #region agent log
-  fetch("http://127.0.0.1:7400/ingest/63ecb49f-78d9-48ec-8f46-b5a9359e5916", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "39a755" },
-    body: JSON.stringify({
-      sessionId: "39a755",
-      runId: "google-prefill-initial",
-      hypothesisId: "H1",
-      location: "backend/src/routes/auth.js:google-register-handoff:start",
-      message: "google-register-handoff cookie check",
-      data: { hasDraftCookie: Boolean(raw && typeof raw === "string") },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  // #endregion
   if (!raw || typeof raw !== "string") {
     return res.status(401).json({ ok: false, error: "Google sign-up session expired. Use Continue with Google again." });
   }
   try {
     const draft = verifyGoogleRegisterDraftToken(raw);
-    // #region agent log
-    fetch("http://127.0.0.1:7400/ingest/63ecb49f-78d9-48ec-8f46-b5a9359e5916", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "39a755" },
-      body: JSON.stringify({
-        sessionId: "39a755",
-        runId: "google-prefill-initial",
-        hypothesisId: "H1",
-        location: "backend/src/routes/auth.js:google-register-handoff:verified",
-        message: "google-register-handoff draft decoded",
-        data: { hasEmail: Boolean(String(draft?.email || "").trim()), hasName: Boolean(String(draft?.name || "").trim()) },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
     return res.status(200).json({ ok: true, email: draft.email, name: draft.name });
   } catch (_e) {
     return res.status(401).json({ ok: false, error: "Google sign-up session expired. Use Continue with Google again." });
@@ -1075,10 +1047,6 @@ router.get("/google/callback", (req, res, next) => {
     const fe = env.frontendRedirectOrigin || env.frontendOrigin;
     const fromRegister = String(req.query.state || "") === "register";
     try {
-      console.log("[google callback] err:", err ? (err.message || err) : null);
-      console.log("[google callback] user keys:", user ? Object.keys(user) : null);
-      console.log("[google callback] info keys:", info ? Object.keys(info) : null);
-
       if (err) {
         if (fromRegister) return res.redirect(302, `${fe}/register?google_error=oauth`);
         return res.redirect(302, `${fe}/login?google_error=1`);
@@ -1086,21 +1054,6 @@ router.get("/google/callback", (req, res, next) => {
 
       if (user?.registerDraft) {
         const draft = extractGoogleRegisterDraft(user.profile);
-        // #region agent log
-        fetch("http://127.0.0.1:7400/ingest/63ecb49f-78d9-48ec-8f46-b5a9359e5916", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "39a755" },
-          body: JSON.stringify({
-            sessionId: "39a755",
-            runId: "google-prefill-initial",
-            hypothesisId: "H2",
-            location: "backend/src/routes/auth.js:google-callback:registerDraft",
-            message: "google callback register draft extracted",
-            data: { hasDraft: Boolean(draft), hasEmail: Boolean(String(draft?.email || "").trim()), hasName: Boolean(String(draft?.name || "").trim()) },
-            timestamp: Date.now(),
-          }),
-        }).catch(() => {});
-        // #endregion
         if (!draft) {
           return res.redirect(302, `${fe}/register?google_error=incomplete`);
         }
@@ -1130,21 +1083,6 @@ router.get("/google/callback", (req, res, next) => {
         if (draft.email) regQs.set("prefill_email", draft.email);
         if (draft.name) regQs.set("prefill_name", draft.name);
         if (user?.fromLogin) regQs.set("from_login", "1");
-        // #region agent log
-        fetch("http://127.0.0.1:7400/ingest/63ecb49f-78d9-48ec-8f46-b5a9359e5916", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "39a755" },
-          body: JSON.stringify({
-            sessionId: "39a755",
-            runId: "google-prefill-initial",
-            hypothesisId: "H2",
-            location: "backend/src/routes/auth.js:google-callback:redirect-register",
-            message: "google callback redirecting register with prefill flags",
-            data: { hasPrefillEmailParam: regQs.has("prefill_email"), hasPrefillNameParam: regQs.has("prefill_name"), hasGoogleDraftFlag: regQs.get("google_draft") === "1" },
-            timestamp: Date.now(),
-          }),
-        }).catch(() => {});
-        // #endregion
         return res.redirect(302, `${fe}/register?${regQs.toString()}`);
       }
 
@@ -1179,10 +1117,8 @@ router.get("/google/callback", (req, res, next) => {
       if (isNewUser) query.set("needs_password_setup", "1");
 
       const redirectUrl = `${fe}/login?${query.toString()}`;
-      console.log("[google callback] redirect (truncated):", redirectUrl.slice(0, 120) + (redirectUrl.length > 120 ? "…" : ""));
       return res.redirect(302, redirectUrl);
     } catch (e) {
-      console.error("[google callback] handler failed:", e.message || e);
       if (fromRegister) return res.redirect(302, `${fe}/register?google_error=oauth`);
       return res.redirect(302, `${fe}/login?google_callback_failed=1`);
     }
