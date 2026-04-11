@@ -6,6 +6,19 @@ const { ensurePublicWishingMessage } = require("../utils/committeeDefaultWishing
 
 const router = express.Router();
 
+async function ensureProfessionOptionsTable(pool) {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS profession_options (
+      id CHAR(36) NOT NULL,
+      value VARCHAR(200) NOT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      UNIQUE KEY profession_options_value_unique (value)
+    ) ENGINE=InnoDB
+  `);
+}
+
 async function loadStructuredCommittee(pool, termId = null) {
   let term;
   if (termId) {
@@ -46,6 +59,25 @@ async function loadStructuredCommittee(pool, termId = null) {
       }),
   }));
   return { term, posts: postsWith };
+}
+
+async function resolveCurrentPublishedCommitteeTermId(pool) {
+  let [rows] = await pool.query(
+    `SELECT id
+     FROM committee_terms
+     WHERE status = 'published' AND is_current = 1
+     LIMIT 1`
+  );
+  if (!rows?.length) {
+    [rows] = await pool.query(
+      `SELECT id
+       FROM committee_terms
+       WHERE status = 'published'
+       ORDER BY updated_at DESC
+       LIMIT 1`
+    );
+  }
+  return String(rows?.[0]?.id || "").trim() || null;
 }
 
 /** Published committee for alumni UI (structured by term → posts → members) */
@@ -92,6 +124,27 @@ router.get("/committee/terms/:id", async (req, res) => {
   }
 });
 
+// Public-read post options for register committee member dropdown.
+router.get("/committee/register-post-options", async (req, res) => {
+  try {
+    const pool = getOrCreatePool();
+    if (!pool) return res.status(503).json({ ok: false, error: "MySQL not configured" });
+    const termId = await resolveCurrentPublishedCommitteeTermId(pool);
+    if (!termId) return res.status(200).json({ ok: true, options: [] });
+    const [rows] = await pool.query(
+      `SELECT id, title, board_section, display_order
+       FROM committee_posts
+       WHERE term_id = ?
+         AND TRIM(COALESCE(title, '')) <> ''
+       ORDER BY display_order ASC, title ASC`,
+      [termId]
+    );
+    return res.status(200).json({ ok: true, options: rows || [] });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message || "Failed to load register post options" });
+  }
+});
+
 router.get("/committee-members", async (req, res) => {
   try {
     const pool = getOrCreatePool();
@@ -126,6 +179,24 @@ router.get("/committee-members/:id", async (req, res) => {
     return res.status(200).json(rows?.[0] || null);
   } catch (e) {
     return res.status(500).json({ ok: false, error: e.message || "Failed to load member" });
+  }
+});
+
+// Public-read dropdown options for registration committee post selection.
+router.get("/committee/profession-options", async (req, res) => {
+  try {
+    const pool = getOrCreatePool();
+    if (!pool) return res.status(503).json({ ok: false, error: "MySQL not configured" });
+    await ensureProfessionOptionsTable(pool);
+    const [rows] = await pool.query(
+      `SELECT id, value
+       FROM profession_options
+       WHERE TRIM(COALESCE(value, '')) <> ''
+       ORDER BY value ASC`
+    );
+    return res.status(200).json({ ok: true, options: rows || [] });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message || "Failed to load profession options" });
   }
 });
 

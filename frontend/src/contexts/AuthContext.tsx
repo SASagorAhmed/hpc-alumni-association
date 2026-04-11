@@ -25,6 +25,8 @@ export interface User {
   passingYear?: string;
   collegeName?: string;
   profession?: string;
+  committeeMember?: boolean | null;
+  committeePost?: string | null;
   company?: string;
   university?: string;
   /** Short label (e.g. DU, BUET); required at registration, editable later. */
@@ -90,6 +92,8 @@ interface RegisterData {
   universityShortName: string;
   company: string;
   profession: string;
+  committeeMember?: "yes" | "no" | "";
+  committeePost?: string;
   address: string;
   bio: string;
   additionalInfo: string;
@@ -175,6 +179,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     fd.set("universityShortName", data.universityShortName.trim());
     fd.set("company", data.company);
     fd.set("profession", data.profession);
+    if (data.committeeMember) fd.set("committeeMember", data.committeeMember);
+    if (data.committeePost) fd.set("committeePost", data.committeePost);
     fd.set("address", data.address);
     fd.set("bio", data.bio);
     fd.set("additionalInfo", data.additionalInfo);

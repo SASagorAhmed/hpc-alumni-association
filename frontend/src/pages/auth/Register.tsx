@@ -43,6 +43,10 @@ function GoogleMark({ className }: { className?: string }) {
 const FACULTY_OPTIONS = ["Science", "Arts", "Commerce"] as const;
 
 const PASSING_SESSION_OPTIONS = buildPassingSessionOptions();
+const COMMITTEE_MEMBER_OPTIONS = [
+  { value: "yes", label: "Yes" },
+  { value: "no", label: "No" },
+] as const;
 
 const Register = () => {
   const { register } = useAuth();
@@ -67,6 +71,8 @@ const Register = () => {
   const [cropDialogOpen, setCropDialogOpen] = useState(false);
   const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
   const cropObjectUrlRef = useRef<string | null>(null);
+  const [committeePostOptions, setCommitteePostOptions] = useState<Array<{ id: string; title: string }>>([]);
+  const [committeePostLoading, setCommitteePostLoading] = useState(false);
   const [form, setForm] = useState({
     name: rememberedGoogleName,
     nickname: "",
@@ -84,6 +90,8 @@ const Register = () => {
     university: "",
     universityShortName: "",
     company: "",
+    committeeMember: "" as "" | "yes" | "no",
+    committeePost: "",
     profession: "",
     address: "",
     bio: "",
@@ -117,6 +125,33 @@ const Register = () => {
     if (!rememberedGoogleEmail && !rememberedGoogleName) return;
     setGoogleRegisterMode(true);
   }, [rememberedGoogleEmail, rememberedGoogleName]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        setCommitteePostLoading(true);
+        const res = await fetch(`${API_BASE_URL}/api/public/committee/register-post-options`);
+        const body = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        const list = Array.isArray(body?.options) ? body.options : [];
+        const normalized = list
+          .map((row: any) => ({
+            id: String(row?.id || "").trim(),
+            title: String(row?.title || "").trim(),
+          }))
+          .filter((row: { id: string; title: string }) => row.id && row.title);
+        setCommitteePostOptions(normalized);
+      } catch {
+        if (!cancelled) setCommitteePostOptions([]);
+      } finally {
+        if (!cancelled) setCommitteePostLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     const err = googleError;
@@ -259,6 +294,8 @@ const Register = () => {
     if (!form.university.trim()) e.university = "University is required";
     if (!form.universityShortName.trim()) e.universityShortName = "University short name is required";
     if (form.universityShortName.trim().length > 100) e.universityShortName = "University short name is too long (max 100 characters)";
+    if (!form.committeeMember) e.committeeMember = "Please select yes or no";
+    if (form.committeeMember === "yes" && !form.committeePost.trim()) e.committeePost = "Please select a committee post";
     if (!form.profession.trim()) e.profession = "Profession is required";
     if (!form.bloodGroup) e.bloodGroup = "Blood group is required";
     if (form.birthday.trim()) {
@@ -312,6 +349,8 @@ const Register = () => {
       universityShortName: form.universityShortName.trim(),
       company: form.company,
       profession: form.profession,
+      committeeMember: form.committeeMember,
+      committeePost: form.committeePost,
       address: form.address,
       bio: form.bio,
       additionalInfo: form.additionalInfo,
@@ -660,6 +699,53 @@ const Register = () => {
                     <Label htmlFor="company">Company / Organization</Label>
                     <Input id="company" maxLength={100} value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} />
                   </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="committeeMember">Do you committee member? *</Label>
+                    <Select
+                      value={form.committeeMember}
+                      onValueChange={(v: "yes" | "no") =>
+                        setForm((f) => ({
+                          ...f,
+                          committeeMember: v,
+                          committeePost: v === "yes" ? f.committeePost : "",
+                        }))
+                      }
+                    >
+                      <SelectTrigger id="committeeMember">
+                        <SelectValue placeholder="Select yes or no" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {COMMITTEE_MEMBER_OPTIONS.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {errors.committeeMember && <p className="text-xs text-destructive">{errors.committeeMember}</p>}
+                  </div>
+                  {form.committeeMember === "yes" ? (
+                    <div className="space-y-1.5">
+                      <Label htmlFor="committeePost">Committee Post *</Label>
+                      <Select
+                        value={form.committeePost}
+                        onValueChange={(v) => setForm((f) => ({ ...f, committeePost: v }))}
+                        disabled={committeePostLoading}
+                      >
+                        <SelectTrigger id="committeePost">
+                          <SelectValue placeholder={committeePostLoading ? "Loading posts..." : "Select committee post"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {committeePostOptions.map((opt) => (
+                            <SelectItem key={opt.id} value={opt.title}>
+                              {opt.title}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {errors.committeePost && <p className="text-xs text-destructive">{errors.committeePost}</p>}
+                    </div>
+                  ) : null}
                   <div className="space-y-1.5">
                     <Label htmlFor="profession">Profession / Industry *</Label>
                     <Input id="profession" placeholder="e.g. Teaching" maxLength={100} value={form.profession} onChange={(e) => setForm({ ...form, profession: e.target.value })} />

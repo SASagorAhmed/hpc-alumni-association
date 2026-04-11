@@ -170,6 +170,62 @@ async function ensureProfileFacultyColumn(pool) {
   }
 }
 
+async function ensureProfileCommitteeFields(pool) {
+  try {
+    await pool.query("ALTER TABLE profiles ADD COLUMN committee_member TINYINT(1) NULL AFTER profession");
+  } catch (e) {
+    const msg = String(e?.message || "");
+    const code = e?.code ?? e?.errno;
+    if (String(code) !== "1060" && !msg.toLowerCase().includes("duplicate column")) {
+      console.error("[auth] ensure profile committee_member column:", msg.slice(0, 200));
+    }
+  }
+  try {
+    await pool.query("ALTER TABLE profiles ADD COLUMN committee_post VARCHAR(200) NULL AFTER committee_member");
+  } catch (e) {
+    const msg = String(e?.message || "");
+    const code = e?.code ?? e?.errno;
+    if (String(code) !== "1060" && !msg.toLowerCase().includes("duplicate column")) {
+      console.error("[auth] ensure profile committee_post column:", msg.slice(0, 200));
+    }
+  }
+}
+
+async function resolveCurrentPublishedCommitteeTermId(pool) {
+  let [rows] = await pool.query(
+    `SELECT id
+     FROM committee_terms
+     WHERE status = 'published' AND is_current = 1
+     LIMIT 1`
+  );
+  if (!rows?.length) {
+    [rows] = await pool.query(
+      `SELECT id
+       FROM committee_terms
+       WHERE status = 'published'
+       ORDER BY updated_at DESC
+       LIMIT 1`
+    );
+  }
+  return String(rows?.[0]?.id || "").trim() || null;
+}
+
+async function committeePostExistsInCurrentTerm(pool, postTitle) {
+  const title = trimOrNull(postTitle);
+  if (!title) return false;
+  const currentTermId = await resolveCurrentPublishedCommitteeTermId(pool);
+  if (!currentTermId) return false;
+  const [rows] = await pool.query(
+    `SELECT 1 AS ok
+     FROM committee_posts
+     WHERE term_id = ?
+       AND LOWER(TRIM(title)) = LOWER(TRIM(?))
+     LIMIT 1`,
+    [currentTermId, title]
+  );
+  return Boolean(rows?.[0]);
+}
+
 function trimOrNull(v) {
   const s = String(v ?? "").trim();
   return s ? s : null;
@@ -271,6 +327,7 @@ function formatBirthdayFromRow(v) {
 
 async function getUserProfile(pool, userId) {
   await ensureAdminCommitteeDesignationColumn(pool);
+  await ensureProfileCommitteeFields(pool);
   // Role
   const [roleRows] = await pool.query(`SELECT role FROM user_roles WHERE user_id = ?`, [userId]);
   const isAdmin = (roleRows || []).some((r) => r.role === "admin");
@@ -303,6 +360,8 @@ async function getUserProfile(pool, userId) {
     faculty: p.faculty || null,
     session: p.session || null,
     passingYear: p.passing_year || null,
+    committeeMember: p.committee_member === null || p.committee_member === undefined ? null : Boolean(p.committee_member),
+    committeePost: p.committee_post != null && String(p.committee_post).trim() !== "" ? String(p.committee_post).trim() : null,
     collegeName: p.college_name || null,
     profession: p.profession || null,
     company: p.company || null,
@@ -332,6 +391,7 @@ router.post("/register", registerLimiter, profileUpload.single("photo"), async (
     await ensureProfileFacultyColumn(pool);
     await ensureProfileBirthdayColumn(pool);
     await ensureProfileNicknameUniShortColumns(pool);
+    await ensureProfileCommitteeFields(pool);
 
     const {
       email,
@@ -351,6 +411,8 @@ router.post("/register", registerLimiter, profileUpload.single("photo"), async (
       nickname,
       company,
       profession,
+      committeeMember,
+      committeePost,
       address,
       bio,
       additionalInfo,
@@ -489,6 +551,22 @@ router.post("/register", registerLimiter, profileUpload.single("photo"), async (
       return res.status(400).json({ ok: false, error: "Nickname is too long (max 200 characters)" });
     }
 
+    const committeeMemberNorm = String(committeeMember ?? "").trim().toLowerCase();
+    const isCommitteeMember = committeeMemberNorm === "yes";
+    const committeePostNorm = trimOrNull(committeePost);
+    if (committeeMemberNorm && committeeMemberNorm !== "yes" && committeeMemberNorm !== "no") {
+      return res.status(400).json({ ok: false, error: "Committee member must be yes or no" });
+    }
+
+    if (isCommitteeMember) {
+      if (!committeePostNorm) {
+        return res.status(400).json({ ok: false, error: "Committee post is required when committee member is yes" });
+      }
+      const postValid = await committeePostExistsInCurrentTerm(pool, committeePostNorm);
+      if (!postValid) {
+        return res.status(400).json({ ok: false, error: "No published committee term available for post selection" });
+      }
+    }
     if (!String(profession ?? "").trim()) {
       return res.status(400).json({ ok: false, error: "Profession is required" });
     }
@@ -516,6 +594,7 @@ router.post("/register", registerLimiter, profileUpload.single("photo"), async (
 
     const companyNorm = trimOrNull(company);
     const professionNorm = trimOrNull(profession);
+    const adminNotificationPost = isCommitteeMember ? committeePostNorm : professionNorm;
     const addressNorm = trimOrNull(address);
     const bioNorm = trimOrNull(bio);
     const additionalNorm = trimOrNull(additionalInfo);
@@ -600,7 +679,7 @@ router.post("/register", registerLimiter, profileUpload.single("photo"), async (
                 batch: batchNorm,
                 department: facultyNorm,
                 section: dep,
-                post: professionNorm,
+                post: adminNotificationPost,
               },
             })
           )
@@ -1178,6 +1257,7 @@ router.put("/profile", requireAuth, profilePutMultipartMaybe, async (req, res) =
     if (!pool) return res.status(503).json({ ok: false, error: "MySQL not configured" });
     await ensureProfileEditAuditTable(pool);
     await ensureProfileNicknameUniShortColumns(pool);
+    await ensureProfileCommitteeFields(pool);
 
     const currentProfile = await getUserProfile(pool, req.auth.userId);
     if (!currentProfile) return res.status(404).json({ ok: false, error: "Profile not found" });
@@ -1198,6 +1278,8 @@ router.put("/profile", requireAuth, profilePutMultipartMaybe, async (req, res) =
       nickname: "nickname",
       phone: "phone",
       profession: "profession",
+      committee_member: "committeeMember",
+      committee_post: "committeePost",
       company: "company",
       university: "university",
       university_short_name: "universityShortName",
@@ -1214,6 +1296,8 @@ router.put("/profile", requireAuth, profilePutMultipartMaybe, async (req, res) =
       nickname: "nickname",
       phone: "phone",
       profession: "profession",
+      committeeMember: "committee_member",
+      committeePost: "committee_post",
       company: "company",
       university: "university",
       universityShortName: "university_short_name",
@@ -1272,6 +1356,43 @@ router.put("/profile", requireAuth, profilePutMultipartMaybe, async (req, res) =
         return res.status(400).json({ ok: false, error: "Nickname is too long (max 200 characters)." });
       }
       body.nickname = t || null;
+    }
+
+    const hasCommitteeMember = Object.prototype.hasOwnProperty.call(body, "committeeMember");
+    const hasCommitteePost = Object.prototype.hasOwnProperty.call(body, "committeePost");
+    if (hasCommitteeMember || hasCommitteePost) {
+      const normalizeCommitteeMember = (v) => {
+        if (v === true || v === 1) return true;
+        if (v === false || v === 0) return false;
+        const s = String(v ?? "").trim().toLowerCase();
+        if (!s) return null;
+        if (["yes", "true", "1"].includes(s)) return true;
+        if (["no", "false", "0"].includes(s)) return false;
+        return "invalid";
+      };
+      const parsed = hasCommitteeMember ? normalizeCommitteeMember(body.committeeMember) : null;
+      if (parsed === "invalid") {
+        return res.status(400).json({ ok: false, error: "Committee member must be yes or no" });
+      }
+      const effectiveCommitteeMember = hasCommitteeMember ? Boolean(parsed) : Boolean(currentProfile.committeeMember);
+      const effectiveCommitteePost = hasCommitteePost
+        ? trimOrNull(body.committeePost)
+        : trimOrNull(currentProfile.committeePost);
+      if (effectiveCommitteeMember) {
+        if (!effectiveCommitteePost) {
+          return res.status(400).json({ ok: false, error: "Committee post is required when committee member is yes" });
+        }
+        const postValid = await committeePostExistsInCurrentTerm(pool, effectiveCommitteePost);
+        if (!postValid) {
+          return res.status(400).json({ ok: false, error: "Selected committee post is invalid for current term" });
+        }
+      }
+      if (hasCommitteeMember) {
+        body.committeeMember = parsed === null ? null : parsed ? 1 : 0;
+      }
+      if (hasCommitteePost) {
+        body.committeePost = effectiveCommitteeMember ? effectiveCommitteePost : null;
+      }
     }
 
     if (Object.prototype.hasOwnProperty.call(body, "session")) {

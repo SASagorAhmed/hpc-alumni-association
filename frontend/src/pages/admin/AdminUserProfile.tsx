@@ -182,6 +182,11 @@ const AdminUserProfile = () => {
     ["University (full)", profile.university],
     ["University short name", profile.university_short_name],
     ["Profession", profile.profession],
+    [
+      "Committee Member",
+      profile.committee_member == null ? "—" : Number(profile.committee_member) === 1 || profile.committee_member === true ? "Yes" : "No",
+    ],
+    ["Committee Post", profile.committee_post],
     ["Company", profile.company],
     ["Address", profile.address],
     ["Bio", profile.bio],

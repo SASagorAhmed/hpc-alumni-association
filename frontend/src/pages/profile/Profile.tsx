@@ -18,6 +18,11 @@ import type { User } from "@/contexts/AuthContext";
 const FIXED_COLLEGE_NAME = "Hamdard Public College";
 
 const PASSING_SESSION_OPTIONS = buildPassingSessionOptions();
+const COMMITTEE_MEMBER_OPTIONS = [
+  { value: "yes", label: "Yes" },
+  { value: "no", label: "No" },
+] as const;
+const PROFILE_SECTION_HEADING_CLASS = "mb-3 text-base font-bold uppercase tracking-wide text-primary";
 
 function deriveSessionFromUser(u: User | null | undefined): string {
   if (!u) return "";
@@ -42,11 +47,15 @@ const Profile = () => {
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [pendingPhotoFile, setPendingPhotoFile] = useState<File | null>(null);
   const [pendingPreviewUrl, setPendingPreviewUrl] = useState<string | null>(null);
+  const [committeePostOptions, setCommitteePostOptions] = useState<Array<{ id: string; title: string }>>([]);
+  const [committeePostLoading, setCommitteePostLoading] = useState(false);
   const [form, setForm] = useState({
     name: user?.name || "",
     nickname: user?.nickname ?? "",
     phone: user?.phone || "",
     session: deriveSessionFromUser(user),
+    committeeMember: user?.committeeMember === true ? "yes" as const : "no" as const,
+    committeePost: user?.committeePost ?? "",
     profession: user?.profession || "",
     company: user?.company || "",
     university: user?.university || "",
@@ -98,6 +107,8 @@ const Profile = () => {
       nickname: user.nickname ?? "",
       phone: user.phone || "",
       session: nextSession || prev.session,
+      committeeMember: user.committeeMember === true ? "yes" : "no",
+      committeePost: user.committeePost ?? "",
       profession: user.profession || "",
       company: user.company || "",
       university: user.university || "",
@@ -111,6 +122,33 @@ const Profile = () => {
       birthday: user.birthday ? String(user.birthday).slice(0, 10) : "",
     }));
   }, [user]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        setCommitteePostLoading(true);
+        const res = await fetch(`${API_BASE_URL}/api/public/committee/register-post-options`);
+        const body = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        const list = Array.isArray(body?.options) ? body.options : [];
+        const normalized = list
+          .map((row: any) => ({
+            id: String(row?.id || "").trim(),
+            title: String(row?.title || "").trim(),
+          }))
+          .filter((row: { id: string; title: string }) => row.id && row.title);
+        setCommitteePostOptions(normalized);
+      } catch {
+        if (!cancelled) setCommitteePostOptions([]);
+      } finally {
+        if (!cancelled) setCommitteePostLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!pendingPhotoFile) {
@@ -177,6 +215,10 @@ const Profile = () => {
       toast.error("Please select your session (passing year), e.g. 2020-2021.");
       return;
     }
+    if (form.committeeMember === "yes" && !form.committeePost.trim()) {
+      toast.error("Please select a committee post.");
+      return;
+    }
     if (form.birthday.trim()) {
       const b = form.birthday.trim();
       if (!/^\d{4}-\d{2}-\d{2}$/.test(b)) {
@@ -205,6 +247,8 @@ const Profile = () => {
     const result = await updateProfile({
       ...rest,
       nickname: form.nickname.trim() || null,
+      committeeMember: form.committeeMember,
+      committeePost: form.committeeMember === "yes" ? form.committeePost : null,
       socialLinks: { facebook, instagram, linkedin },
       photoFile: pendingPhotoFile || undefined,
     });
@@ -272,7 +316,7 @@ const Profile = () => {
               onChange={handlePhotoFileChosen}
             />
             <div>
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Profile photo</h3>
+              <h3 className={PROFILE_SECTION_HEADING_CLASS}>Profile photo</h3>
               <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
                 <button
                   type="button"
@@ -319,7 +363,7 @@ const Profile = () => {
 
             {/* Basic Information */}
             <div>
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Basic Information</h3>
+              <h3 className={PROFILE_SECTION_HEADING_CLASS}>Basic Information</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="name">Full Name *</Label>
@@ -398,7 +442,7 @@ const Profile = () => {
 
             {/* Academic Information */}
             <div>
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Academic Information</h3>
+              <h3 className={PROFILE_SECTION_HEADING_CLASS}>Academic Information</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="collegeName">College Name</Label>
@@ -424,7 +468,7 @@ const Profile = () => {
 
             {/* Professional Information */}
             <div>
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Professional Information</h3>
+              <h3 className={PROFILE_SECTION_HEADING_CLASS}>Professional Information</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="company">Company / Organization</Label>
@@ -434,12 +478,57 @@ const Profile = () => {
                   <Label htmlFor="profession">Profession / Industry</Label>
                   <Input id="profession" placeholder="e.g. Teaching" maxLength={100} value={form.profession} onChange={(e) => set("profession", e.target.value)} />
                 </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="committeeMember">Are you a committee member?</Label>
+                  <Select
+                    value={form.committeeMember}
+                    onValueChange={(v: "yes" | "no") =>
+                      setForm((f) => ({
+                        ...f,
+                        committeeMember: v,
+                        committeePost: v === "yes" ? f.committeePost : "",
+                      }))
+                    }
+                  >
+                    <SelectTrigger id="committeeMember">
+                      <SelectValue placeholder="Select yes or no" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {COMMITTEE_MEMBER_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {form.committeeMember === "yes" ? (
+                  <div className="space-y-1.5 md:col-span-2">
+                    <Label htmlFor="committeePost">Committee Post *</Label>
+                    <Select
+                      value={form.committeePost}
+                      onValueChange={(v) => setForm((f) => ({ ...f, committeePost: v }))}
+                      disabled={committeePostLoading}
+                    >
+                      <SelectTrigger id="committeePost">
+                        <SelectValue placeholder={committeePostLoading ? "Loading posts..." : "Select committee post"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {committeePostOptions.map((opt) => (
+                          <SelectItem key={opt.id} value={opt.title}>
+                            {opt.title}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : null}
               </div>
             </div>
 
             {/* Contact & Additional */}
             <div>
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Contact & Additional</h3>
+              <h3 className={PROFILE_SECTION_HEADING_CLASS}>Contact & Additional</h3>
               <div className="space-y-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="address">Address</Label>
@@ -462,7 +551,7 @@ const Profile = () => {
 
             {/* Social Links */}
             <div>
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Social Links</h3>
+              <h3 className={PROFILE_SECTION_HEADING_CLASS}>Social Links</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="facebook" className="flex items-center gap-1.5"><Facebook className="w-3.5 h-3.5" />Facebook Profile URL</Label>
