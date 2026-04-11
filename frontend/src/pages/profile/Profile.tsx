@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { DateOfBirthPicker } from "@/components/ui/date-of-birth-picker";
 import { buildPassingSessionOptions, isValidPassingSession } from "@/lib/passingSessionOptions";
 import type { User } from "@/contexts/AuthContext";
+import { API_BASE_URL } from "@/api-production/api.js";
 
 const FIXED_COLLEGE_NAME = "Hamdard Public College";
 
@@ -529,11 +530,17 @@ const Profile = () => {
                         <SelectValue placeholder={committeePostLoading ? "Loading posts..." : "Select committee post"} />
                       </SelectTrigger>
                       <SelectContent>
-                        {committeePostOptions.map((opt) => (
-                          <SelectItem key={opt.id} value={opt.title}>
-                            {opt.title}
+                        {committeePostOptions.length > 0 ? (
+                          committeePostOptions.map((opt) => (
+                            <SelectItem key={opt.id} value={opt.title}>
+                              {opt.title}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <SelectItem value="__no_posts_available__" disabled>
+                            No committee posts available
                           </SelectItem>
-                        ))}
+                        )}
                       </SelectContent>
                     </Select>
                   </div>
