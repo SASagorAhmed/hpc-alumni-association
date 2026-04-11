@@ -425,6 +425,7 @@ type NotificationDropdownProps = {
 const NotificationDropdown = ({ compact }: NotificationDropdownProps) => {
   const [open, setOpen] = useState(false);
   const [badgeCount, setBadgeCount] = useState(0);
+  const [adminAuthUnauthorized, setAdminAuthUnauthorized] = useState(false);
   const [panelStyle, setPanelStyle] = useState<{ top: number; left: number; maxHeight: number }>({
     top: 0,
     left: 8,
@@ -439,19 +440,31 @@ const NotificationDropdown = ({ compact }: NotificationDropdownProps) => {
   /** Polling badge count from the appropriate endpoint without opening the panel. */
   const refreshBadge = useCallback(async () => {
     try {
+      const token = getAuthToken();
+      if (!token) {
+        setBadgeCount(0);
+        return;
+      }
       if (isAdmin) {
+        if (adminAuthUnauthorized) return;
         const res = await fetch(`${API_BASE_URL}/api/admin/notifications?limit=10`, {
-          headers: authHeaders(),
+          headers: { Authorization: `Bearer ${token}` },
         });
+        if (res.status === 401) {
+          setBadgeCount(0);
+          setAdminAuthUnauthorized(true);
+          return;
+        }
         if (!res.ok) return;
         const data = await res.json().catch(() => null);
         const notices: NoticeItem[] = Array.isArray(data?.notices) ? data.notices : [];
         const unreadNotices = notices.filter((n) => !n.is_read).length;
         const pendingUsers = Number(data?.pending_users ?? 0);
         setBadgeCount(unreadNotices + (pendingUsers > 0 ? 1 : 0));
+        setAdminAuthUnauthorized(false);
       } else {
         const res = await fetch(`${API_BASE_URL}/api/alumni/notices/unread-count`, {
-          headers: authHeaders(),
+          headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) return;
         const data = await res.json().catch(() => null);
@@ -460,7 +473,11 @@ const NotificationDropdown = ({ compact }: NotificationDropdownProps) => {
     } catch {
       // silent
     }
-  }, [isAdmin]);
+  }, [isAdmin, adminAuthUnauthorized]);
+
+  useEffect(() => {
+    setAdminAuthUnauthorized(false);
+  }, [isAdmin, user?.id]);
 
   useEffect(() => {
     refreshBadge();

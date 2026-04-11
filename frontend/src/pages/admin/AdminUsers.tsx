@@ -79,13 +79,14 @@ const AdminUsers = () => {
   const [filterRaw, setFilterRaw] = useSyncedQueryState("f", "all");
   const filter: Filter = FILTER_SET.has(filterRaw) ? (filterRaw as Filter) : "all";
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [authUnauthorized, setAuthUnauthorized] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectTarget, setRejectTarget] = useState<ProfileRow | null>(null);
   const [rejectMessage, setRejectMessage] = useState("");
   const token = getAuthToken();
 
   const prefetchUserDetail = (id: string) => {
-    if (!id) return;
+    if (!id || !token || authUnauthorized) return;
     void primeJsonCache({
       cacheKey: `admin:user:${id}`,
       url: `${API_BASE_URL}/api/admin/users/${id}`,
@@ -95,6 +96,12 @@ const AdminUsers = () => {
   };
 
   const fetchProfiles = async (force = false) => {
+    if (!token) {
+      setLoading(false);
+      setProfiles([]);
+      setAuthUnauthorized(true);
+      return;
+    }
     setLoading(true);
     try {
       const data = await cachedJsonFetch<ProfileRow[]>({
@@ -105,7 +112,13 @@ const AdminUsers = () => {
         force,
       });
       setProfiles(Array.isArray(data) ? data : []);
-    } catch {
+      setAuthUnauthorized(false);
+    } catch (err) {
+      const msg = String((err as Error)?.message || "");
+      if (msg.includes("401")) {
+        // Prevent repeated prefetch calls when session/token is unauthorized.
+        setAuthUnauthorized(true);
+      }
       toast.error("Failed to load users");
     }
     setLoading(false);
