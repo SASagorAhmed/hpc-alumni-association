@@ -72,10 +72,20 @@ const AdminUsers = () => {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectTarget, setRejectTarget] = useState<ProfileRow | null>(null);
   const [rejectMessage, setRejectMessage] = useState("");
+  const token = getAuthToken();
+
+  const prefetchUserDetail = (id: string) => {
+    if (!id) return;
+    void primeJsonCache({
+      cacheKey: `admin:user:${id}`,
+      url: `${API_BASE_URL}/api/admin/users/${id}`,
+      headers: { Authorization: `Bearer ${token}` },
+      ttlMs: 30_000,
+    });
+  };
 
   const fetchProfiles = async (force = false) => {
     setLoading(true);
-    const token = getAuthToken();
     try {
       const data = await cachedJsonFetch<ProfileRow[]>({
         cacheKey: "admin:list:/api/admin/users",
@@ -125,7 +135,6 @@ const AdminUsers = () => {
 
   const updateUser = async (id: string, updates: Record<string, unknown>, successMsg: string) => {
     setActionLoading(id);
-    const token = getAuthToken();
     const res = await fetch(`${API_BASE_URL}/api/admin/users/${id}`, {
       method: "PATCH",
       headers: {
@@ -143,6 +152,7 @@ const AdminUsers = () => {
         prev.map((p) => (p.id === id ? { ...p, ...updates } as ProfileRow : p))
       );
       invalidateRequestCacheByPrefix("admin:list:");
+      invalidateRequestCacheByPrefix(`admin:user:${id}`);
       void primeJsonCache<ProfileRow[]>({
         cacheKey: "admin:list:/api/admin/users",
         url: `${API_BASE_URL}/api/admin/users`,
@@ -292,7 +302,12 @@ const AdminUsers = () => {
                                 <Crown className="w-4 h-4" aria-hidden />
                               </span>
                             ) : null}
-                            <Link to={`/admin/users/${p.id}`} className="text-left font-medium text-foreground hover:underline truncate min-w-0">
+                            <Link
+                              to={`/admin/users/${p.id}`}
+                              onMouseEnter={() => prefetchUserDetail(p.id)}
+                              onFocus={() => prefetchUserDetail(p.id)}
+                              className="text-left font-medium text-foreground hover:underline truncate min-w-0"
+                            >
                               {p.name || "—"}
                             </Link>
                           </div>
@@ -377,7 +392,11 @@ const AdminUsers = () => {
                               )
                             )}
                             <Button size="sm" variant="ghost" className="h-7 w-7 p-0" asChild>
-                              <Link to={`/admin/users/${p.id}`}>
+                              <Link
+                                to={`/admin/users/${p.id}`}
+                                onMouseEnter={() => prefetchUserDetail(p.id)}
+                                onFocus={() => prefetchUserDetail(p.id)}
+                              >
                               <Eye className="w-3.5 h-3.5" />
                               </Link>
                             </Button>
@@ -404,7 +423,12 @@ const AdminUsers = () => {
                           </span>
                         ) : null}
                         <div className="min-w-0">
-                          <Link to={`/admin/users/${p.id}`} className="font-medium text-foreground text-sm hover:underline text-left block">
+                          <Link
+                            to={`/admin/users/${p.id}`}
+                            onMouseEnter={() => prefetchUserDetail(p.id)}
+                            onFocus={() => prefetchUserDetail(p.id)}
+                            className="font-medium text-foreground text-sm hover:underline text-left block"
+                          >
                             {p.name || "—"}
                           </Link>
                           <p className="text-xs text-muted-foreground">
@@ -484,7 +508,11 @@ const AdminUsers = () => {
                       )
                       )}
                       <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" asChild>
-                        <Link to={`/admin/users/${p.id}`}>
+                        <Link
+                          to={`/admin/users/${p.id}`}
+                          onMouseEnter={() => prefetchUserDetail(p.id)}
+                          onFocus={() => prefetchUserDetail(p.id)}
+                        >
                         <Eye className="w-3 h-3" /> View
                         </Link>
                       </Button>

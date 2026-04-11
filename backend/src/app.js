@@ -8,6 +8,7 @@ const env = require("./config/env");
 const { getOrCreatePool } = require("./db/pool");
 const { ensureCommitteePostsBoardSectionColumn } = require("./utils/ensureCommitteePostsBoardSection");
 const { renameCommitteeSecretaryPostTitles } = require("./utils/renameCommitteeSecretaryPostTitles");
+const { ensureAdminUserManagementReady } = require("./utils/ensureAdminUserManagementReady");
 const { healthRoute } = require("./routes/health");
 const authRoutes = require("./routes/auth");
 const { configureGooglePassport } = require("./auth/google");
@@ -121,6 +122,9 @@ setImmediate(() => {
   );
   renameCommitteeSecretaryPostTitles(pool).catch((e) =>
     console.warn("[app] committee_posts secretary title rename:", e.message || e)
+  );
+  ensureAdminUserManagementReady(pool).catch((e) =>
+    console.warn("[app] admin user management ensure:", e.message || e)
   );
 });
 

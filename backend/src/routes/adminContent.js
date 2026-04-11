@@ -1,9 +1,6 @@
 const express = require("express");
 const { v4: uuidv4 } = require("uuid");
 const { ensureAchievementSettingsRow } = require("../utils/achievementSettings");
-const { ensureProfileEditAuditTable } = require("../utils/ensureProfileEditAuditTable");
-const { ensureProfileBirthdayColumn } = require("../utils/ensureProfileBirthdayColumn");
-const { ensureProfileNicknameUniShortColumns } = require("../utils/ensureProfileNicknameUniShortColumns");
 const { getOrCreatePool } = require("../db/pool");
 const { requireAuth, verifyJwt } = require("../auth/jwt");
 const env = require("../config/env");
@@ -487,40 +484,6 @@ function normalizeDateKeyOrToday(raw) {
   return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : new Date().toISOString().slice(0, 10);
 }
 
-let ensureAdminUserProfileSchemaReadyPromise = null;
-async function ensureAdminUserPerfIndexes(pool) {
-  const indexStatements = [
-    "CREATE INDEX idx_user_roles_user_role ON user_roles (user_id, role)",
-    "CREATE INDEX idx_profile_edit_audit_profile_edited ON profile_edit_audit (profile_id, edited_at, id)",
-    "CREATE INDEX idx_profiles_created_at ON profiles (created_at)",
-  ];
-  for (const sql of indexStatements) {
-    try {
-      await pool.query(sql);
-    } catch (err) {
-      const msg = String(err?.message || err);
-      if (!/Duplicate key name|already exists/i.test(msg)) throw err;
-    }
-  }
-}
-
-async function ensureAdminUserProfileSchemaReady(pool) {
-  if (!ensureAdminUserProfileSchemaReadyPromise) {
-    ensureAdminUserProfileSchemaReadyPromise = (async () => {
-      await ensureProfileReviewNoteColumn(pool);
-      await ensureProfileDirectoryVisibleColumn(pool);
-      await ensureProfileBirthdayColumn(pool);
-      await ensureProfileNicknameUniShortColumns(pool);
-      await ensureProfileEditAuditTable(pool);
-      await ensureAdminUserPerfIndexes(pool);
-    })().catch((err) => {
-      ensureAdminUserProfileSchemaReadyPromise = null;
-      throw err;
-    });
-  }
-  return ensureAdminUserProfileSchemaReadyPromise;
-}
-
 /** Safe DATETIME for MySQL (avoids invalid ISO / timezone surprises on date-only strings). */
 function normalizeAchievementDateTime(value) {
   if (value == null || value === "") return null;
@@ -603,24 +566,6 @@ async function ensureAchievementDetailPageColumns(pool) {
       const msg = String(e && e.message ? e.message : e);
       if (!/Duplicate column name/i.test(msg)) throw e;
     }
-  }
-}
-
-async function ensureProfileReviewNoteColumn(pool) {
-  try {
-    await pool.query("ALTER TABLE profiles ADD COLUMN profile_review_note TEXT NULL");
-  } catch (e) {
-    const msg = String(e && e.message ? e.message : e);
-    if (!/Duplicate column name/i.test(msg)) throw e;
-  }
-}
-
-async function ensureProfileDirectoryVisibleColumn(pool) {
-  try {
-    await pool.query("ALTER TABLE profiles ADD COLUMN directory_visible TINYINT(1) NOT NULL DEFAULT 1");
-  } catch (e) {
-    const msg = String(e && e.message ? e.message : e);
-    if (!/Duplicate column name/i.test(msg)) throw e;
   }
 }
 
@@ -708,14 +653,16 @@ router.get("/users", requireAuth, async (req, res) => {
   try {
     const pool = await withAdmin(req, res);
     if (!pool) return;
-    await ensureAdminUserProfileSchemaReady(pool);
     const [rows] = await pool.query(
       `SELECT p.*, u.email, u.email_verified,
-        COUNT(ur.id) AS admin_role_count
+        EXISTS(
+          SELECT 1
+          FROM user_roles ur
+          WHERE ur.user_id = p.id AND ur.role = 'admin'
+          LIMIT 1
+        ) AS admin_role_count
        FROM profiles p
        LEFT JOIN users u ON u.id = p.id
-       LEFT JOIN user_roles ur ON ur.user_id = p.id AND ur.role = 'admin'
-       GROUP BY p.id
        ORDER BY p.created_at DESC`
     );
     res.status(200).json((rows || []).map((r) => mapProfileRowWithAdminFlag(r)));
@@ -728,15 +675,17 @@ router.get("/users/:id", requireAuth, async (req, res) => {
   try {
     const pool = await withAdmin(req, res);
     if (!pool) return;
-    await ensureAdminUserProfileSchemaReady(pool);
     const [rows] = await pool.query(
       `SELECT p.*, u.email, u.email_verified,
-        COUNT(ur.id) AS admin_role_count
+        EXISTS(
+          SELECT 1
+          FROM user_roles ur
+          WHERE ur.user_id = p.id AND ur.role = 'admin'
+          LIMIT 1
+        ) AS admin_role_count
        FROM profiles p
        LEFT JOIN users u ON u.id = p.id
-       LEFT JOIN user_roles ur ON ur.user_id = p.id AND ur.role = 'admin'
        WHERE p.id = ?
-       GROUP BY p.id
        LIMIT 1`,
       [req.params.id]
     );
@@ -804,7 +753,6 @@ router.patch("/users/:id", requireAuth, async (req, res) => {
   try {
     const pool = await withAdmin(req, res);
     if (!pool) return;
-    await ensureAdminUserProfileSchemaReady(pool);
     const allowed = [
       "verified",
       "approved",

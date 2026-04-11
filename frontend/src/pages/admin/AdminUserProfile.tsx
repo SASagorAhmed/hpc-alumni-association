@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { getAuthToken } from "@/lib/authToken";
+import { cachedJsonFetch, invalidateRequestCacheByPrefix } from "@/lib/requestCache";
 import { useAuth } from "@/contexts/AuthContext";
 import { PRIMARY_ADMIN_EMAIL } from "@/constants/adminAccess";
 import { ArrowLeft, Ban, CheckCircle2, Crown, History, ShieldCheck, ShieldOff, Trash2, XCircle } from "lucide-react";
@@ -98,17 +99,21 @@ const AdminUserProfile = () => {
   const fetchProfile = async () => {
     if (!id) return;
     setLoading(true);
-    const res = await fetch(`${API_BASE_URL}/api/admin/users/${id}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const body = await res.json().catch(() => null);
-    if (!res.ok) {
-      toast.error((body as { error?: string } | null)?.error || "Failed to load profile");
+    try {
+      const data = await cachedJsonFetch<UserProfile>({
+        cacheKey: `admin:user:${id}`,
+        url: `${API_BASE_URL}/api/admin/users/${id}`,
+        headers: { Authorization: `Bearer ${token}` },
+        ttlMs: 30_000,
+      });
+      setProfile(data);
+      setRejectMessage((data.profile_review_note as string) || "");
+    } catch {
+      toast.error("Failed to load profile");
+      setLoading(false);
       navigate("/admin/users");
       return;
     }
-    setProfile(body as UserProfile);
-    setRejectMessage(((body as UserProfile).profile_review_note as string) || "");
     setLoading(false);
   };
 
@@ -132,6 +137,8 @@ const AdminUserProfile = () => {
       }
       toast.success(success);
       setProfile((prev) => (prev ? ({ ...prev, ...updates } as UserProfile) : prev));
+      invalidateRequestCacheByPrefix(`admin:user:${id}`);
+      invalidateRequestCacheByPrefix("admin:list:");
     } finally {
       setSaving(false);
     }
@@ -152,6 +159,8 @@ const AdminUserProfile = () => {
         return;
       }
       toast.success("User deleted.");
+      invalidateRequestCacheByPrefix(`admin:user:${id}`);
+      invalidateRequestCacheByPrefix("admin:list:");
       navigate("/admin/users");
     } finally {
       setSaving(false);
