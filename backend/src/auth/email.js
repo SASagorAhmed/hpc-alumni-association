@@ -269,6 +269,117 @@ async function sendAdminApprovalRequestEmail({
   }
 }
 
+async function sendAdminRoleGrantedEmail({
+  pool,
+  recipientEmail,
+  recipientUserId,
+  recipientName,
+  adminDashboardLink,
+  signInLink,
+  initiatedBy,
+}) {
+  const transporter = createTransporter();
+  if (!transporter) {
+    throw new Error("SMTP is not configured (set SMTP_HOST/SMTP_USER/SMTP_PASS in backend/.env).");
+  }
+
+  const normalizedEmail = String(recipientEmail || "").trim().toLowerCase();
+  const emailLocalPart = normalizedEmail.includes("@") ? normalizedEmail.split("@")[0] : "";
+  const name = String(recipientName || "").trim() || emailLocalPart || "Admin";
+  const safeDashboardLink = String(adminDashboardLink || "").trim();
+  const safeSignInLink = String(signInLink || "").trim();
+  const subject = "Congratulations! You are now an administrator";
+
+  const html = `
+    <div style="margin:0;padding:0;background:#f1f5f9;font-family:Inter,Segoe UI,Arial,sans-serif;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:20px 10px;">
+        <tr>
+          <td align="center">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:720px;background:#ffffff;border:1px solid #dbeafe;border-radius:14px;overflow:hidden;">
+              <tr>
+                <td style="height:8px;background:linear-gradient(90deg,#16a34a,#0ea5e9,#2563eb);"></td>
+              </tr>
+              <tr>
+                <td style="padding:22px 24px 8px;">
+                  <p style="margin:0;color:#0f172a;font-size:16px;line-height:1.8;">
+                    Dear ${escapeHtml(name)},
+                  </p>
+                  <p style="margin:10px 0 0;color:#0f172a;font-size:20px;line-height:1.5;font-weight:800;">
+                    🎉 Congratulations!
+                  </p>
+                  <p style="margin:10px 0 0;color:#334155;font-size:14px;line-height:1.8;">
+                    You have been appointed as an <strong>👑 Administrator</strong> of our platform.
+                  </p>
+                  <p style="margin:12px 0 0;color:#334155;font-size:14px;line-height:1.8;">
+                    This is a great responsibility. As an admin, you now have the authority to manage and control important aspects of the website.
+                    The platform gives you the power to oversee and maintain its operations.
+                  </p>
+                  <p style="margin:12px 0 0;color:#334155;font-size:14px;line-height:1.8;">
+                    We expect you to carry out your responsibilities with honesty, ethics, and integrity. Our platform is built on trust, and it is very important to maintain that trust at all times.
+                  </p>
+                  <p style="margin:12px 0 0;color:#334155;font-size:14px;line-height:1.8;">
+                    Please sign in to your account and access the admin dashboard to begin managing your responsibilities.
+                  </p>
+                  <p style="margin:14px 0 0;">
+                    <a href="${escapeHtml(safeDashboardLink)}" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;padding:11px 18px;border-radius:10px;">
+                      Open Admin Dashboard
+                    </a>
+                  </p>
+                  <div style="margin:16px 0 0;padding:12px 14px;border:1px solid #bfdbfe;border-radius:10px;background:#eff6ff;">
+                    <p style="margin:0 0 8px;color:#1e3a8a;font-size:12px;font-weight:700;letter-spacing:.02em;">Support Contact</p>
+                    <p style="margin:0;color:#0f172a;font-size:13px;line-height:1.8;">
+                      📞 Phone: 01887490789<br/>
+                      👤 Head of Development Team: Sagor Ahmed<br/>
+                      🌐 Platform: <a href="${escapeHtml(safeSignInLink)}" style="color:#1d4ed8;">HPC Alumni Association</a>
+                    </p>
+                  </div>
+                  <p style="margin:14px 0 0;color:#334155;font-size:14px;line-height:1.8;">
+                    We believe you will maintain professionalism, honesty, and strong ethical values while performing your role.
+                  </p>
+                  <p style="margin:10px 0 0;color:#334155;font-size:14px;line-height:1.8;">
+                    Keep maintaining the trust of the platform and the community.
+                  </p>
+                  <p style="margin:10px 0 0;color:#334155;font-size:14px;line-height:1.8;">
+                    Once again, congratulations.
+                  </p>
+                  <p style="margin:14px 0 0;color:#334155;font-size:13px;line-height:1.8;">
+                    Best regards,<br/>
+                    HPC Alumni Team<br/>
+                    System Administration
+                  </p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </div>
+  `;
+
+  const result = await sendGovernedEmail({
+    pool,
+    transporter,
+    emailType: EMAIL_TYPES.NOTIFICATION,
+    recipientEmail: normalizedEmail,
+    recipientUserId,
+    initiatedBy,
+    metaJson: {
+      title: subject,
+      notification_kind: "admin_role_granted",
+      audience: "admin",
+    },
+    mailOptions: {
+      from: getBrandedFromHeader(),
+      to: normalizedEmail,
+      subject,
+      html,
+    },
+  });
+  if (!result.ok) {
+    throw new Error(result.reason || "Admin role granted email was not sent");
+  }
+}
+
 async function sendAlumniApprovalSuccessEmail({
   pool,
   recipientEmail,
@@ -383,6 +494,7 @@ module.exports = {
   sendVerificationEmail,
   sendPasswordResetEmail,
   sendAdminApprovalRequestEmail,
+  sendAdminRoleGrantedEmail,
   sendAlumniApprovalSuccessEmail,
 };
 

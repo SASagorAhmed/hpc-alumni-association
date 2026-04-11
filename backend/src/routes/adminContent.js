@@ -10,7 +10,7 @@ const env = require("../config/env");
 const cloudinary = require("../config/cloudinary");
 const { getCloudinaryFolder } = require("../utils/uploadFolders");
 const { sendNoticeEmailForPublishedNotice } = require("../notices/emailSender");
-const { sendAlumniApprovalSuccessEmail } = require("../auth/email");
+const { sendAlumniApprovalSuccessEmail, sendAdminRoleGrantedEmail } = require("../auth/email");
 const { ensureNoticeEmailCampaignTables } = require("../utils/ensureNoticeEmailCampaignTables");
 const { ensureNoticeEmailTemplateTable } = require("../utils/ensureNoticeEmailTemplateTable");
 const { ensureEmailGovernanceTables } = require("../utils/ensureEmailGovernanceTables");
@@ -806,12 +806,18 @@ router.patch("/users/:id", requireAuth, async (req, res) => {
 
     const updatesByKey = new Map(normalized.map(([k, v]) => [k, v]));
     const beforeApproved = toBoolFlag(before.approved);
+    const beforeVerified = toBoolFlag(before.verified);
     const afterApproved = updatesByKey.has("approved") ? toBoolFlag(updatesByKey.get("approved")) : beforeApproved;
-    // Trigger alumni approval-success email exactly when admin approval transitions to true.
-    // This also covers OTP-preverified users (beforeVerified=true, beforeApproved=false).
+    const afterVerified = updatesByKey.has("verified") ? toBoolFlag(updatesByKey.get("verified")) : beforeVerified;
+    // Send alumni approval-success email when account re-enters active approved/verified state.
+    // This covers both:
+    // - OTP-preverified users gaining admin approval (approved false -> true)
+    // - Re-verify flows after admin unverify (verified false -> true)
     const approvedTransitionedToTrue = !beforeApproved && afterApproved;
+    const verifiedTransitionedToTrue = !beforeVerified && afterVerified;
+    const enteredActiveApprovedVerifiedState = afterApproved && afterVerified && (approvedTransitionedToTrue || verifiedTransitionedToTrue);
 
-    if (approvedTransitionedToTrue) {
+    if (enteredActiveApprovedVerifiedState) {
       try {
         const [adminRows] = await pool.query(
           `SELECT COALESCE(NULLIF(TRIM(p.name), ''), NULLIF(TRIM(u.email), '')) AS name
@@ -877,12 +883,13 @@ router.post("/admins/grant", requireAuth, async (req, res) => {
       .trim();
     if (!email) return res.status(400).json({ ok: false, error: "Email is required" });
 
-    const [users] = await pool.query(`SELECT id FROM users WHERE email = ? LIMIT 1`, [email]);
+    const [users] = await pool.query(`SELECT id, email FROM users WHERE email = ? LIMIT 1`, [email]);
     const user = users?.[0];
     if (!user) return res.status(404).json({ ok: false, error: "No user found with that email" });
 
-    const [profiles] = await pool.query(`SELECT id FROM profiles WHERE id = ? LIMIT 1`, [user.id]);
-    if (!profiles?.[0]) {
+    const [profiles] = await pool.query(`SELECT id, name FROM profiles WHERE id = ? LIMIT 1`, [user.id]);
+    const profile = profiles?.[0];
+    if (!profile) {
       return res.status(400).json({ ok: false, error: "That account has no profile; only registered alumni can be admins" });
     }
 
@@ -897,6 +904,19 @@ router.post("/admins/grant", requireAuth, async (req, res) => {
 
     await pool.query(`INSERT INTO user_roles (id, user_id, role) VALUES (?, ?, 'admin')`, [uuidv4(), user.id]);
     await pool.query(`UPDATE profiles SET directory_visible = 1 WHERE id = ?`, [user.id]);
+    try {
+      await sendAdminRoleGrantedEmail({
+        pool,
+        recipientEmail: String(user.email || email).trim().toLowerCase(),
+        recipientUserId: user.id,
+        recipientName: profile.name,
+        adminDashboardLink: buildFrontendPath("/admin/dashboard"),
+        signInLink: buildFrontendPath("/login"),
+        initiatedBy: req.auth.userId,
+      });
+    } catch (emailErr) {
+      console.error("[adminContent] admin role granted email:", emailErr?.message || emailErr);
+    }
     return res.status(201).json({ ok: true, message: "Administrator access granted", userId: user.id });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message || "Failed to grant admin" });

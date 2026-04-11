@@ -171,7 +171,7 @@ const AdminUsers = () => {
     updateUser(id, { verified: true, approved: true }, "User verified.");
 
   const unverifyUser = (id: string) =>
-    updateUser(id, { verified: false }, "User unverified.");
+    updateUser(id, { verified: false, approved: false }, "User unverified.");
 
   const blockUser = (id: string) =>
     updateUser(id, { blocked: true }, "User blocked.");
