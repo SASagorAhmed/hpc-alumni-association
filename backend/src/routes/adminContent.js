@@ -806,12 +806,12 @@ router.patch("/users/:id", requireAuth, async (req, res) => {
 
     const updatesByKey = new Map(normalized.map(([k, v]) => [k, v]));
     const beforeApproved = toBoolFlag(before.approved);
-    const beforeVerified = toBoolFlag(before.verified);
     const afterApproved = updatesByKey.has("approved") ? toBoolFlag(updatesByKey.get("approved")) : beforeApproved;
-    const afterVerified = updatesByKey.has("verified") ? toBoolFlag(updatesByKey.get("verified")) : beforeVerified;
-    const enteredApprovedOrVerified = !beforeApproved && !beforeVerified && (afterApproved || afterVerified);
+    // Trigger alumni approval-success email exactly when admin approval transitions to true.
+    // This also covers OTP-preverified users (beforeVerified=true, beforeApproved=false).
+    const approvedTransitionedToTrue = !beforeApproved && afterApproved;
 
-    if (enteredApprovedOrVerified) {
+    if (approvedTransitionedToTrue) {
       try {
         const [adminRows] = await pool.query(
           `SELECT COALESCE(NULLIF(TRIM(p.name), ''), NULLIF(TRIM(u.email), '')) AS name
