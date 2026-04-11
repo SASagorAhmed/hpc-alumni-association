@@ -686,6 +686,101 @@ function firstNonEmptyTrimmedString(...candidates) {
   return null;
 }
 
+function toTrimmedStringOrNull(value) {
+  if (value == null) return null;
+  const s = String(value).trim();
+  return s || null;
+}
+
+function resolveImportedInstitutionFields(profile) {
+  const sourceName = toTrimmedStringOrNull(profile?.name) || "Alumni";
+  const sourceUniversity = toTrimmedStringOrNull(profile?.university);
+  const sourceUniversityShort = toTrimmedStringOrNull(profile?.university_short_name);
+  let institution = sourceUniversity;
+  let institutionShort = sourceUniversityShort;
+
+  // Some profiles may have university accidentally saved as the person's name.
+  // If so, recover using university_short_name as the full university label.
+  if (
+    sourceUniversity &&
+    sourceUniversityShort &&
+    sourceUniversity === sourceName &&
+    sourceUniversityShort !== sourceUniversity
+  ) {
+    institution = sourceUniversityShort;
+    institutionShort = null;
+  }
+
+  if (institutionShort && institution && institutionShort === institution) {
+    institutionShort = null;
+  }
+
+  return { institution, institutionShort };
+}
+
+function buildImportedMemberRow({
+  id,
+  termId,
+  postId,
+  profile,
+  regNum,
+  social,
+  designation,
+  wishingMessage,
+}) {
+  const name = toTrimmedStringOrNull(profile.name) || "Alumni";
+  const { institution, institutionShort } = resolveImportedInstitutionFields(profile);
+  const row = {
+    id,
+    term_id: termId,
+    post_id: postId,
+    name,
+    designation,
+    category: "executive",
+    batch: toTrimmedStringOrNull(profile.batch),
+    alumni_id: regNum,
+    phone: toTrimmedStringOrNull(profile.phone),
+    email: toTrimmedStringOrNull(profile.user_email),
+    profession: firstNonEmptyTrimmedString(profile.profession, profile.job_title),
+    job_status: toTrimmedStringOrNull(profile.job_status),
+    // Prefer profile university fields; apply swap recovery when university equals profile name.
+    institution,
+    name_short: firstNonEmptyTrimmedString(profile.nickname),
+    institution_short: institutionShort,
+    photo_url: toTrimmedStringOrNull(profile.photo),
+    facebook_url: social.fb || null,
+    instagram_url: social.ig || null,
+    linkedin_url: social.li || null,
+    college_name: FIXED_COLLEGE_NAME,
+    location: null,
+    expertise: null,
+    about: null,
+    wishing_message: wishingMessage,
+    winner_about: winnerAboutFromProfileBio(profile.bio),
+    candidate_number: null,
+    is_active: 1,
+  };
+  return row;
+}
+
+function assertImportedMemberMapping(row, profile) {
+  const expected = resolveImportedInstitutionFields(profile);
+  const sourceUniversity = expected.institution;
+  const rowInstitution = toTrimmedStringOrNull(row.institution);
+  if ((sourceUniversity || null) !== (rowInstitution || null)) {
+    throw new Error("Import mapping integrity check failed for university field.");
+  }
+  const sourceUniversityShort = expected.institutionShort;
+  const rowInstitutionShort = toTrimmedStringOrNull(row.institution_short);
+  if ((sourceUniversityShort || null) !== (rowInstitutionShort || null)) {
+    throw new Error("Import mapping integrity check failed for short university field.");
+  }
+  const sourceName = toTrimmedStringOrNull(profile.name) || "Alumni";
+  if ((toTrimmedStringOrNull(row.name) || "Alumni") !== sourceName) {
+    throw new Error("Import mapping integrity check failed for name field.");
+  }
+}
+
 function wordCount(text) {
   return String(text || "")
     .trim()
@@ -976,11 +1071,30 @@ router.post("/committee/posts/:postId/import-from-alumni", requireAuth, async (r
     await assertPostAllowsAnotherMember(pool, postId);
 
     const [profRows] = await pool.query(
-      `SELECT p.*, u.email AS user_email FROM profiles p
+      `SELECT
+          p.id,
+          p.name,
+          p.registration_number,
+          p.batch,
+          p.phone,
+          p.profession,
+          p.job_title,
+          p.job_status,
+          p.university,
+          p.university_short_name,
+          p.nickname,
+          p.photo,
+          p.social_links,
+          p.bio,
+          u.email AS user_email
+       FROM profiles p
        INNER JOIN users u ON u.id = p.id
        WHERE TRIM(COALESCE(p.registration_number,'')) = ?
-          OR UPPER(TRIM(COALESCE(p.registration_number,''))) = UPPER(?)`,
-      [key, key]
+          OR UPPER(TRIM(COALESCE(p.registration_number,''))) = UPPER(?)
+       ORDER BY
+         CASE WHEN TRIM(COALESCE(p.registration_number,'')) = ? THEN 0 ELSE 1 END ASC
+       LIMIT 1`,
+      [key, key, key]
     );
     const profile = profRows?.[0];
     if (!profile) {
@@ -991,51 +1105,33 @@ router.post("/committee/posts/:postId/import-from-alumni", requireAuth, async (r
     const social = parseProfileSocialLinks(profile);
 
     const id = uuidv4();
-    const name = String(profile.name || "").trim() || "Alumni";
     const designation = String(post.title || "").trim() || "Member";
+    const importedName = toTrimmedStringOrNull(profile.name) || "Alumni";
     const boardSection = normalizeBoardSection(post.board_section);
     let wishingMessage = null;
     if (boardSection === "governing_body") {
       const rolePhrase = await resolveRolePhraseForImportWishing(designation);
-      wishingMessage = buildGoverningDefaultWishing(name, rolePhrase);
+      wishingMessage = buildGoverningDefaultWishing(importedName, rolePhrase);
     } else if (
       boardSection === "executive_committee" ||
       boardSection === "committee_heads" ||
       boardSection === "committee_members"
     ) {
       const rolePhrase = await resolveRolePhraseForImportWishing(designation);
-      wishingMessage = buildOtherSectionsDefaultWishing(name, rolePhrase);
+      wishingMessage = buildOtherSectionsDefaultWishing(importedName, rolePhrase);
     }
 
-    const row = {
+    const row = buildImportedMemberRow({
       id,
-      term_id: termId,
-      post_id: postId,
-      name,
+      termId,
+      postId,
+      profile,
+      regNum,
+      social,
       designation,
-      category: "executive",
-      batch: profile.batch != null ? String(profile.batch) : null,
-      alumni_id: regNum,
-      phone: profile.phone != null ? String(profile.phone) : null,
-      email: profile.user_email != null ? String(profile.user_email) : null,
-      profession: firstNonEmptyTrimmedString(profile.profession, profile.job_title),
-      job_status: profile.job_status != null ? String(profile.job_status) : null,
-      institution: profile.university != null ? String(profile.university) : null,
-      name_short: firstNonEmptyTrimmedString(profile.nickname),
-      institution_short: firstNonEmptyTrimmedString(profile.university_short_name),
-      photo_url: profile.photo != null ? String(profile.photo) : null,
-      facebook_url: social.fb || null,
-      instagram_url: social.ig || null,
-      linkedin_url: social.li || null,
-      college_name: FIXED_COLLEGE_NAME,
-      location: null,
-      expertise: null,
-      about: null,
-      wishing_message: wishingMessage,
-      winner_about: winnerAboutFromProfileBio(profile.bio),
-      candidate_number: null,
-      is_active: 1,
-    };
+      wishingMessage,
+    });
+    assertImportedMemberMapping(row, profile);
 
     const [[{ maxO }]] = await pool.query(
       "SELECT COALESCE(MAX(display_order), -1) + 1 AS maxO FROM committee_members WHERE post_id = ?",

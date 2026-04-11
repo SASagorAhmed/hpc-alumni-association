@@ -187,7 +187,7 @@ const AdminCommittee = () => {
         headers: authHeaders(),
       });
       if (!res.ok) throw new Error("Failed to load term detail");
-      return res.json() as { term: CommitteeTerm; posts: CommitteePost[] };
+      return (await res.json()) as { term: CommitteeTerm; posts: CommitteePost[] };
     },
     enabled: !!selectedTermId,
   });
