@@ -271,6 +271,13 @@ const Profile = () => {
           <p>Your profile is flagged for admin review. You can still update your details below; changes save right away.</p>
         </div>
       )}
+      {user?.profilePending && user?.profileReviewNote ? (
+        <div className="mb-6 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-center text-amber-900">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-700">Correction feedback</p>
+          <p className="mt-1.5 text-sm font-medium leading-relaxed">{user.profileReviewNote}</p>
+          <p className="mt-1 text-xs text-amber-700/90">Please update your profile fields accordingly and save changes.</p>
+        </div>
+      ) : null}
 
       {user?.role === "admin" ? (
         <div className="mb-6 flex items-start gap-3 rounded-md border border-violet-200 bg-violet-50/90 px-3 py-3 text-sm text-violet-950 dark:border-violet-800 dark:bg-violet-950/35 dark:text-violet-50/95">

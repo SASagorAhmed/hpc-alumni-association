@@ -160,15 +160,20 @@ const AdminUsers = () => {
     updateUser(
       id,
       {
-        profile_pending: false,
+        profile_pending: true,
         approved: false,
-        profile_review_note: message.trim() || null,
+        verified: false,
+        profile_review_note: message.trim(),
       },
-      "Profile update rejected with feedback."
+      "Correction feedback sent to alumni."
     );
 
   const verifyUser = (id: string) =>
-    updateUser(id, { verified: true, approved: true }, "User verified.");
+    updateUser(
+      id,
+      { verified: true, approved: true, profile_pending: false, profile_review_note: null },
+      "User verified."
+    );
 
   const unverifyUser = (id: string) =>
     updateUser(id, { verified: false, approved: false }, "User unverified.");
@@ -335,10 +340,18 @@ const AdminUsers = () => {
                                 <Button size="sm" variant="outline" className="h-7 text-xs gap-1 text-emerald-600" onClick={() => approveProfile(p.id)} disabled={actionLoading === p.id}>
                                   <CheckCircle2 className="w-3 h-3" /> Approve
                                 </Button>
-                                <Button size="sm" variant="outline" className="h-7 text-xs gap-1 text-destructive" onClick={() => openRejectDialog(p)} disabled={actionLoading === p.id}>
-                                  <XCircle className="w-3 h-3" /> Reject
-                                </Button>
                               </>
+                            )}
+                            {!rowIsSelf && !(p.verified && p.approved) && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs gap-1 text-amber-700"
+                                onClick={() => openRejectDialog(p)}
+                                disabled={actionLoading === p.id}
+                              >
+                                <XCircle className="w-3 h-3" /> Correction
+                              </Button>
                             )}
                             {!rowIsSelf && (
                               p.verified && p.approved ? (
@@ -434,10 +447,18 @@ const AdminUsers = () => {
                           <Button size="sm" className="h-7 text-xs gap-1 flex-1" onClick={() => approveProfile(p.id)} disabled={actionLoading === p.id}>
                             <CheckCircle2 className="w-3 h-3" /> Approve
                           </Button>
-                          <Button size="sm" variant="outline" className="h-7 text-xs gap-1 flex-1 text-destructive" onClick={() => openRejectDialog(p)} disabled={actionLoading === p.id}>
-                            <XCircle className="w-3 h-3" /> Reject
-                          </Button>
                         </>
+                      )}
+                      {!rowIsSelf && !(p.verified && p.approved) && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs gap-1 text-amber-700"
+                          onClick={() => openRejectDialog(p)}
+                          disabled={actionLoading === p.id}
+                        >
+                          <XCircle className="w-3 h-3" /> Correction
+                        </Button>
                       )}
                       {!rowIsSelf && (
                         p.verified && p.approved ? (
@@ -480,13 +501,13 @@ const AdminUsers = () => {
       <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Reject and Send Feedback</DialogTitle>
+            <DialogTitle>Send Correction Feedback</DialogTitle>
             <DialogDescription>
-              Tell the user what extra information or correction is needed. They can update profile and resubmit for verification.
+              Send one clear correction message before verification. The alumni will see this in their pending dashboard and can update profile data.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <Label htmlFor="reject-message">Message to user</Label>
+            <Label htmlFor="reject-message">Correction message</Label>
             <Textarea
               id="reject-message"
               rows={5}
@@ -499,8 +520,12 @@ const AdminUsers = () => {
             <Button variant="outline" onClick={() => setRejectDialogOpen(false)}>
               Cancel
             </Button>
-            <Button variant="destructive" onClick={submitReject} disabled={!rejectTarget || actionLoading === rejectTarget.id}>
-              Send Reject Message
+            <Button
+              variant="default"
+              onClick={submitReject}
+              disabled={!rejectTarget || actionLoading === rejectTarget.id}
+            >
+              Send Correction
             </Button>
           </div>
         </DialogContent>

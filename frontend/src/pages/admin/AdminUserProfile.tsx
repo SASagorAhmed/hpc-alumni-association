@@ -313,10 +313,12 @@ const AdminUserProfile = () => {
                 <Button disabled={saving} onClick={() => patchUser({ profile_pending: false, approved: true, profile_review_note: null }, "Profile approved.")}>
                   <CheckCircle2 className="mr-1 h-4 w-4" /> Approve
                 </Button>
-                <Button variant="outline" className="text-destructive" disabled={saving} onClick={() => setRejectOpen(true)}>
-                  <XCircle className="mr-1 h-4 w-4" /> Reject With Message
-                </Button>
               </>
+            ) : null}
+            {canModerateThisProfile && !(profile.verified && profile.approved) ? (
+              <Button variant="outline" className="text-amber-700" disabled={saving} onClick={() => setRejectOpen(true)}>
+                <XCircle className="mr-1 h-4 w-4" /> Send Correction
+              </Button>
             ) : null}
             {canModerateThisProfile ? (
               profile.verified && profile.approved ? (
@@ -324,7 +326,17 @@ const AdminUserProfile = () => {
                   <ShieldOff className="mr-1 h-4 w-4" /> Unverify
                 </Button>
               ) : (
-                <Button variant="outline" className="text-emerald-700" disabled={saving} onClick={() => patchUser({ verified: true, approved: true }, "User verified.")}>
+                <Button
+                  variant="outline"
+                  className="text-emerald-700"
+                  disabled={saving}
+                  onClick={() =>
+                    patchUser(
+                      { verified: true, approved: true, profile_pending: false, profile_review_note: null },
+                      "User verified."
+                    )
+                  }
+                >
                   <ShieldCheck className="mr-1 h-4 w-4" /> Verify
                 </Button>
               )
@@ -407,13 +419,13 @@ const AdminUserProfile = () => {
       <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Reject and Send Message</DialogTitle>
+            <DialogTitle>Send Correction Feedback</DialogTitle>
             <DialogDescription>
-              Tell the user what to fix. They can update their profile anytime; edits are logged for your review.
+              Share the latest correction message before verification. The alumni will see this in pending screens and can update their profile.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <Label htmlFor="reject-note">Message</Label>
+            <Label htmlFor="reject-note">Correction message</Label>
             <Textarea
               id="reject-note"
               name="admin-reject-message"
@@ -429,17 +441,22 @@ const AdminUserProfile = () => {
               Cancel
             </Button>
             <Button
-              variant="destructive"
+              variant="default"
               disabled={saving || !rejectMessage.trim()}
               onClick={async () => {
                 await patchUser(
-                  { profile_pending: false, approved: false, profile_review_note: rejectMessage.trim() },
-                  "Profile rejected with message."
+                  {
+                    profile_pending: true,
+                    approved: false,
+                    verified: false,
+                    profile_review_note: rejectMessage.trim(),
+                  },
+                  "Correction feedback sent."
                 );
                 setRejectOpen(false);
               }}
             >
-              Send Message
+              Send Correction
             </Button>
           </div>
         </DialogContent>

@@ -490,11 +490,114 @@ async function sendAlumniApprovalSuccessEmail({
   }
 }
 
+async function sendProfileCorrectionFeedbackEmail({
+  pool,
+  recipientEmail,
+  recipientUserId,
+  correctionMessage,
+  profileUpdateLink,
+  initiatedBy,
+}) {
+  const transporter = createTransporter();
+  if (!transporter) {
+    throw new Error("SMTP is not configured (set SMTP_HOST/SMTP_USER/SMTP_PASS in backend/.env).");
+  }
+
+  const toEmail = String(recipientEmail || "").trim().toLowerCase();
+  if (!toEmail) {
+    throw new Error("Recipient email is required for profile correction feedback");
+  }
+  const correction = String(correctionMessage || "").trim();
+  if (!correction) {
+    throw new Error("Correction message is required for profile correction feedback email");
+  }
+  const safeProfileUpdateLink = String(profileUpdateLink || "").trim();
+  const subject = "Request to Update Your Profile Information";
+
+  const html = `
+    <div style="margin:0;padding:0;background:#f8fafc;font-family:Inter,Segoe UI,Arial,sans-serif;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:20px 10px;background:#f8fafc;">
+        <tr>
+          <td align="center">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:720px;background:#ffffff;border:1px solid #dbeafe;border-radius:14px;overflow:hidden;">
+              <tr>
+                <td style="height:8px;background:linear-gradient(90deg,#f59e0b,#16a34a,#2563eb);"></td>
+              </tr>
+              <tr>
+                <td style="padding:24px 24px 10px;">
+                  <p style="margin:0 0 12px;color:#0f172a;font-size:15px;line-height:1.8;">
+                    Dear Alumni,
+                  </p>
+                  <p style="margin:0 0 12px;color:#334155;font-size:14px;line-height:1.8;">
+                    We hope you are doing well.
+                  </p>
+                  <p style="margin:0 0 12px;color:#334155;font-size:14px;line-height:1.8;">
+                    It has come to our attention that there may be some inaccuracies in your registered information.
+                    As this is an official platform viewed by both seniors and juniors, we kindly request you to review and update your details.
+                  </p>
+                  <p style="margin:0 0 12px;color:#334155;font-size:14px;line-height:1.8;">
+                    Ensuring that your information is accurate and complete will help maintain the quality and professionalism of our alumni network.
+                  </p>
+                  <p style="margin:0 0 12px;color:#334155;font-size:14px;line-height:1.8;">
+                    Please take a moment to verify and correct your profile at your earliest convenience.
+                  </p>
+                  <div style="margin:14px 0 16px;padding:12px 14px;border:1px solid #fcd34d;border-radius:10px;background:#fffbeb;">
+                    <p style="margin:0 0 6px;color:#92400e;font-size:12px;font-weight:700;letter-spacing:.02em;text-transform:uppercase;">
+                      Admin correction feedback
+                    </p>
+                    <p style="margin:0;color:#0f172a;font-size:14px;line-height:1.8;">
+                      ${escapeHtml(correction)}
+                    </p>
+                  </div>
+                  <a href="${escapeHtml(safeProfileUpdateLink)}" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;padding:11px 18px;border-radius:10px;">
+                    Update Your Profile
+                  </a>
+                  <p style="margin:16px 0 0;color:#334155;font-size:14px;line-height:1.8;">
+                    Thank you for your cooperation.
+                  </p>
+                  <p style="margin:12px 0 0;color:#334155;font-size:13px;line-height:1.8;">
+                    Best regards,<br/>
+                    ${escapeHtml(WEBSITE_NAME)}
+                  </p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </div>
+  `;
+
+  const result = await sendGovernedEmail({
+    pool,
+    transporter,
+    emailType: EMAIL_TYPES.NOTIFICATION,
+    recipientEmail: toEmail,
+    recipientUserId,
+    initiatedBy,
+    metaJson: {
+      title: subject,
+      notification_kind: "profile_correction_feedback",
+      audience: "alumni",
+    },
+    mailOptions: {
+      from: getBrandedFromHeader(),
+      to: toEmail,
+      subject,
+      html,
+    },
+  });
+  if (!result.ok) {
+    throw new Error(result.reason || "Profile correction feedback email was not sent");
+  }
+}
+
 module.exports = {
   sendVerificationEmail,
   sendPasswordResetEmail,
   sendAdminApprovalRequestEmail,
   sendAdminRoleGrantedEmail,
   sendAlumniApprovalSuccessEmail,
+  sendProfileCorrectionFeedbackEmail,
 };
 

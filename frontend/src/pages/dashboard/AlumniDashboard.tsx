@@ -95,6 +95,12 @@ const AlumniDashboard = () => {
               Your profile update is awaiting admin approval.
             </div>
           )}
+          {user?.profilePending && user?.profileReviewNote ? (
+            <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-center text-amber-900">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-700">Correction feedback</p>
+              <p className="mt-1.5 text-sm font-medium leading-relaxed">{user.profileReviewNote}</p>
+            </div>
+          ) : null}
         </div>
 
         {/* Notices & Events */}

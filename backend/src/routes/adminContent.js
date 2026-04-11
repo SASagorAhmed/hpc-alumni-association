@@ -10,7 +10,11 @@ const env = require("../config/env");
 const cloudinary = require("../config/cloudinary");
 const { getCloudinaryFolder } = require("../utils/uploadFolders");
 const { sendNoticeEmailForPublishedNotice } = require("../notices/emailSender");
-const { sendAlumniApprovalSuccessEmail, sendAdminRoleGrantedEmail } = require("../auth/email");
+const {
+  sendAlumniApprovalSuccessEmail,
+  sendAdminRoleGrantedEmail,
+  sendProfileCorrectionFeedbackEmail,
+} = require("../auth/email");
 const { ensureNoticeEmailCampaignTables } = require("../utils/ensureNoticeEmailCampaignTables");
 const { ensureNoticeEmailTemplateTable } = require("../utils/ensureNoticeEmailTemplateTable");
 const { ensureEmailGovernanceTables } = require("../utils/ensureEmailGovernanceTables");
@@ -772,7 +776,7 @@ router.patch("/users/:id", requireAuth, async (req, res) => {
     if (!entries.length) return res.status(400).json({ ok: false, error: "Nothing to update" });
 
     const [beforeRows] = await pool.query(
-      `SELECT p.id, p.name, p.approved, p.verified, u.email
+      `SELECT p.id, p.name, p.approved, p.verified, p.profile_review_note, u.email
        FROM profiles p
        LEFT JOIN users u ON u.id = p.id
        WHERE p.id = ?
@@ -816,6 +820,33 @@ router.patch("/users/:id", requireAuth, async (req, res) => {
     const approvedTransitionedToTrue = !beforeApproved && afterApproved;
     const verifiedTransitionedToTrue = !beforeVerified && afterVerified;
     const enteredActiveApprovedVerifiedState = afterApproved && afterVerified && (approvedTransitionedToTrue || verifiedTransitionedToTrue);
+
+    const previousReviewNote = String(before.profile_review_note || "").trim();
+    const nextReviewNote = updatesByKey.has("profile_review_note")
+      ? String(updatesByKey.get("profile_review_note") || "").trim()
+      : previousReviewNote;
+    const correctionFeedbackWasSent =
+      updatesByKey.has("profile_review_note") &&
+      Boolean(nextReviewNote) &&
+      nextReviewNote !== previousReviewNote;
+
+    if (correctionFeedbackWasSent) {
+      try {
+        const recipientEmail = String(before.email || "").trim();
+        if (recipientEmail) {
+          await sendProfileCorrectionFeedbackEmail({
+            pool,
+            recipientEmail,
+            recipientUserId: req.params.id,
+            correctionMessage: nextReviewNote,
+            profileUpdateLink: buildFrontendPath("/profile"),
+            initiatedBy: req.auth.userId,
+          });
+        }
+      } catch (emailErr) {
+        console.error("[adminContent] correction feedback email:", emailErr?.message || emailErr);
+      }
+    }
 
     if (enteredActiveApprovedVerifiedState) {
       try {

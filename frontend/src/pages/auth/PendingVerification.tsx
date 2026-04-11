@@ -40,9 +40,12 @@ const PendingVerification = () => {
           </div>
 
           {user?.profileReviewNote ? (
-            <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-foreground">
-              <p className="font-medium text-destructive">Admin feedback</p>
-              <p className="mt-1">{user.profileReviewNote}</p>
+            <div className="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 text-center">
+              <p className="font-semibold uppercase tracking-wide text-[11px] text-amber-700">Correction feedback</p>
+              <p className="mt-2 font-medium leading-relaxed">{user.profileReviewNote}</p>
+              <p className="mt-2 text-xs text-amber-700/90">
+                Update your profile based on this message, then wait for admin verification.
+              </p>
             </div>
           ) : null}
 
