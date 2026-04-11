@@ -47,6 +47,7 @@ const COMMITTEE_MEMBER_OPTIONS = [
   { value: "yes", label: "Yes" },
   { value: "no", label: "No" },
 ] as const;
+const REGISTER_SECTION_HEADING_CLASS = "mb-3 text-base font-bold uppercase tracking-wide text-primary";
 
 const Register = () => {
   const { register } = useAuth();
@@ -463,7 +464,7 @@ const Register = () => {
                 </div>
               ) : null}
               <div>
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Account</h3>
+                <h3 className={REGISTER_SECTION_HEADING_CLASS}>Account</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label htmlFor="name">Full Name *</Label>
@@ -528,7 +529,7 @@ const Register = () => {
               </div>
 
               <div>
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Academic identity (locked after register)</h3>
+                <h3 className={REGISTER_SECTION_HEADING_CLASS}>Academic identity (locked after register)</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label htmlFor="batch">Batch (01..50) *</Label>
@@ -614,7 +615,7 @@ const Register = () => {
               </div>
 
               <div>
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Profile & photo</h3>
+                <h3 className={REGISTER_SECTION_HEADING_CLASS}>Profile & photo</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label htmlFor="gender">Gender *</Label>
@@ -676,7 +677,7 @@ const Register = () => {
               </div>
 
               <div>
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Academic & professional</h3>
+                <h3 className={REGISTER_SECTION_HEADING_CLASS}>Academic & professional</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1.5 md:col-span-2">
                     <Label htmlFor="university">University (full name) *</Label>
@@ -755,7 +756,7 @@ const Register = () => {
               </div>
 
               <div>
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Contact & more</h3>
+                <h3 className={REGISTER_SECTION_HEADING_CLASS}>Contact & more</h3>
                 <div className="space-y-4">
                   <div className="space-y-1.5">
                     <Label htmlFor="address">Address</Label>
@@ -773,7 +774,7 @@ const Register = () => {
               </div>
 
               <div>
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Social links *</h3>
+                <h3 className={REGISTER_SECTION_HEADING_CLASS}>Social links *</h3>
                 <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 mb-3">
                   <p className="font-semibold">Required</p>
                   <p className="mt-1 text-amber-950/90">Provide at least one link among Facebook, Instagram, or LinkedIn.</p>
