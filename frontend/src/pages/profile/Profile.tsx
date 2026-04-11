@@ -24,6 +24,13 @@ const COMMITTEE_MEMBER_OPTIONS = [
 ] as const;
 const PROFILE_SECTION_HEADING_CLASS = "mb-3 text-base font-bold uppercase tracking-wide text-primary";
 
+function normalizeCommitteeMemberAnswer(value: unknown): "yes" | "no" {
+  if (value === true || value === 1) return "yes";
+  const raw = String(value ?? "").trim().toLowerCase();
+  if (raw === "1" || raw === "yes" || raw === "true") return "yes";
+  return "no";
+}
+
 function deriveSessionFromUser(u: User | null | undefined): string {
   if (!u) return "";
   const s = String(u.session ?? "").trim();
@@ -54,7 +61,7 @@ const Profile = () => {
     nickname: user?.nickname ?? "",
     phone: user?.phone || "",
     session: deriveSessionFromUser(user),
-    committeeMember: user?.committeeMember === true ? "yes" as const : "no" as const,
+    committeeMember: normalizeCommitteeMemberAnswer(user?.committeeMember) as "yes" | "no",
     committeePost: user?.committeePost ?? "",
     profession: user?.profession || "",
     company: user?.company || "",
@@ -101,14 +108,15 @@ const Profile = () => {
   useEffect(() => {
     if (!user) return;
     const nextSession = deriveSessionFromUser(user);
+    const normalizedCommitteeMember = normalizeCommitteeMemberAnswer(user.committeeMember);
     setForm((prev) => ({
       ...prev,
       name: user.name || "",
       nickname: user.nickname ?? "",
       phone: user.phone || "",
       session: nextSession || prev.session,
-      committeeMember: user.committeeMember === true ? "yes" : "no",
-      committeePost: user.committeePost ?? "",
+      committeeMember: normalizedCommitteeMember,
+      committeePost: normalizedCommitteeMember === "yes" ? (user.committeePost ?? "") : "",
       profession: user.profession || "",
       company: user.company || "",
       university: user.university || "",
