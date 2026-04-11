@@ -67,12 +67,28 @@ async function reserveGlobalQuota(pool, requestedCount) {
   });
 }
 
-async function sendGovernedEmail({ pool, transporter, mailOptions, emailType, initiatedBy, recipientEmail, recipientUserId, noticeId, campaignId }) {
+async function sendGovernedEmail({
+  pool,
+  transporter,
+  mailOptions,
+  emailType,
+  initiatedBy,
+  recipientEmail,
+  recipientUserId,
+  noticeId,
+  campaignId,
+  metaJson,
+}) {
   if (!pool) throw new Error("DB pool is required for governed email send");
   if (!transporter) throw new Error("SMTP transporter is required for governed email send");
 
   const recipient = String(recipientEmail || "").trim().toLowerCase();
   const subject = String(mailOptions?.subject || "").trim();
+  const mergedMeta = {
+    ...(metaJson && typeof metaJson === "object" ? metaJson : {}),
+    ...(subject ? { subject } : {}),
+  };
+  const finalMeta = Object.keys(mergedMeta).length ? mergedMeta : undefined;
   if (!recipient) throw new Error("Recipient email is required");
 
   const reserve = await reserveGlobalQuota(pool, 1);
@@ -87,7 +103,7 @@ async function sendGovernedEmail({ pool, transporter, mailOptions, emailType, in
       campaign_id: campaignId || null,
       counted_against_quota: false,
       reason: "Global daily email limit reached",
-      meta_json: subject ? { subject } : undefined,
+      meta_json: finalMeta,
     });
     return { ok: false, status: EMAIL_STATUS.BLOCKED_LIMIT, reason: "Daily email limit reached" };
   }
@@ -103,7 +119,7 @@ async function sendGovernedEmail({ pool, transporter, mailOptions, emailType, in
       notice_id: noticeId || null,
       campaign_id: campaignId || null,
       counted_against_quota: true,
-      meta_json: subject ? { subject } : undefined,
+      meta_json: finalMeta,
     });
     return { ok: true, status: EMAIL_STATUS.SENT };
   } catch (error) {
@@ -117,7 +133,7 @@ async function sendGovernedEmail({ pool, transporter, mailOptions, emailType, in
       campaign_id: campaignId || null,
       counted_against_quota: true,
       reason: error?.message || "send failed",
-      meta_json: subject ? { subject } : undefined,
+      meta_json: finalMeta,
     });
     return { ok: false, status: EMAIL_STATUS.FAILED, reason: error?.message || "send failed" };
   }

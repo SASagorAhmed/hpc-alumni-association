@@ -10,6 +10,7 @@ const env = require("../config/env");
 const cloudinary = require("../config/cloudinary");
 const { getCloudinaryFolder } = require("../utils/uploadFolders");
 const { sendNoticeEmailForPublishedNotice } = require("../notices/emailSender");
+const { sendAlumniApprovalSuccessEmail } = require("../auth/email");
 const { ensureNoticeEmailCampaignTables } = require("../utils/ensureNoticeEmailCampaignTables");
 const { ensureNoticeEmailTemplateTable } = require("../utils/ensureNoticeEmailTemplateTable");
 const { ensureEmailGovernanceTables } = require("../utils/ensureEmailGovernanceTables");
@@ -35,6 +36,19 @@ const router = express.Router();
 
 function noticeEmailCampaignsEnabled() {
   return String(process.env.NOTICE_EMAIL_CAMPAIGNS_ENABLED || "1").trim() === "1";
+}
+
+function toBoolFlag(value) {
+  return value === true || value === 1 || value === "1" || value === "true";
+}
+
+function buildFrontendPath(pathSuffix) {
+  const base = String(env.frontendRedirectOrigin || env.frontendOrigin || "")
+    .trim()
+    .replace(/\/$/, "");
+  const suffix = String(pathSuffix || "").trim();
+  if (!base) return suffix || "/";
+  return `${base}${suffix}`;
 }
 
 function extractCloudinaryPublicIdFromUrl(url) {
@@ -757,6 +771,17 @@ router.patch("/users/:id", requireAuth, async (req, res) => {
     let entries = Object.entries(req.body || {}).filter(([k]) => allowed.includes(k));
     if (!entries.length) return res.status(400).json({ ok: false, error: "Nothing to update" });
 
+    const [beforeRows] = await pool.query(
+      `SELECT p.id, p.name, p.approved, p.verified, u.email
+       FROM profiles p
+       LEFT JOIN users u ON u.id = p.id
+       WHERE p.id = ?
+       LIMIT 1`,
+      [req.params.id]
+    );
+    const before = beforeRows?.[0];
+    if (!before) return res.status(404).json({ ok: false, error: "User not found" });
+
     if (req.params.id === req.auth.userId) {
       entries = entries.filter(([k]) => k === "directory_visible");
       if (!entries.length) {
@@ -778,6 +803,42 @@ router.patch("/users/:id", requireAuth, async (req, res) => {
     const setClause = normalized.map(([k]) => `\`${k}\` = ?`).join(", ");
     const values = normalized.map(([, v]) => v);
     await pool.query(`UPDATE profiles SET ${setClause} WHERE id = ?`, [...values, req.params.id]);
+
+    const updatesByKey = new Map(normalized.map(([k, v]) => [k, v]));
+    const beforeApproved = toBoolFlag(before.approved);
+    const beforeVerified = toBoolFlag(before.verified);
+    const afterApproved = updatesByKey.has("approved") ? toBoolFlag(updatesByKey.get("approved")) : beforeApproved;
+    const afterVerified = updatesByKey.has("verified") ? toBoolFlag(updatesByKey.get("verified")) : beforeVerified;
+    const enteredApprovedOrVerified = !beforeApproved && !beforeVerified && (afterApproved || afterVerified);
+
+    if (enteredApprovedOrVerified) {
+      try {
+        const [adminRows] = await pool.query(
+          `SELECT COALESCE(NULLIF(TRIM(p.name), ''), NULLIF(TRIM(u.email), '')) AS name
+           FROM users u
+           LEFT JOIN profiles p ON p.id = u.id
+           WHERE u.id = ?
+           LIMIT 1`,
+          [req.auth.userId]
+        );
+        const verifierAdminName = String(adminRows?.[0]?.name || "").trim() || "HPC Alumni Association Team";
+        const recipientEmail = String(before.email || "").trim();
+        if (recipientEmail) {
+          await sendAlumniApprovalSuccessEmail({
+            pool,
+            recipientEmail,
+            recipientUserId: req.params.id,
+            recipientName: before.name,
+            verifierAdminName,
+            signInLink: buildFrontendPath("/login"),
+            initiatedBy: req.auth.userId,
+          });
+        }
+      } catch (emailErr) {
+        console.error("[adminContent] approval success email:", emailErr?.message || emailErr);
+      }
+    }
+
     res.status(200).json({ ok: true });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message || "Failed to update user" });
@@ -1527,6 +1588,7 @@ router.get("/email-governance/audit", requireAuth, async (req, res) => {
           a.reason,
           a.meta_json,
           COALESCE(
+            NULLIF(JSON_UNQUOTE(JSON_EXTRACT(a.meta_json, '$.title')), ''),
             NULLIF(JSON_UNQUOTE(JSON_EXTRACT(a.meta_json, '$.subject')), ''),
             NULLIF(JSON_UNQUOTE(JSON_EXTRACT(a.meta_json, '$.notice_title')), ''),
             NULLIF(n.title, ''),

@@ -1,12 +1,14 @@
 const express = require("express");
 const rateLimit = require("express-rate-limit");
 const { v4: uuidv4 } = require("uuid");
+const crypto = require("crypto");
 const { getOrCreatePool } = require("../db/pool");
 const { hashPassword, verifyPassword } = require("../auth/password");
 const { signJwt, requireAuth, signGoogleRegisterDraftToken, verifyGoogleRegisterDraftToken } = require("../auth/jwt");
 const { extractGoogleRegisterDraft, assertGoogleRegisterAllowed } = require("../auth/google");
-const { sendVerificationEmail, sendPasswordResetEmail } = require("../auth/email");
+const { sendVerificationEmail, sendPasswordResetEmail, sendAdminApprovalRequestEmail } = require("../auth/email");
 const { ensurePasswordResetTokensTable } = require("../utils/ensurePasswordResetTokensTable");
+const { ensureEmailOtpChallengesTable } = require("../utils/ensureEmailOtpChallengesTable");
 const env = require("../config/env");
 const passport = require("passport");
 const multer = require("multer");
@@ -72,6 +74,14 @@ const resendVerifyLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { ok: false, error: "Too many requests. Please try again later." },
+});
+
+const verifyOtpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { ok: false, error: "Too many OTP attempts. Please try again later." },
 });
 
 const forgotPasswordLimiter = rateLimit({
@@ -163,6 +173,68 @@ async function ensureProfileFacultyColumn(pool) {
 function trimOrNull(v) {
   const s = String(v ?? "").trim();
   return s ? s : null;
+}
+
+async function listCurrentAdminEmails(pool) {
+  const [rows] = await pool.query(
+    `SELECT DISTINCT LOWER(TRIM(u.email)) AS email
+     FROM user_roles ur
+     INNER JOIN users u ON u.id = ur.user_id
+     WHERE ur.role = 'admin'
+       AND TRIM(COALESCE(u.email, '')) <> ''`
+  );
+  return (rows || []).map((r) => String(r.email || "").trim().toLowerCase()).filter(Boolean);
+}
+
+function resolveAdminUsersDashboardLink() {
+  const base = String(env.frontendRedirectOrigin || env.frontendOrigin || "").trim().replace(/\/$/, "");
+  if (!base) return "/admin/users";
+  return `${base}/admin/users`;
+}
+
+const EMAIL_OTP_TTL_MS = 10 * 60 * 1000;
+const EMAIL_OTP_MAX_ATTEMPTS = 5;
+
+function getOtpHashSecret() {
+  return String(process.env.EMAIL_OTP_SECRET || env.jwt.secret || "change_me").trim();
+}
+
+function generateEmailOtpCode() {
+  return String(crypto.randomInt(0, 1000000)).padStart(6, "0");
+}
+
+function hashEmailOtp({ userId, email, otp }) {
+  const hmac = crypto.createHmac("sha256", getOtpHashSecret());
+  hmac.update(`${String(userId || "").trim().toLowerCase()}::${String(email || "").trim().toLowerCase()}::${String(otp || "").trim()}`);
+  return hmac.digest("hex");
+}
+
+async function createAndStoreEmailOtpChallenge({ pool, userId, email }) {
+  await ensureEmailOtpChallengesTable(pool);
+  const otp = generateEmailOtpCode();
+  const challengeId = uuidv4();
+  const emailNorm = String(email || "").trim().toLowerCase();
+  const otpHash = hashEmailOtp({ userId, email: emailNorm, otp });
+  const expiresAt = new Date(Date.now() + EMAIL_OTP_TTL_MS);
+
+  await pool.query(
+    `DELETE FROM email_otp_challenges
+     WHERE user_id = ? AND email = ? AND used_at IS NULL`,
+    [userId, emailNorm]
+  );
+  await pool.query(
+    `INSERT INTO email_otp_challenges
+      (id, user_id, email, otp_hash, expires_at, used_at, attempt_count, max_attempts)
+     VALUES (?, ?, ?, ?, ?, NULL, 0, ?)`,
+    [challengeId, userId, emailNorm, otpHash, expiresAt, EMAIL_OTP_MAX_ATTEMPTS]
+  );
+  await pool.query(
+    `DELETE FROM email_otp_challenges
+     WHERE used_at IS NULL
+       AND expires_at < (NOW() - INTERVAL 1 DAY)`
+  );
+
+  return { otp, challengeId, expiresAt };
 }
 
 /** @returns {string|null|false} null if empty, false if invalid */
@@ -509,6 +581,35 @@ router.post("/register", registerLimiter, profileUpload.single("photo"), async (
       [uuidv4(), userId, userRole]
     );
 
+    // Send admin approval-request alerts (non-blocking; registration must remain successful).
+    try {
+      const adminEmails = await listCurrentAdminEmails(pool);
+      const adminDashboardLink = resolveAdminUsersDashboardLink();
+      if (adminEmails.length) {
+        await Promise.allSettled(
+          adminEmails.map((adminEmail) =>
+            sendAdminApprovalRequestEmail({
+              pool,
+              adminEmail,
+              initiatedBy: userId,
+              adminDashboardLink,
+              registrant: {
+                name: nameTrim,
+                email: emailStr,
+                alumniId,
+                batch: batchNorm,
+                department: facultyNorm,
+                section: dep,
+                post: professionNorm,
+              },
+            })
+          )
+        );
+      }
+    } catch (adminNotifyErr) {
+      console.error("[auth] admin approval alert email:", adminNotifyErr?.message || adminNotifyErr);
+    }
+
     if (wantsGoogleRegister && googleDraft) {
       try {
         await pool.query(`INSERT INTO google_identities (id, user_id, google_sub) VALUES (?, ?, ?)`, [
@@ -530,45 +631,41 @@ router.post("/register", registerLimiter, profileUpload.single("photo"), async (
       });
     }
 
-    // Create verification token (email/password registration only)
-    const token = uuidv4();
-    const verificationTokenId = uuidv4();
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-
-    await pool.query(
-      `INSERT INTO email_verification_tokens (id, user_id, token, expires_at, used_at)
-       VALUES (?, ?, ?, ?, NULL)`,
-      [verificationTokenId, userId, token, expiresAt]
-    );
-
-    const verificationLink = buildEmailVerificationLink(req, token);
+    const otpChallenge = await createAndStoreEmailOtpChallenge({
+      pool,
+      userId,
+      email: emailStr,
+    });
     try {
       await sendVerificationEmail({
         pool,
         email: emailStr,
-        verificationLink,
+        otpCode: otpChallenge.otp,
+        expiresMinutes: 10,
         recipientUserId: userId,
         initiatedBy: userId,
       });
       return res.status(201).json({
         ok: true,
-        message: "Registration successful. Check your email for verification.",
+        message: "Registration successful. Enter the verification code sent to your email.",
         alumni_id: alumniId,
+        verify_email: emailStr,
+        needsOtpVerification: true,
       });
     } catch (mailErr) {
-      // Keep registration usable during local/staging setup if SMTP is not configured yet.
-      // Never expose verification tokens in production API responses.
       const body = {
         ok: true,
         message:
           env.nodeEnv === "production"
-            ? "Registration successful, but verification email could not be sent. Contact support or try again later."
-            : "Registration successful, but verification email could not be sent. Use verification_url for setup testing.",
+            ? "Registration successful, but OTP email could not be sent. Contact support or try again later."
+            : "Registration successful, but OTP email could not be sent. Use otp_code for local testing.",
         email_error: mailErr.message || "SMTP send failed",
         alumni_id: alumniId,
+        verify_email: emailStr,
+        needsOtpVerification: true,
       };
       if (env.nodeEnv !== "production") {
-        body.verification_url = verificationLink;
+        body.otp_code = otpChallenge.otp;
       }
       return res.status(201).json(body);
     }
@@ -622,6 +719,7 @@ router.post("/resend-verification", resendVerifyLimiter, async (req, res) => {
   try {
     const pool = getOrCreatePool();
     if (!pool) return res.status(503).json({ ok: false, error: "MySQL not configured" });
+    await ensureEmailOtpChallengesTable(pool);
 
     const email = String(req.body?.email || "").toLowerCase().trim();
     if (!email) return res.status(400).json({ ok: false, error: "Email is required" });
@@ -630,33 +728,118 @@ router.post("/resend-verification", resendVerifyLimiter, async (req, res) => {
     const user = users?.[0];
     if (!user) {
       // Avoid email enumeration
-      return res.status(200).json({ ok: true, message: "If this email exists, a verification link has been sent." });
+      return res.status(200).json({ ok: true, message: "If this email exists, an OTP has been sent." });
     }
     if (user.email_verified) {
       return res.status(200).json({ ok: true, message: "Email is already verified. You can log in now." });
     }
 
-    const token = uuidv4();
-    const tokenId = uuidv4();
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    await pool.query(
-      `INSERT INTO email_verification_tokens (id, user_id, token, expires_at, used_at)
-       VALUES (?, ?, ?, ?, NULL)`,
-      [tokenId, user.id, token, expiresAt]
-    );
-
-    const verificationLink = buildEmailVerificationLink(req, token);
+    const otpChallenge = await createAndStoreEmailOtpChallenge({
+      pool,
+      userId: user.id,
+      email,
+    });
     await sendVerificationEmail({
       pool,
       email,
-      verificationLink,
+      otpCode: otpChallenge.otp,
+      expiresMinutes: 10,
       recipientUserId: user.id,
       initiatedBy: user.id,
     });
 
-    return res.status(200).json({ ok: true, message: "Verification email sent. Please check your inbox." });
+    const response = { ok: true, message: "Verification OTP sent. Please check your inbox." };
+    if (env.nodeEnv !== "production") {
+      response.otp_code = otpChallenge.otp;
+    }
+    return res.status(200).json(response);
   } catch (e) {
     return res.status(500).json({ ok: false, error: e.message || "Failed to resend verification email" });
+  }
+});
+
+// POST /api/auth/verify-otp
+router.post("/verify-otp", verifyOtpLimiter, async (req, res) => {
+  try {
+    const pool = getOrCreatePool();
+    if (!pool) return res.status(503).json({ ok: false, error: "MySQL not configured" });
+    await ensureEmailOtpChallengesTable(pool);
+
+    const email = String(req.body?.email || "").toLowerCase().trim();
+    const otp = String(req.body?.otp || "").trim();
+    if (!email || !otp) {
+      return res.status(400).json({ ok: false, error: "Email and OTP are required." });
+    }
+    if (!/^\d{6}$/.test(otp)) {
+      return res.status(400).json({ ok: false, error: "OTP must be 6 digits." });
+    }
+
+    const [users] = await pool.query("SELECT id, email_verified FROM users WHERE email = ? LIMIT 1", [email]);
+    const user = users?.[0];
+    if (!user) {
+      return res.status(400).json({ ok: false, error: "Invalid OTP or email." });
+    }
+    if (Boolean(user.email_verified)) {
+      return res.status(200).json({ ok: true, message: "Email already verified. You can log in now." });
+    }
+
+    const [rows] = await pool.query(
+      `SELECT *
+       FROM email_otp_challenges
+       WHERE user_id = ?
+         AND email = ?
+         AND used_at IS NULL
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [user.id, email]
+    );
+    const challenge = rows?.[0];
+    if (!challenge) {
+      return res.status(400).json({ ok: false, error: "Invalid OTP or email." });
+    }
+
+    const expiresAt = challenge.expires_at ? new Date(challenge.expires_at) : null;
+    if (!expiresAt || expiresAt.getTime() < Date.now()) {
+      await pool.query("UPDATE email_otp_challenges SET used_at = NOW() WHERE id = ? AND used_at IS NULL", [challenge.id]);
+      return res.status(400).json({ ok: false, error: "OTP expired. Request a new code." });
+    }
+
+    const attempted = Number(challenge.attempt_count || 0);
+    const maxAttempts = Number(challenge.max_attempts || EMAIL_OTP_MAX_ATTEMPTS);
+    if (attempted >= maxAttempts) {
+      await pool.query("UPDATE email_otp_challenges SET used_at = NOW() WHERE id = ? AND used_at IS NULL", [challenge.id]);
+      return res.status(429).json({ ok: false, error: "Too many incorrect attempts. Request a new OTP." });
+    }
+
+    const expectedHash = hashEmailOtp({ userId: user.id, email, otp });
+    if (expectedHash !== String(challenge.otp_hash || "")) {
+      const nextAttempts = attempted + 1;
+      if (nextAttempts >= maxAttempts) {
+        await pool.query(
+          `UPDATE email_otp_challenges
+           SET attempt_count = ?, used_at = NOW()
+           WHERE id = ? AND used_at IS NULL`,
+          [nextAttempts, challenge.id]
+        );
+        return res.status(429).json({ ok: false, error: "Too many incorrect attempts. Request a new OTP." });
+      }
+      await pool.query(
+        `UPDATE email_otp_challenges
+         SET attempt_count = ?
+         WHERE id = ? AND used_at IS NULL`,
+        [nextAttempts, challenge.id]
+      );
+      return res.status(400).json({ ok: false, error: "Invalid OTP or email." });
+    }
+
+    await pool.query("UPDATE users SET email_verified = true WHERE id = ?", [user.id]);
+    await pool.query("UPDATE profiles SET verified = true WHERE id = ?", [user.id]);
+    await pool.query("UPDATE email_otp_challenges SET used_at = NOW() WHERE user_id = ? AND email = ? AND used_at IS NULL", [user.id, email]);
+    await pool.query("UPDATE email_verification_tokens SET used_at = NOW() WHERE user_id = ? AND used_at IS NULL", [user.id]);
+
+    return res.status(200).json({ ok: true, message: "Email verified successfully. You can log in now." });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message || "Failed to verify OTP" });
   }
 });
 
@@ -845,11 +1028,41 @@ router.post("/oauth-handoff", (req, res) => {
 // POST /api/auth/google-register-handoff — expose Google email/name for /register (cookie kept until registration succeeds or expires)
 router.post("/google-register-handoff", (req, res) => {
   const raw = req.cookies?.[GOOGLE_REGISTER_DRAFT_COOKIE];
+  // #region agent log
+  fetch("http://127.0.0.1:7400/ingest/63ecb49f-78d9-48ec-8f46-b5a9359e5916", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "39a755" },
+    body: JSON.stringify({
+      sessionId: "39a755",
+      runId: "google-prefill-initial",
+      hypothesisId: "H1",
+      location: "backend/src/routes/auth.js:google-register-handoff:start",
+      message: "google-register-handoff cookie check",
+      data: { hasDraftCookie: Boolean(raw && typeof raw === "string") },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion
   if (!raw || typeof raw !== "string") {
     return res.status(401).json({ ok: false, error: "Google sign-up session expired. Use Continue with Google again." });
   }
   try {
     const draft = verifyGoogleRegisterDraftToken(raw);
+    // #region agent log
+    fetch("http://127.0.0.1:7400/ingest/63ecb49f-78d9-48ec-8f46-b5a9359e5916", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "39a755" },
+      body: JSON.stringify({
+        sessionId: "39a755",
+        runId: "google-prefill-initial",
+        hypothesisId: "H1",
+        location: "backend/src/routes/auth.js:google-register-handoff:verified",
+        message: "google-register-handoff draft decoded",
+        data: { hasEmail: Boolean(String(draft?.email || "").trim()), hasName: Boolean(String(draft?.name || "").trim()) },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
     return res.status(200).json({ ok: true, email: draft.email, name: draft.name });
   } catch (_e) {
     return res.status(401).json({ ok: false, error: "Google sign-up session expired. Use Continue with Google again." });
@@ -873,6 +1086,21 @@ router.get("/google/callback", (req, res, next) => {
 
       if (user?.registerDraft) {
         const draft = extractGoogleRegisterDraft(user.profile);
+        // #region agent log
+        fetch("http://127.0.0.1:7400/ingest/63ecb49f-78d9-48ec-8f46-b5a9359e5916", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "39a755" },
+          body: JSON.stringify({
+            sessionId: "39a755",
+            runId: "google-prefill-initial",
+            hypothesisId: "H2",
+            location: "backend/src/routes/auth.js:google-callback:registerDraft",
+            message: "google callback register draft extracted",
+            data: { hasDraft: Boolean(draft), hasEmail: Boolean(String(draft?.email || "").trim()), hasName: Boolean(String(draft?.name || "").trim()) },
+            timestamp: Date.now(),
+          }),
+        }).catch(() => {});
+        // #endregion
         if (!draft) {
           return res.redirect(302, `${fe}/register?google_error=incomplete`);
         }
@@ -898,7 +1126,25 @@ router.get("/google/callback", (req, res, next) => {
         });
         const regQs = new URLSearchParams();
         regQs.set("google_draft", "1");
+        regQs.set("google_prefill", "1");
+        if (draft.email) regQs.set("prefill_email", draft.email);
+        if (draft.name) regQs.set("prefill_name", draft.name);
         if (user?.fromLogin) regQs.set("from_login", "1");
+        // #region agent log
+        fetch("http://127.0.0.1:7400/ingest/63ecb49f-78d9-48ec-8f46-b5a9359e5916", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "39a755" },
+          body: JSON.stringify({
+            sessionId: "39a755",
+            runId: "google-prefill-initial",
+            hypothesisId: "H2",
+            location: "backend/src/routes/auth.js:google-callback:redirect-register",
+            message: "google callback redirecting register with prefill flags",
+            data: { hasPrefillEmailParam: regQs.has("prefill_email"), hasPrefillNameParam: regQs.has("prefill_name"), hasGoogleDraftFlag: regQs.get("google_draft") === "1" },
+            timestamp: Date.now(),
+          }),
+        }).catch(() => {});
+        // #endregion
         return res.redirect(302, `${fe}/register?${regQs.toString()}`);
       }
 

@@ -62,8 +62,10 @@ interface AuthContextType {
     googleRegister?: boolean;
     /** Assigned registration number (Alumni ID); present when registration succeeds. */
     alumniId?: string;
+    verifyEmail?: string;
+    needsOtpVerification?: boolean;
   }>;
-  verifyOtp: (otp: string) => Promise<{ success: boolean; message: string }>;
+  verifyOtp: (email: string, otp: string) => Promise<{ success: boolean; message: string }>;
   logout: () => void;
   updateProfile: (data: Partial<User> & { photoFile?: File }) => Promise<{ success: boolean; message: string }>;
 }
@@ -204,11 +206,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           : "Registration successful! Please check your email to verify your account."),
       googleRegister: Boolean(body?.google_register),
       alumniId,
+      verifyEmail: typeof body?.verify_email === "string" ? body.verify_email : data.email,
+      needsOtpVerification: Boolean(body?.needsOtpVerification),
     };
   };
 
-  const verifyOtp = async (_otp: string) => {
-    return { success: false, message: "Please check your email and click the verification link." };
+  const verifyOtp = async (email: string, otp: string) => {
+    const emailNorm = String(email || "").trim().toLowerCase();
+    const otpNorm = String(otp || "").trim();
+    if (!emailNorm || !otpNorm) {
+      return { success: false, message: "Email and OTP are required." };
+    }
+    const res = await fetch(`${API_BASE_URL}/api/auth/verify-otp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: emailNorm, otp: otpNorm }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return { success: false, message: body?.error || "OTP verification failed." };
+    }
+    return { success: true, message: body?.message || "Email verified successfully." };
   };
 
   const login = async (email: string, password: string, rememberMe = true) => {
