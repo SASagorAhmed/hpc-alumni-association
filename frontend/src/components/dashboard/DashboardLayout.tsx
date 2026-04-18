@@ -43,6 +43,8 @@ import NotificationDropdown from "@/components/notifications/NotificationDropdow
 import AutoRepairBoundary from "@/components/ui/AutoRepairBoundary";
 
 const SIDEBAR_OPEN_KEY = "hpc_layout_dashboard_sidebar_open";
+/** Alumni shell: tablet/desktop — slightly narrower rail when open (no expand control). */
+const SIDEBAR_MD_UP_MQ = "(min-width: 768px)";
 
 function readSidebarOpenFromSession(): boolean {
   try {
@@ -93,7 +95,7 @@ const SidebarContent = ({
   isActive,
   user,
   logout,
-  onNavigate,
+  onCloseSidebar,
   onPrefetchRoute,
   showClose,
   dashboardHref,
@@ -103,7 +105,8 @@ const SidebarContent = ({
   isActive: (href: string) => boolean;
   user: any;
   logout: () => void;
-  onNavigate?: () => void;
+  /** Only the X button closes the sidebar (not nav, logo, or outside clicks). */
+  onCloseSidebar?: () => void;
   onPrefetchRoute?: (href: string) => void;
   showClose?: boolean;
   dashboardHref: string;
@@ -114,7 +117,7 @@ const SidebarContent = ({
       className="flex h-14 shrink-0 items-center justify-between border-b border-white/10 px-2"
       style={{ background: "var(--theme-navbar-bg)" }}
     >
-      <Link to={dashboardHref} onClick={onNavigate} className="flex min-w-0 items-center gap-1.5">
+      <Link to={dashboardHref} className="flex min-w-0 items-center gap-1.5">
         <img src={hpcLogo} alt="HPC Logo" className="h-7 w-7 shrink-0 rounded-full shadow-sm ring-1 ring-[hsl(43,96%,56%)]/50" />
         <div className="min-w-0 leading-none">
           <span className="block truncate text-[10px] font-bold tracking-tight text-white">HPCAA</span>
@@ -123,11 +126,18 @@ const SidebarContent = ({
           </span>
         </div>
       </Link>
-      {showClose && (
-        <button onClick={onNavigate} className="shrink-0 rounded p-0.5 hover:bg-muted/50 transition-colors duration-300">
-          <X className="h-3.5 w-3.5 text-white" />
-        </button>
-      )}
+      <div className="flex shrink-0 items-center gap-0.5">
+        {showClose && (
+          <button
+            type="button"
+            onClick={onCloseSidebar}
+            className="shrink-0 rounded p-0.5 hover:bg-muted/50 transition-colors duration-300"
+            aria-label="Close menu"
+          >
+            <X className="h-3.5 w-3.5 text-white" aria-hidden />
+          </button>
+        )}
+      </div>
     </div>
     <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
       <ul className="space-y-1">
@@ -135,16 +145,13 @@ const SidebarContent = ({
           <li key={href}>
             <Link
               to={href}
-              onClick={() => {
-                onNavigate?.();
-              }}
               onMouseEnter={() => onPrefetchRoute?.(href)}
               onFocus={() => onPrefetchRoute?.(href)}
               onTouchStart={() => onPrefetchRoute?.(href)}
-              className={`flex items-center gap-2 px-2.5 py-2 sm:gap-2.5 sm:px-3 sm:py-2.5 rounded-lg text-[12px] sm:text-[13px] lg:text-[14px] transition-all duration-300 ease-in-out ${
+              className={`flex items-center gap-2 px-2.5 py-2 sm:gap-2.5 sm:px-3 sm:py-2.5 rounded-xl text-[12px] sm:text-[13px] lg:text-[14px] transition-all duration-300 ease-in-out ${
                 isActive(href)
-                  ? "text-primary font-semibold bg-primary/10 border-l-4 border-primary"
-                  : "text-muted-foreground font-medium hover:bg-muted hover:text-foreground"
+                  ? "text-primary font-semibold bg-primary/12 border-l-[3px] border-primary shadow-sm ring-1 ring-primary/10"
+                  : "text-muted-foreground font-medium hover:bg-muted/80 hover:text-foreground hover:shadow-sm"
               }`}
             >
               <Icon
@@ -158,10 +165,13 @@ const SidebarContent = ({
         ))}
       </ul>
     </nav>
-    <div className="mt-auto shrink-0 border-t border-border bg-sidebar px-3 py-3">
+    <div className="mt-auto shrink-0 border-t border-sidebar-border/80 bg-sidebar px-3 py-3 shadow-[0_-8px_24px_-16px_hsl(var(--foreground)_/_0.06)]">
       <button
-        onClick={() => { logout(); onNavigate?.(); }}
-        className="flex items-center gap-2 px-2.5 py-2 sm:gap-2.5 sm:px-3 sm:py-2.5 rounded-lg text-[12px] sm:text-[13px] lg:text-[14px] font-medium bg-red-600 text-white hover:bg-red-700 transition-colors w-full"
+        type="button"
+        onClick={() => {
+          logout();
+        }}
+        className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-[12px] font-medium text-white shadow-md transition-all duration-200 hover:brightness-110 hover:shadow-lg active:scale-[0.99] sm:gap-2.5 sm:px-3 sm:py-2.5 sm:text-[13px] lg:text-[14px] bg-red-600 hover:bg-red-700"
       >
         <LogOut className="h-4 w-4 sm:h-[17px] sm:w-[17px] lg:h-[18px] lg:w-[18px]" />
         Logout
@@ -173,6 +183,9 @@ const SidebarContent = ({
 const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const showThemeToggle = false; // Match public Navbar / floating toggle — keep code, hidden for now.
   const [sidebarOpen, setSidebarOpen] = useState(readSidebarOpenFromSession);
+  const [mqMd, setMqMd] = useState(() =>
+    typeof window !== "undefined" ? window.matchMedia(SIDEBAR_MD_UP_MQ).matches : false
+  );
   const [profileOpen, setProfileOpen] = useState(false);
   const { user, logout } = useAuth();
   const location = useLocation();
@@ -196,12 +209,37 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     }
   }, [sidebarOpen]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia(SIDEBAR_MD_UP_MQ);
+    const sync = () => setMqMd(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
   const isAdmin = user?.role === "admin";
   const useAlumniShell = !isAdmin || viewAsAlumni;
+  /** Landing metaverse palette + mesh (scoped in index.css); admin-only dashboard keeps theme shell. */
+  const alumniMetaverseShell = useAlumniShell;
   const menu = useAlumniShell ? alumniMenu : adminMenu;
   const dashboardHref = useAlumniShell ? "/dashboard" : "/admin/dashboard";
   const panelSubtitle =
     isAdmin && viewAsAlumni ? "Alumni view (preview)" : isAdmin ? "Admin Panel" : "Alumni Association";
+
+  /** Alumni metaverse + tablet/desktop: fixed narrow rail width when sidebar is open. */
+  const alumniRailMd = Boolean(alumniMetaverseShell && mqMd);
+
+  useEffect(() => {
+    if (!alumniMetaverseShell) {
+      document.body.classList.remove("hpc-alumni-metaverse-body");
+      return;
+    }
+    document.body.classList.add("hpc-alumni-metaverse-body");
+    return () => {
+      document.body.classList.remove("hpc-alumni-metaverse-body");
+    };
+  }, [alumniMetaverseShell]);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -299,21 +337,37 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-background">
-      {/* Backdrop for outside click */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/20 transition-opacity duration-150 lg:duration-300"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
+  const closeSidebarViaX = () => {
+    setSidebarOpen(false);
+  };
 
-      {/* Fixed Sidebar */}
+  /** Alumni metaverse + md+: ~70% of `w-64` when open (no outside / nav auto-close). */
+  const asideWidthClass = (() => {
+    if (sidebarOpen && alumniRailMd) {
+      return "w-[11.2rem]";
+    }
+    if (!sidebarOpen) return "w-0";
+    return alumniMetaverseShell ? "w-[55vw]" : "w-[55vw] lg:w-64";
+  })();
+
+  const mainMarginClass = (() => {
+    if (sidebarOpen && alumniRailMd) {
+      return "ml-0 md:ml-[11.2rem]";
+    }
+    return sidebarOpen ? "ml-0 lg:ml-64" : "ml-0";
+  })();
+
+  return (
+    <div
+      className={
+        alumniMetaverseShell
+          ? "min-h-screen hpc-alumni-landing-shell"
+          : "min-h-screen bg-background bg-gradient-to-br from-background via-background to-muted/25"
+      }
+    >
+      {/* Fixed Sidebar — no backdrop: outside clicks do not close; only X closes. */}
       <aside
-        className={`fixed top-0 left-0 z-50 flex h-[100dvh] max-h-[100dvh] flex-col overflow-hidden border-r border-border/80 bg-sidebar transition-all duration-150 lg:duration-300 ease-in-out ${
-          sidebarOpen ? "w-[55vw] lg:w-64" : "w-0"
-        }`}
+        className={`fixed top-0 left-0 z-50 flex h-[100dvh] max-h-[100dvh] flex-col overflow-hidden border-r border-sidebar-border/90 bg-sidebar shadow-[4px_0_32px_-12px_hsl(var(--foreground)_/_0.08)] transition-all duration-150 ease-in-out lg:duration-300 ${asideWidthClass}`}
       >
         <div className="h-full w-full min-h-0 min-w-0 flex flex-col">
           <SidebarContent
@@ -322,7 +376,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             user={user}
             logout={logout}
             showClose={sidebarOpen}
-            onNavigate={() => setSidebarOpen(false)}
+            onCloseSidebar={closeSidebarViaX}
             onPrefetchRoute={prefetchRoute}
             dashboardHref={dashboardHref}
             panelSubtitle={panelSubtitle}
@@ -330,16 +384,24 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         </div>
       </aside>
 
-      {/* Main wrapper: keep mobile as overlay (no push), keep desktop push for wide view */}
+      {/* Main wrapper: keep mobile as overlay (no push); alumni md+ uses rail margin; admin lg uses ml-64. */}
       <div
-        className={`flex min-h-screen flex-col transition-[margin] duration-150 lg:duration-300 ease-in-out ${
-          sidebarOpen ? "ml-0 lg:ml-64" : "ml-0"
-        }`}
+        className={`flex min-h-screen flex-col transition-[margin] duration-150 lg:duration-300 ease-in-out ${mainMarginClass}`}
       >
-        <div className="flex flex-col min-h-screen">
+        <div
+          className={
+            alumniMetaverseShell
+              ? "flex min-h-screen flex-1 flex-col hpc-alumni-dashboard-column-mesh"
+              : "flex flex-col min-h-screen"
+          }
+        >
           {/* Fixed Header */}
           <header
-            className="sticky top-0 z-30 flex h-12 items-center justify-between border-b border-white/[0.07] px-2 lg:h-10 lg:px-3"
+            className={
+              alumniMetaverseShell
+                ? "landing-navbar-metaverse sticky top-0 z-30 flex h-12 items-center justify-between border-b border-white/10 px-2 lg:h-10 lg:px-3"
+                : "sticky top-0 z-30 flex h-12 items-center justify-between border-b border-white/10 px-2 shadow-[0_4px_28px_-8px_rgba(0,209,255,0.1),0_8px_32px_-12px_rgba(255,149,0,0.12)] lg:h-10 lg:px-3"
+            }
             style={{
               background: "var(--theme-header-bg)",
             }}
@@ -348,7 +410,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
               {!sidebarOpen && (
                 <button
                   onClick={() => setSidebarOpen(true)}
-                  className="rounded-md p-2.5 hover:bg-gray-900/10 sm:p-2 md:p-1.5"
+                  className="rounded-lg p-2.5 transition-colors duration-200 hover:bg-white/15 hover:shadow-md sm:p-2 md:p-1.5"
                   aria-label="Open menu"
                 >
                   <Menu className="h-6 w-6 text-white sm:h-[22px] sm:w-[22px] md:h-5 md:w-5" />
@@ -468,7 +530,13 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           </AutoRepairBoundary>
 
           {/* Page Content */}
-          <main className="min-w-0 flex-1 px-2.5 py-4 sm:px-3 lg:px-4 lg:py-6 xl:px-5">
+          <main
+            className={
+              alumniMetaverseShell
+                ? "min-w-0 flex-1 bg-transparent px-2.5 py-4 sm:px-3 lg:px-4 lg:py-6 xl:px-5"
+                : "min-w-0 flex-1 px-2.5 py-4 sm:px-3 lg:px-4 lg:py-6 xl:px-5"
+            }
+          >
             <AutoRepairBoundary title="Page content">
               {children ?? <Outlet />}
             </AutoRepairBoundary>

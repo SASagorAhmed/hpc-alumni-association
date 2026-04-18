@@ -50,7 +50,7 @@ const ContactSection = ({ content }: ContactProps) => {
             <h2 className="mb-5 fs-title font-bold tracking-tight text-foreground">
               {heading}
             </h2>
-            <p className="mb-6 fs-body text-muted-foreground text-pretty text-justify hyphens-auto">{description}</p>
+            <p className="mb-6 fs-banner-message-body text-landing-description text-pretty text-justify [text-align-last:left] hyphens-none break-normal [word-break:normal] [overflow-wrap:normal]">{description}</p>
             <div className="space-y-4">
               {contactInfo.map((info: any) => (
                 <div key={info.label} className="group flex items-start gap-4 rounded-lg p-2 transition-all duration-300 hover:bg-muted">

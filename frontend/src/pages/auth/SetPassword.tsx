@@ -50,8 +50,8 @@ const SetPassword = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-background">
-      <Card className="w-full max-w-md">
+    <div className="flex min-h-screen items-center justify-center p-4 hpc-auth-premium-canvas">
+      <Card className="w-full max-w-md border-white/15 bg-card/95 shadow-card backdrop-blur-md">
         <CardHeader>
           <CardTitle>Set Manual Password</CardTitle>
           <CardDescription>

@@ -21,9 +21,42 @@ interface Props {
   content?: Record<string, unknown>;
 }
 
+const LANDING_NOTICES_CACHE_KEY = "hpc:landing:notices-cache";
+
+function readCachedLandingNotices(): PublicNotice[] {
+  try {
+    const raw = window.sessionStorage.getItem(LANDING_NOTICES_CACHE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (item): item is PublicNotice =>
+        Boolean(item) &&
+        typeof (item as PublicNotice).id === "string" &&
+        typeof (item as PublicNotice).title === "string"
+    );
+  } catch {
+    return [];
+  }
+}
+
+function writeCachedLandingNotices(items: PublicNotice[]): void {
+  try {
+    window.sessionStorage.setItem(LANDING_NOTICES_CACHE_KEY, JSON.stringify(items));
+  } catch {
+    /* ignore */
+  }
+}
+
 const NoticesSection = ({ content }: Props) => {
-  const [items, setItems] = useState<PublicNotice[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [items, setItems] = useState<PublicNotice[]>(() => {
+    if (typeof window === "undefined") return [];
+    return readCachedLandingNotices();
+  });
+  const [loading, setLoading] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return readCachedLandingNotices().length === 0;
+  });
 
   const sectionLabel = (content?.sectionLabel as string) || "ANNOUNCEMENTS";
   const heading = (content?.heading as string) || "Latest notices";
@@ -38,7 +71,11 @@ const NoticesSection = ({ content }: Props) => {
         const res = await fetch(`${API_BASE_URL}/api/public/notices?limit=6&landing=1`, { method: "GET" });
         if (!res.ok) throw new Error("fetch failed");
         const data = (await res.json()) as PublicNotice[];
-        if (!cancelled) setItems(Array.isArray(data) ? data : []);
+        if (!cancelled) {
+          const next = Array.isArray(data) ? data : [];
+          setItems(next);
+          writeCachedLandingNotices(next);
+        }
       } catch {
         if (!cancelled) setItems([]);
       } finally {
@@ -66,7 +103,7 @@ const NoticesSection = ({ content }: Props) => {
           <div className="max-w-2xl">
             <p className="fs-eyebrow mb-2 font-semibold tracking-wider text-primary">{sectionLabel}</p>
             <h2 className="fs-title mb-3 font-bold tracking-tight text-foreground">{heading}</h2>
-            <p className="fs-body text-pretty text-justify text-muted-foreground hyphens-auto">{description}</p>
+            <p className="fs-banner-message-body text-pretty text-justify [text-align-last:left] hyphens-none break-normal [word-break:normal] [overflow-wrap:normal] text-landing-description">{description}</p>
           </div>
           <Link
             to="/notices"
@@ -87,7 +124,7 @@ const NoticesSection = ({ content }: Props) => {
           <div className="rounded-xl border border-dashed border-border bg-card/50 p-8 text-center">
             <Megaphone className="mx-auto mb-3 h-10 w-10 text-muted-foreground" aria-hidden />
             <p className="fs-ui font-medium text-foreground">No public notices yet</p>
-            <p className="mt-1 fs-ui text-muted-foreground">
+            <p className="mt-1 fs-ui text-landing-description">
               When administrators publish a notice with audience <span className="font-medium text-foreground">Public</span>, it will
               show here. Alumni-only updates stay in the dashboard after you log in.
             </p>

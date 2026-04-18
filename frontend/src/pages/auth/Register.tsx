@@ -15,6 +15,8 @@ import { ProfilePhotoCropDialog } from "@/components/auth/ProfilePhotoCropDialog
 import { API_BASE_URL } from "@/api-production/api.js";
 import { buildPassingSessionOptions } from "@/lib/passingSessionOptions";
 import { DateOfBirthPicker } from "@/components/ui/date-of-birth-picker";
+import { usePersistedFormDraft } from "@/hooks/usePersistedFormDraft";
+import { cn } from "@/lib/utils";
 
 const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 
@@ -47,7 +49,8 @@ const COMMITTEE_MEMBER_OPTIONS = [
   { value: "yes", label: "Yes" },
   { value: "no", label: "No" },
 ] as const;
-const REGISTER_SECTION_HEADING_CLASS = "mb-3 text-base font-bold uppercase tracking-wide text-primary";
+const REGISTER_LABEL_CLASS = "hpc-auth-register-label";
+const REGISTER_SECTION_HEADING_CLASS = "hpc-auth-register-section-heading mb-3 uppercase";
 
 const Register = () => {
   const { register } = useAuth();
@@ -74,34 +77,38 @@ const Register = () => {
   const cropObjectUrlRef = useRef<string | null>(null);
   const [committeePostOptions, setCommitteePostOptions] = useState<Array<{ id: string; title: string }>>([]);
   const [committeePostLoading, setCommitteePostLoading] = useState(false);
-  const [form, setForm] = useState({
-    name: rememberedGoogleName,
-    nickname: "",
-    email: rememberedGoogleEmail,
-    password: "",
-    confirmPassword: "",
-    phone: "",
-    batch: "",
-    passingSession: "",
-    faculty: "",
-    section: "",
-    roll: "",
-    gender: "",
-    bloodGroup: "",
-    university: "",
-    universityShortName: "",
-    company: "",
-    committeeMember: "no" as "" | "yes" | "no",
-    committeePost: "",
-    profession: "",
-    address: "",
-    bio: "",
-    additionalInfo: "",
-    facebook: "",
-    instagram: "",
-    linkedin: "",
-    birthday: "",
-  });
+  const registerDraftKey = "auth:register:draft";
+  const [form, setForm, clearRegisterDraft] = usePersistedFormDraft(
+    {
+      name: rememberedGoogleName,
+      nickname: "",
+      email: rememberedGoogleEmail,
+      password: "",
+      confirmPassword: "",
+      phone: "",
+      batch: "",
+      passingSession: "",
+      faculty: "",
+      section: "",
+      roll: "",
+      gender: "",
+      bloodGroup: "",
+      university: "",
+      universityShortName: "",
+      company: "",
+      committeeMember: "no" as "" | "yes" | "no",
+      committeePost: "",
+      profession: "",
+      address: "",
+      bio: "",
+      additionalInfo: "",
+      facebook: "",
+      instagram: "",
+      linkedin: "",
+      birthday: "",
+    },
+    { storageKey: registerDraftKey, delayMs: 150 }
+  );
 
   const SECTIONS = Array.from({ length: 10 }, (_, i) => {
     const v = String.fromCharCode(65 + i); // A..J
@@ -120,6 +127,11 @@ const Register = () => {
 
   useEffect(() => {
     return () => revokeCropPreview();
+  }, []);
+
+  useEffect(() => {
+    return () => {
+    };
   }, []);
 
   useEffect(() => {
@@ -361,6 +373,7 @@ const Register = () => {
     });
     setLoading(false);
     if (result.success) {
+      clearRegisterDraft();
       try {
         sessionStorage.removeItem("google_prefill_email");
         sessionStorage.removeItem("google_prefill_name");
@@ -408,11 +421,13 @@ const Register = () => {
 
   return (
     <div
-      className="relative min-h-screen flex items-center justify-center p-4 py-10"
-      style={{ background: "linear-gradient(135deg, #065F46, #059669, #064E3B)" }}
+      className="relative flex min-h-screen items-center justify-center p-4 py-10 hpc-auth-premium-canvas"
     >
       <div className="absolute top-4 left-4 z-10">
-        <Link to="/" className="inline-flex items-center gap-1 text-sm text-white/80 hover:text-amber-300 transition-colors">
+        <Link
+          to="/"
+          className="hpc-auth-card-desc inline-flex items-center gap-1 text-sm font-semibold text-white/85 transition-colors hover:text-amber-200"
+        >
           ← Back to Home
         </Link>
       </div>
@@ -420,58 +435,71 @@ const Register = () => {
         <div className="text-center mb-6">
           <Link to="/" className="inline-flex items-center gap-3">
             <img src={hpcLogo} alt="HPC Logo" className="h-10 w-10" />
-            <div className="leading-tight text-left">
-              <span className="block text-[16px] font-bold text-white">Hamdard Public College</span>
-              <span className="block text-amber-400 text-[13px] font-extrabold tracking-wider">ALUMNI ASSOCIATION</span>
+            <div className="text-left leading-tight">
+              <span className="hpc-auth-brand-title block text-[16px] text-white">Hamdard Public College</span>
+              <span className="hpc-auth-brand-subtitle mt-px block bg-gradient-to-r from-amber-300 via-orange-400 to-yellow-300 bg-clip-text text-[13px] text-transparent">
+                ALUMNI ASSOCIATION
+              </span>
             </div>
           </Link>
         </div>
-        <Card className="shadow-card bg-card/95 backdrop-blur-sm">
+        <Card className="shadow-card border-white/15 bg-card/95 backdrop-blur-md">
           <CardHeader className="text-center">
-            <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-2">
-              <UserPlus className="w-6 h-6 text-primary" />
+            <div className="hpc-auth-icon-ring mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full border border-cyan-400/35 bg-gradient-to-br from-amber-400/25 via-orange-500/15 to-cyan-400/20">
+              <UserPlus
+                className="h-6 w-6 text-amber-400 drop-shadow-[0_0_10px_rgba(251,191,36,0.35)]"
+                strokeWidth={2.25}
+                aria-hidden
+              />
             </div>
-            <CardTitle className="text-xl">Register</CardTitle>
-            <CardDescription>Create your alumni account and complete your profile in one step</CardDescription>
+            <CardTitle className="hpc-auth-card-title text-xl">Register</CardTitle>
+            <CardDescription className="hpc-auth-card-desc">
+              Create your alumni account and complete your profile in one step
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="rounded-md border border-border bg-muted/40 p-4 space-y-3">
-                <p className="text-sm text-muted-foreground">
-                  Prefer Google? We only copy your <strong>email</strong> and <strong>name</strong> from Google—you must still complete this entire form
-                  (same rules as manual registration) and click Register before an account exists. Choosing a password here is required. If you started
-                  from Sign in with Google and were sent here, that is expected: new Google emails always finish on this page. The Google step expires in
-                  about 30 minutes if you abandon it.
+              <div className="hpc-auth-register-google-panel space-y-3 rounded-lg p-4 backdrop-blur-sm">
+                <p className="hpc-auth-card-desc text-sm text-slate-700 dark:text-slate-200">
+                  Prefer Google? We only copy your <strong>email</strong> and <strong>name</strong> from Google—you must still complete this entire
+                  form (same rules as manual registration) and click Register before an account exists. Choosing a password here is required. If you
+                  started from Sign in with Google and were sent here, that is expected: new Google emails always finish on this page. The Google step
+                  expires in about 30 minutes if you abandon it.
                 </p>
                 <Button
                   type="button"
                   variant="outline"
-                  className="w-full sm:w-auto"
+                  className="hpc-auth-btn-secondary min-h-11 w-full gap-2 sm:w-auto [&_svg]:shrink-0"
                   onClick={() => {
                     const target = `${API_BASE_URL}/api/auth/google?register=1`;
                     window.location.href = target;
                   }}
                 >
-                  <GoogleMark className="w-5 h-5 mr-2" />
+                  <GoogleMark className="h-5 w-5 shrink-0" />
                   Continue with Google
                 </Button>
               </div>
               {googleRegisterMode ? (
-                <div className="rounded-md border border-emerald-200 bg-emerald-50/80 dark:bg-emerald-950/25 dark:border-emerald-800 px-3 py-2 text-sm text-emerald-950 dark:text-emerald-50/95">
-                  <span className="font-medium">Google prefill:</span> Email is from your Google account and cannot be changed here; you may edit your
-                  name. Fill every required field below—your account is created only when you submit this form successfully.
+                <div className="rounded-lg border border-cyan-400/45 bg-cyan-50/85 px-3 py-2 text-sm text-slate-800 shadow-[0_0_20px_rgba(0,209,255,0.1)] dark:border-cyan-500/35 dark:bg-cyan-950/35 dark:text-slate-100">
+                  <span className="font-semibold text-amber-800 dark:text-amber-300">Google prefill:</span> Email is from your Google account and
+                  cannot be changed here; you may edit your name. Fill every required field below—your account is created only when you submit this
+                  form successfully.
                 </div>
               ) : null}
               <div>
                 <h3 className={REGISTER_SECTION_HEADING_CLASS}>Account</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label htmlFor="name">Full Name *</Label>
+                    <Label htmlFor="name" className={REGISTER_LABEL_CLASS}>
+                      Full Name *
+                    </Label>
                     <Input id="name" placeholder="Your name" maxLength={100} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
                     {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="email">Email *</Label>
+                    <Label htmlFor="email" className={REGISTER_LABEL_CLASS}>
+                      Email *
+                    </Label>
                     <Input
                       id="email"
                       type="email"
@@ -493,7 +521,9 @@ const Register = () => {
                     {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
                   </div>
                   <div className="space-y-1.5 md:col-span-2">
-                    <Label htmlFor="nickname">Nickname *</Label>
+                    <Label htmlFor="nickname" className={REGISTER_LABEL_CLASS}>
+                      Nickname *
+                    </Label>
                     <Input
                       id="nickname"
                       maxLength={200}
@@ -505,22 +535,33 @@ const Register = () => {
                     {errors.nickname && <p className="text-xs text-destructive">{errors.nickname}</p>}
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="password">Password *</Label>
+                    <Label htmlFor="password" className={REGISTER_LABEL_CLASS}>
+                      Password *
+                    </Label>
                     <div className="relative">
                       <Input id="password" type={showPassword ? "text" : "password"} placeholder="At least 6 characters" maxLength={100} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
-                      <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={() => setShowPassword(!showPassword)}>
-                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      <button
+                        type="button"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md text-slate-500 transition-colors hover:text-amber-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/50"
+                        onClick={() => setShowPassword(!showPassword)}
+                        aria-label={showPassword ? "Hide password" : "Show password"}
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" strokeWidth={2.25} /> : <Eye className="h-4 w-4" strokeWidth={2.25} />}
                       </button>
                     </div>
                     {errors.password && <p className="text-xs text-destructive">{errors.password}</p>}
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="confirmPassword">Confirm Password *</Label>
+                    <Label htmlFor="confirmPassword" className={REGISTER_LABEL_CLASS}>
+                      Confirm Password *
+                    </Label>
                     <Input id="confirmPassword" type="password" placeholder="Re-enter password" maxLength={100} value={form.confirmPassword} onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })} />
                     {errors.confirmPassword && <p className="text-xs text-destructive">{errors.confirmPassword}</p>}
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="phone">Phone Number *</Label>
+                    <Label htmlFor="phone" className={REGISTER_LABEL_CLASS}>
+                      Phone Number *
+                    </Label>
                     <Input id="phone" placeholder="+880..." maxLength={15} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
                     {errors.phone && <p className="text-xs text-destructive">{errors.phone}</p>}
                   </div>
@@ -531,7 +572,9 @@ const Register = () => {
                 <h3 className={REGISTER_SECTION_HEADING_CLASS}>Academic identity (locked after register)</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label htmlFor="batch">Batch (01..50) *</Label>
+                    <Label htmlFor="batch" className={REGISTER_LABEL_CLASS}>
+                      Batch (01..50) *
+                    </Label>
                     <Select value={form.batch} onValueChange={(v) => setForm({ ...form, batch: v })}>
                       <SelectTrigger id="batch">
                         <SelectValue placeholder="Select batch" />
@@ -547,7 +590,9 @@ const Register = () => {
                     {errors.batch && <p className="text-xs text-destructive">{errors.batch}</p>}
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="passingSession">Session (passing year) *</Label>
+                    <Label htmlFor="passingSession" className={REGISTER_LABEL_CLASS}>
+                      Session (passing year) *
+                    </Label>
                     <Select
                       value={form.passingSession}
                       onValueChange={(v) => setForm({ ...form, passingSession: v })}
@@ -567,7 +612,9 @@ const Register = () => {
                     {errors.passingSession && <p className="text-xs text-destructive">{errors.passingSession}</p>}
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="faculty">Department *</Label>
+                    <Label htmlFor="faculty" className={REGISTER_LABEL_CLASS}>
+                      Department *
+                    </Label>
                     <Select value={form.faculty} onValueChange={(v) => setForm({ ...form, faculty: v })}>
                       <SelectTrigger id="faculty">
                         <SelectValue placeholder="Select department" />
@@ -583,7 +630,9 @@ const Register = () => {
                     {errors.faculty && <p className="text-xs text-destructive">{errors.faculty}</p>}
                   </div>
                   <div className="space-y-1.5 md:col-span-2">
-                    <Label htmlFor="section">Section (A..J) *</Label>
+                    <Label htmlFor="section" className={REGISTER_LABEL_CLASS}>
+                      Section (A..J) *
+                    </Label>
                     <Select value={form.section} onValueChange={(v) => setForm({ ...form, section: v })}>
                       <SelectTrigger id="section">
                         <SelectValue placeholder="Select section" />
@@ -600,7 +649,9 @@ const Register = () => {
                   </div>
                 </div>
                 <div className="mt-4 space-y-1.5">
-                  <Label htmlFor="roll">Collage ID (Roll) *</Label>
+                  <Label htmlFor="roll" className={REGISTER_LABEL_CLASS}>
+                    Collage ID (Roll) *
+                  </Label>
                   <Input
                     id="roll"
                     inputMode="numeric"
@@ -617,7 +668,9 @@ const Register = () => {
                 <h3 className={REGISTER_SECTION_HEADING_CLASS}>Profile & photo</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label htmlFor="gender">Gender *</Label>
+                    <Label htmlFor="gender" className={REGISTER_LABEL_CLASS}>
+                      Gender *
+                    </Label>
                     <Select value={form.gender} onValueChange={(v) => setForm({ ...form, gender: v })}>
                       <SelectTrigger id="gender">
                         <SelectValue placeholder="Select gender" />
@@ -630,7 +683,9 @@ const Register = () => {
                     {errors.gender && <p className="text-xs text-destructive">{errors.gender}</p>}
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="bloodGroup">Blood Group *</Label>
+                    <Label htmlFor="bloodGroup" className={REGISTER_LABEL_CLASS}>
+                      Blood Group *
+                    </Label>
                     <Select value={form.bloodGroup} onValueChange={(v) => setForm({ ...form, bloodGroup: v })}>
                       <SelectTrigger id="bloodGroup">
                         <SelectValue placeholder="Select blood group" />
@@ -646,26 +701,33 @@ const Register = () => {
                     {errors.bloodGroup && <p className="text-xs text-destructive">{errors.bloodGroup}</p>}
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="birthday">Date of birth (optional)</Label>
+                    <Label htmlFor="birthday" className={REGISTER_LABEL_CLASS}>
+                      Date of birth (optional)
+                    </Label>
                     <DateOfBirthPicker
                       id="birthday"
                       value={form.birthday}
                       onChange={(ymd) => setForm({ ...form, birthday: ymd })}
                       placeholder="Choose date of birth"
+                      landingChrome
                     />
                     <p className="text-xs text-muted-foreground">You can add or change this later in your profile.</p>
                     {errors.birthday && <p className="text-xs text-destructive">{errors.birthday}</p>}
                   </div>
                 </div>
                 <div className="mt-4 space-y-1.5">
-                  <Label htmlFor="photo">Profile Picture {form.gender === "Male" ? "*" : "(optional)"}</Label>
+                  <Label htmlFor="photo" className={REGISTER_LABEL_CLASS}>
+                    Profile Picture {form.gender === "Male" ? "*" : "(optional)"}
+                  </Label>
                   <Input
                     id="photo"
                     type="file"
                     accept="image/*"
                     onChange={handlePhotoFileChosen}
                   />
-                  {photoFile ? <p className="text-xs text-emerald-700">Selected: {photoFile.name}</p> : null}
+                  {photoFile ? (
+                    <p className="text-xs font-medium text-amber-800 dark:text-amber-300">Selected: {photoFile.name}</p>
+                  ) : null}
                   {form.gender === "Male" ? (
                     <p className="text-xs text-amber-800">Male users must upload and crop a profile picture to register.</p>
                   ) : (
@@ -679,12 +741,16 @@ const Register = () => {
                 <h3 className={REGISTER_SECTION_HEADING_CLASS}>Academic & professional</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1.5 md:col-span-2">
-                    <Label htmlFor="university">University (full name) *</Label>
+                    <Label htmlFor="university" className={REGISTER_LABEL_CLASS}>
+                      University (full name) *
+                    </Label>
                     <Input id="university" maxLength={150} placeholder="Your university" value={form.university} onChange={(e) => setForm({ ...form, university: e.target.value })} />
                     {errors.university && <p className="text-xs text-destructive">{errors.university}</p>}
                   </div>
                   <div className="space-y-1.5 md:col-span-2">
-                    <Label htmlFor="universityShortName">University short name *</Label>
+                    <Label htmlFor="universityShortName" className={REGISTER_LABEL_CLASS}>
+                      University short name *
+                    </Label>
                     <Input
                       id="universityShortName"
                       maxLength={100}
@@ -696,11 +762,15 @@ const Register = () => {
                     {errors.universityShortName && <p className="text-xs text-destructive">{errors.universityShortName}</p>}
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="company">Company / Organization</Label>
+                    <Label htmlFor="company" className={REGISTER_LABEL_CLASS}>
+                      Company / Organization
+                    </Label>
                     <Input id="company" maxLength={100} value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="committeeMember">Do you committee member? *</Label>
+                    <Label htmlFor="committeeMember" className={REGISTER_LABEL_CLASS}>
+                      Do you committee member? *
+                    </Label>
                     <Select
                       value={form.committeeMember}
                       onValueChange={(v: "yes" | "no") =>
@@ -726,7 +796,9 @@ const Register = () => {
                   </div>
                   {form.committeeMember === "yes" ? (
                     <div className="space-y-1.5">
-                      <Label htmlFor="committeePost">Committee Post *</Label>
+                      <Label htmlFor="committeePost" className={REGISTER_LABEL_CLASS}>
+                        Committee Post *
+                      </Label>
                       <Select
                         value={form.committeePost}
                         onValueChange={(v) => setForm((f) => ({ ...f, committeePost: v }))}
@@ -747,7 +819,9 @@ const Register = () => {
                     </div>
                   ) : null}
                   <div className="space-y-1.5">
-                    <Label htmlFor="profession">Profession / Industry *</Label>
+                    <Label htmlFor="profession" className={REGISTER_LABEL_CLASS}>
+                      Profession / Industry *
+                    </Label>
                     <Input id="profession" placeholder="e.g. Teaching" maxLength={100} value={form.profession} onChange={(e) => setForm({ ...form, profession: e.target.value })} />
                     {errors.profession && <p className="text-xs text-destructive">{errors.profession}</p>}
                   </div>
@@ -758,15 +832,21 @@ const Register = () => {
                 <h3 className={REGISTER_SECTION_HEADING_CLASS}>Contact & more</h3>
                 <div className="space-y-4">
                   <div className="space-y-1.5">
-                    <Label htmlFor="address">Address</Label>
+                    <Label htmlFor="address" className={REGISTER_LABEL_CLASS}>
+                      Address
+                    </Label>
                     <Input id="address" maxLength={200} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="bio">Short Bio</Label>
+                    <Label htmlFor="bio" className={REGISTER_LABEL_CLASS}>
+                      Short Bio
+                    </Label>
                     <Textarea id="bio" maxLength={500} rows={3} placeholder="Tell us about yourself..." value={form.bio} onChange={(e) => setForm({ ...form, bio: e.target.value })} />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="additionalInfo">Additional Information</Label>
+                    <Label htmlFor="additionalInfo" className={REGISTER_LABEL_CLASS}>
+                      Additional Information
+                    </Label>
                     <Textarea id="additionalInfo" maxLength={1000} rows={3} placeholder="Higher studies, certifications, achievements..." value={form.additionalInfo} onChange={(e) => setForm({ ...form, additionalInfo: e.target.value })} />
                   </div>
                 </div>
@@ -774,28 +854,30 @@ const Register = () => {
 
               <div>
                 <h3 className={REGISTER_SECTION_HEADING_CLASS}>Social links *</h3>
-                <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 mb-3">
-                  <p className="font-semibold">Required</p>
-                  <p className="mt-1 text-amber-950/90">Provide at least one link among Facebook, Instagram, or LinkedIn.</p>
+                <div className="hpc-auth-register-callout mb-3 rounded-lg p-3 text-sm text-amber-950 dark:text-amber-50/95">
+                  <p className="hpc-auth-card-title text-sm font-bold">Required</p>
+                  <p className="hpc-auth-card-desc mt-1 text-amber-950/90 dark:text-amber-100/90">
+                    Provide at least one link among Facebook, Instagram, or LinkedIn.
+                  </p>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1.5 md:col-span-2">
-                    <Label htmlFor="facebook" className="flex items-center gap-1.5">
-                      <Facebook className="w-3.5 h-3.5" />
+                    <Label htmlFor="facebook" className={cn(REGISTER_LABEL_CLASS, "flex items-center gap-1.5")}>
+                      <Facebook className="hpc-auth-inline-icon h-3.5 w-3.5 shrink-0" strokeWidth={2.25} aria-hidden />
                       Facebook Profile URL
                     </Label>
                     <Input id="facebook" placeholder="https://facebook.com/yourprofile" maxLength={300} value={form.facebook} onChange={(e) => setForm({ ...form, facebook: e.target.value })} />
                   </div>
                   <div className="space-y-1.5 md:col-span-2">
-                    <Label htmlFor="instagram" className="flex items-center gap-1.5">
-                      <Instagram className="w-3.5 h-3.5" />
+                    <Label htmlFor="instagram" className={cn(REGISTER_LABEL_CLASS, "flex items-center gap-1.5")}>
+                      <Instagram className="hpc-auth-inline-icon h-3.5 w-3.5 shrink-0" strokeWidth={2.25} aria-hidden />
                       Instagram Profile URL
                     </Label>
                     <Input id="instagram" placeholder="https://instagram.com/yourprofile" maxLength={300} value={form.instagram} onChange={(e) => setForm({ ...form, instagram: e.target.value })} />
                   </div>
                   <div className="space-y-1.5 md:col-span-2">
-                    <Label htmlFor="linkedin" className="flex items-center gap-1.5">
-                      <Linkedin className="w-3.5 h-3.5" />
+                    <Label htmlFor="linkedin" className={cn(REGISTER_LABEL_CLASS, "flex items-center gap-1.5")}>
+                      <Linkedin className="hpc-auth-inline-icon h-3.5 w-3.5 shrink-0" strokeWidth={2.25} aria-hidden />
                       LinkedIn Profile URL
                     </Label>
                     <Input id="linkedin" placeholder="https://linkedin.com/in/yourprofile" maxLength={300} value={form.linkedin} onChange={(e) => setForm({ ...form, linkedin: e.target.value })} />
@@ -804,16 +886,16 @@ const Register = () => {
                 {errors.socialLinks && <p className="text-xs text-destructive mt-2">{errors.socialLinks}</p>}
               </div>
 
-              <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm">
-                <p className="font-semibold text-amber-900">Warning</p>
-                <p className="mt-1 text-amber-900/90">
+              <div className="hpc-auth-register-callout rounded-lg p-3 text-sm">
+                <p className="hpc-auth-card-title text-sm font-bold text-amber-900 dark:text-amber-200">Warning</p>
+                <p className="hpc-auth-card-desc mt-1 text-amber-900/90 dark:text-amber-100/90">
                   After you submit registration, <strong>Department</strong>, <strong>Section</strong>, <strong>Batch</strong>,{" "}
                   <strong>Collage ID (Roll)</strong>, and your <strong>Alumni ID</strong> are fixed. You can change your{" "}
                   <strong>session (passing year)</strong>, <strong>nickname</strong>, and <strong>university short name</strong> anytime on your
                   profile. Complete the rest of your profile now. Please check before you submit.
                 </p>
-                <label className="mt-3 flex items-start gap-2 text-amber-900/90 cursor-pointer">
-                  <input type="checkbox" checked={confirmImmutable} onChange={(e) => setConfirmImmutable(e.target.checked)} className="mt-1" />
+                <label className="hpc-auth-card-desc mt-3 flex cursor-pointer items-start gap-2 text-amber-900/95 dark:text-amber-50/95">
+                  <input type="checkbox" checked={confirmImmutable} onChange={(e) => setConfirmImmutable(e.target.checked)} className="mt-1 accent-amber-600" />
                   <span>I confirm the information is correct and locked.</span>
                 </label>
                 {errors.confirmImmutable && <p className="mt-2 text-xs text-destructive">{errors.confirmImmutable}</p>}
@@ -822,14 +904,17 @@ const Register = () => {
               <Button
                 type="submit"
                 size="lg"
-                className="w-full bg-gradient-hpc hover:opacity-90 text-primary-foreground font-semibold"
+                className="hpc-auth-btn-primary min-h-11 w-full"
                 disabled={loading || !confirmImmutable || (form.gender === "Male" && !photoFile)}
               >
                 {loading ? "Please wait..." : "Register"}
               </Button>
-              <p className="text-center text-sm text-muted-foreground">
+              <p className="hpc-auth-card-desc text-center text-sm text-muted-foreground">
                 Already have an account?{" "}
-                <Link to="/login" className="text-primary font-medium hover:underline">
+                <Link
+                  to="/login"
+                  className="font-semibold text-amber-700 hover:text-amber-600 hover:underline dark:text-amber-400 dark:hover:text-amber-300"
+                >
                   Login
                 </Link>
               </p>
@@ -860,19 +945,25 @@ const Register = () => {
           onEscapeKeyDown={(e) => e.preventDefault()}
         >
           <DialogHeader className="text-center sm:text-center">
-            <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/15">
-              <CheckCircle2 className="h-7 w-7 text-emerald-600 dark:text-emerald-400" aria-hidden />
+            <div className="hpc-auth-icon-ring mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full border border-cyan-400/35 bg-gradient-to-br from-amber-400/25 via-orange-500/15 to-cyan-400/20">
+              <CheckCircle2
+                className="h-7 w-7 text-amber-500 drop-shadow-[0_0_10px_rgba(251,191,36,0.35)]"
+                strokeWidth={2.25}
+                aria-hidden
+              />
             </div>
-            <DialogTitle className="text-xl">You are registered</DialogTitle>
-            <DialogDescription className="text-left">
+            <DialogTitle className="hpc-auth-card-title text-xl">You are registered</DialogTitle>
+            <DialogDescription className="hpc-auth-card-desc text-left">
               Your permanent Alumni ID is assigned from your section, batch, and collage roll. It cannot be changed later—save
               it somewhere safe. You will use it in the alumni directory and for official communications.
             </DialogDescription>
             <div className="space-y-3 pt-2">
-              <div className="rounded-lg border border-primary/30 bg-muted/50 px-4 py-3 text-center">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Your Alumni ID is</p>
+              <div className="rounded-lg border border-cyan-400/35 bg-muted/50 px-4 py-3 text-center shadow-[0_0_20px_rgba(0,209,255,0.08)]">
+                <p className="hpc-auth-card-desc text-xs font-semibold uppercase tracking-[0.16em] text-slate-600 dark:text-slate-400">
+                  Your Alumni ID is
+                </p>
                 <p
-                  className="mt-1 break-all font-mono text-xl font-bold tracking-tight text-primary"
+                  className="mt-1 break-all font-mono text-xl font-bold tracking-tight text-amber-700 dark:text-amber-400"
                   data-testid="registered-alumni-id"
                 >
                   {alumniIdStep?.id}
@@ -882,7 +973,7 @@ const Register = () => {
                 type="button"
                 variant="outline"
                 size="sm"
-                className="w-full gap-2"
+                className="hpc-auth-btn-secondary min-h-10 w-full gap-2"
                 onClick={async () => {
                   if (!alumniIdStep?.id) return;
                   try {
@@ -893,13 +984,13 @@ const Register = () => {
                   }
                 }}
               >
-                <Copy className="h-4 w-4" />
+                <Copy className="hpc-auth-inline-icon h-4 w-4" strokeWidth={2.25} aria-hidden />
                 Copy ID
               </Button>
             </div>
           </DialogHeader>
           <DialogFooter className="sm:justify-center gap-2 pt-2">
-            <Button type="button" className="w-full sm:w-auto min-w-[200px]" onClick={continueAfterAlumniId}>
+            <Button type="button" className="hpc-auth-btn-primary min-h-11 w-full min-w-[200px] sm:w-auto" onClick={continueAfterAlumniId}>
               {alumniIdStep?.next === "login" ? "Continue to sign in" : "Continue to email verification"}
             </Button>
           </DialogFooter>

@@ -12,7 +12,7 @@ const Donations = () => (
         <CardTitle className="text-base flex items-center gap-2"><Bell className="w-4 h-4 text-primary" /> Campaigns</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="h-48 rounded-lg bg-muted flex items-center justify-center">
+        <div className="hpc-alumni-dashboard-glass-empty flex h-48 items-center justify-center rounded-lg border">
           <p className="text-sm text-muted-foreground">No active donation campaigns</p>
         </div>
       </CardContent>

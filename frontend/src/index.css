@@ -4,8 +4,20 @@
 
 @layer base {
   html {
-    scroll-behavior: smooth;
+    scroll-behavior: auto;
+    scrollbar-gutter: stable;
+    overflow-anchor: none;
     font-size: 17px;
+  }
+
+  :root {
+    --hpc-navbar-height: 44px;
+  }
+
+  @media (min-width: 640px) {
+    :root {
+      --hpc-navbar-height: 48px;
+    }
   }
 
   /*
@@ -98,8 +110,14 @@
     --hpc-cream: 180 30% 97%;
     --hpc-offwhite: 180 10% 96%;
 
-    --shadow-card: 0 0 0 1px rgba(0,0,0,.04), 0 2px 4px rgba(0,0,0,.02), 0 8px 16px rgba(0,0,0,.02);
-    --shadow-card-hover: 0 0 0 1px rgba(0,0,0,.04), 0 4px 8px rgba(0,0,0,.04), 0 12px 24px rgba(0,0,0,.04);
+    --shadow-card:
+      0 0 0 1px hsl(var(--border) / 0.55),
+      0 1px 2px hsl(var(--foreground) / 0.04),
+      0 10px 28px -10px hsl(var(--foreground) / 0.09);
+    --shadow-card-hover:
+      0 0 0 1px hsl(var(--border) / 0.72),
+      0 4px 14px hsl(var(--foreground) / 0.06),
+      0 22px 48px -16px hsl(var(--primary) / 0.13);
     --shadow-hero: 0 20px 60px -15px hsl(152 62% 40% / 0.32);
 
     /* Theme-specific nav/header gradients (overridden per theme) */
@@ -160,6 +178,9 @@
   --committee-member-about-bg: rgba(251, 191, 36, 0.8); /* amber-50/80-ish */
   --committee-member-about-border: rgba(251, 191, 36, 0.6); /* amber-200/60-ish */
 
+  /* Executive committee cards (President + members) — full-bleed surface on AlumniExecutiveCommitteeBoard */
+  --committee-executive-card-bg: linear-gradient(135deg, #0a6f62 0%, #075f54 48%, #045248 100%);
+
   /* Hero / landing mood (CTA + motto chip) */
   --hero-cta-primary-bg: #ffffff;
   --hero-cta-primary-fg: #064e3b; /* emerald-800 */
@@ -173,6 +194,11 @@
   --fs-chrome-ui: clamp(0.8125rem, 0.76rem + 0.2vw, 0.9375rem);
   --fs-chrome-nav: clamp(0.6875rem, 0.64rem + 0.22vw, 0.8125rem);
   --fs-chrome-caption: clamp(0.6875rem, 0.64rem + 0.14vw, 0.75rem);
+  /* Global descriptive copy (banner-message style, paragraph-only scope) */
+  --fs-descriptive: clamp(1rem, 0.92rem + 0.38vw, 1.2rem);
+  --lh-descriptive: 1.74;
+  --fw-descriptive: 500;
+  --ff-descriptive: "Lato", system-ui, -apple-system, sans-serif;
 
   /* ──────────────────────────────────────────────
      Role-name token aliases (from your token sheet)
@@ -724,13 +750,26 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Public Sans', system-ui, -apple-system, sans-serif;
+    font-family: "Outfit", "Public Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
+    font-feature-settings: "kern" 1, "liga" 1;
     overflow-x: hidden;
+    overflow-anchor: none;
+    background-image:
+      radial-gradient(ellipse 120% 90% at 100% -25%, hsl(var(--primary) / 0.075), transparent 58%),
+      radial-gradient(ellipse 100% 70% at -20% 105%, hsl(var(--accent) / 0.055), transparent 52%);
+    background-attachment: fixed;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Public Sans', system-ui, sans-serif;
+    font-family: "Syne", "Outfit", ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: -0.02em;
     @apply tracking-tight text-balance;
+  }
+
+  #root {
+    position: relative;
+    z-index: 2;
+    isolation: isolate;
   }
 }
 
@@ -789,8 +828,17 @@
     line-height: 1.22;
   }
   .fs-body {
-    font-size: clamp(0.9375rem, 0.87rem + 0.28vw, 1.0625rem);
-    line-height: 1.65;
+    font-family: var(--ff-descriptive);
+    font-size: var(--fs-descriptive);
+    line-height: var(--lh-descriptive);
+    font-weight: var(--fw-descriptive);
+  }
+  /* Reusable banner message baseline outside cqw root context */
+  .fs-banner-message-body {
+    font-family: var(--ff-descriptive);
+    font-size: var(--fs-descriptive);
+    line-height: var(--lh-descriptive);
+    font-weight: var(--fw-descriptive);
   }
   .fs-eyebrow {
     font-size: clamp(0.75rem, 0.7rem + 0.2vw, 0.8125rem);
@@ -807,6 +855,23 @@
   .fs-ui {
     font-size: var(--fs-chrome-ui);
     line-height: 1.55;
+  }
+  /** Landing long-form copy color (scoped via --landing-description-color on .landing-copy-scale) */
+  .text-landing-description {
+    color: var(--landing-description-color, #003366);
+  }
+  /* Paragraph-only descriptive typography across landing/alumni/admin;
+     excludes labels, captions, button-like/meta micro text. */
+  :where(main, section, article, .layout-container, .card, .CardContent) p:not(.fs-eyebrow):not(.fs-caption):not(.fs-button-text):not(.fs-nav):not(.fs-ui):not(.fs-banner-association-line):not([class*="text-xs"]):not([class*="text-[10px]"]):not([class*="text-[11px]"]):not([class*="text-[0.65rem]"]):not([class*="uppercase"]):not([class*="tracking-wider"]) {
+    font-family: var(--ff-descriptive);
+    font-size: var(--fs-descriptive);
+    line-height: var(--lh-descriptive);
+    font-weight: var(--fw-descriptive);
+    text-align: justify;
+    text-align-last: left;
+    word-break: normal;
+    overflow-wrap: normal;
+    hyphens: none;
   }
   .fs-button-text {
     font-size: clamp(0.8125rem, 0.78rem + 0.2vw, 0.875rem);
@@ -1006,6 +1071,12 @@
    */
   .landing-copy-scale {
     --fs-landing-mult: 0.935; /* +10% from previous 0.85 */
+    /* Founder-style body/description (sans + medium + navy); night override below */
+    --landing-description-color: #003366;
+  }
+
+  [data-theme="night"] .landing-copy-scale {
+    --landing-description-color: #93c5fd;
   }
 
   /* Large desktops: slightly lift type so sections don’t feel undersized next to chrome */
@@ -1061,12 +1132,10 @@
   }
 
   .landing-copy-scale .fs-body {
-    font-size: clamp(
-      calc(0.9375rem * var(--fs-landing-mult)),
-      calc(0.87rem * var(--fs-landing-mult) + 0.28vw * var(--fs-landing-mult)),
-      calc(1.0625rem * var(--fs-landing-mult))
-    );
-    line-height: 1.65;
+    font-family: var(--ff-descriptive);
+    font-size: var(--fs-descriptive);
+    line-height: var(--lh-descriptive);
+    font-weight: var(--fw-descriptive);
   }
 
   .landing-copy-scale .fs-eyebrow {
@@ -1202,6 +1271,37 @@
     font-size: calc(1.5rem * var(--fs-landing-mult));
   }
 
+  /* Landing descriptive paragraphs must keep banner-style readability
+     (Committee + Achievements included), regardless of landing shrink multipliers. */
+  .landing-copy-scale
+    :is(
+      #about,
+      #goals,
+      #features,
+      #committee,
+      #achievements,
+      #academics,
+      #campus,
+      #history,
+      #notices,
+      #memories,
+      #community,
+      #join,
+      #contact
+    )
+    p:not(.fs-eyebrow):not(.fs-caption):not(.fs-button-text):not(.fs-nav):not(.fs-ui):not(.fs-banner-association-line):not([class*="text-xs"]):not([class*="text-[10px]"]):not([class*="text-[11px]"]):not([class*="text-[0.65rem]"]):not([class*="uppercase"]):not([class*="tracking-wider"]) {
+    font-family: var(--ff-descriptive);
+    font-size: var(--fs-descriptive);
+    line-height: var(--lh-descriptive);
+    font-weight: var(--fw-descriptive);
+    color: var(--landing-description-color);
+    text-align: justify;
+    text-align-last: left;
+    word-break: normal;
+    overflow-wrap: normal;
+    hyphens: none;
+  }
+
   /*
    * Phone & tablet (below lg): easier reading — slightly larger body, looser lines,
    * display headline tuned for narrow columns. Desktop/laptop uses rules above as-is.
@@ -1212,12 +1312,10 @@
     }
 
     .landing-copy-scale .fs-body {
-      font-size: clamp(
-        calc(0.9375rem * var(--fs-landing-mult)),
-        calc(0.86rem * var(--fs-landing-mult) + 0.55vw * var(--fs-landing-mult)),
-        calc(1.0625rem * var(--fs-landing-mult))
-      );
-      line-height: 1.72;
+      font-family: var(--ff-descriptive);
+      font-size: var(--fs-descriptive);
+      line-height: var(--lh-descriptive);
+      font-weight: var(--fw-descriptive);
     }
 
     .landing-copy-scale .fs-display {
@@ -1262,12 +1360,10 @@
     }
 
     .landing-copy-scale .fs-body {
-      font-size: clamp(
-        calc(0.9375rem * var(--fs-landing-mult)),
-        calc(0.9rem * var(--fs-landing-mult) + 0.35vw * var(--fs-landing-mult)),
-        calc(1.03rem * var(--fs-landing-mult))
-      );
-      line-height: 1.75;
+      font-family: var(--ff-descriptive);
+      font-size: var(--fs-descriptive);
+      line-height: var(--lh-descriptive);
+      font-weight: var(--fw-descriptive);
     }
   }
 
@@ -1371,6 +1467,1253 @@
     background:
       linear-gradient(180deg, hsl(180 30% 97%) 0%, hsl(var(--background)) 100%);
   }
+
+  /**
+   * Landing — metaverse / premium dark (reference): deep navy–purple base, cyan · purple · orange · yellow glows.
+   * Scoped to `.landing-rgbro` on Index. Primary green from theme is not used for hero CTAs (custom gradient).
+   */
+  .landing-rgbro.landing-copy-scale {
+    /* Reference electric cyan + deep blue-violet base (photo: #00D1FF ambient) */
+    --premium-orange: 255 184 0;
+    --premium-blue: 0 209 255;
+    --premium-blue-deep: 30 136 255;
+    /* Warm neon accent (was purple) — use in gradients with cyan + orange */
+    --premium-purple: 255 149 0;
+    --premium-yellow: 255 214 0;
+    --landing-description-color: hsl(204 32% 78%);
+
+    /* Same multi-layer field as hero / section mesh — achievement cards match hero background */
+    --landing-hero-mesh-bg:
+      radial-gradient(ellipse 130% 80% at 10% 8%, rgba(0, 209, 255, 0.16), transparent 58%),
+      radial-gradient(ellipse 100% 70% at 92% 18%, rgba(30, 136, 255, 0.12), transparent 54%),
+      radial-gradient(ellipse 95% 60% at 50% 95%, rgba(0, 209, 255, 0.08), transparent 52%),
+      radial-gradient(ellipse 85% 55% at 78% 45%, rgba(255, 149, 0, 0.12), transparent 52%),
+      radial-gradient(ellipse 70% 50% at 30% 72%, rgba(255, 184, 0, 0.07), transparent 50%),
+      linear-gradient(180deg, #02081f 0%, #050b2a 38%, #070d32 72%, #06081f 100%);
+    /* Achievement grid: same paint as sections (hero); neon bar unchanged */
+    --achievement-card-bg: var(--landing-hero-mesh-bg);
+    --achievement-card-photo-bg: linear-gradient(
+      135deg,
+      rgba(0, 209, 255, 0.14) 0%,
+      rgba(255, 149, 0, 0.14) 48%,
+      rgba(10, 5, 27, 0.96) 100%
+    );
+    --achievement-card-accent-bar: linear-gradient(90deg, #ff9100 0%, #ff6b00 34%, #00d1ff 65%, #ffcc33 94%);
+
+    /* Committee cards on landing: teal/cyan/indigo wash (no rust/orange in body). */
+    --committee-executive-card-bg: linear-gradient(
+      148deg,
+      #0a3d5c 0%,
+      #0c4a6e 14%,
+      #134e4a 28%,
+      #164e63 42%,
+      #1e3a5f 58%,
+      #155e75 72%,
+      #0f2847 88%,
+      #0a1929 100%
+    );
+
+    --background: 242 58% 7%;
+    --foreground: 204 40% 98%;
+    --card: 238 52% 11%;
+    --card-foreground: 204 40% 98%;
+    --popover: 238 52% 11%;
+    --popover-foreground: 204 40% 98%;
+    --border: 230 38% 24%;
+    --input: 230 38% 24%;
+    --muted: 236 40% 14%;
+    --muted-foreground: 210 22% 68%;
+    --secondary: 235 44% 16%;
+    --secondary-foreground: 204 40% 98%;
+    --accent: 232 48% 18%;
+    --accent-foreground: 204 40% 98%;
+
+    /* Canvas: each section paints background (hero uses same blue stack as About). */
+    background-color: transparent;
+    background-image: none;
+  }
+
+  [data-theme="night"] .landing-rgbro.landing-copy-scale {
+    --landing-description-color: hsl(204 36% 80%);
+    --landing-hero-mesh-bg:
+      radial-gradient(ellipse 130% 80% at 8% 6%, rgba(0, 209, 255, 0.16), transparent 58%),
+      radial-gradient(ellipse 100% 70% at 94% 16%, rgba(30, 136, 255, 0.12), transparent 54%),
+      radial-gradient(ellipse 95% 60% at 48% 98%, rgba(0, 209, 255, 0.09), transparent 52%),
+      radial-gradient(ellipse 85% 55% at 80% 42%, rgba(255, 149, 0, 0.12), transparent 52%),
+      radial-gradient(ellipse 70% 50% at 28% 70%, rgba(255, 184, 0, 0.08), transparent 50%),
+      linear-gradient(180deg, #020616 0%, #040a24 40%, #060c2e 72%, #030818 100%);
+
+    background-color: transparent;
+    background-image: none;
+  }
+
+  /* Landing sections (hero + About + …): same blue metaverse field as #about. */
+  .landing-rgbro.landing-copy-scale > section {
+    background-color: #050b2a;
+    background-image: var(--landing-hero-mesh-bg);
+  }
+
+  [data-theme="night"] .landing-rgbro.landing-copy-scale > section {
+    background-color: #030818;
+    background-image: var(--landing-hero-mesh-bg);
+  }
+
+  /**
+   * Full-screen stacked routes (modal overlay): same mesh as landing sections, not flat `bg-background`.
+   */
+  .hpc-fullscreen-metaverse-layer {
+    background-color: #050b2a;
+    background-image:
+      radial-gradient(ellipse 130% 80% at 10% 8%, rgba(0, 209, 255, 0.16), transparent 58%),
+      radial-gradient(ellipse 100% 70% at 92% 18%, rgba(30, 136, 255, 0.12), transparent 54%),
+      radial-gradient(ellipse 95% 60% at 50% 95%, rgba(0, 209, 255, 0.08), transparent 52%),
+      radial-gradient(ellipse 85% 55% at 78% 45%, rgba(255, 149, 0, 0.12), transparent 52%),
+      radial-gradient(ellipse 70% 50% at 30% 72%, rgba(255, 184, 0, 0.07), transparent 50%),
+      linear-gradient(180deg, #02081f 0%, #050b2a 38%, #070d32 72%, #06081f 100%);
+  }
+
+  [data-theme="night"] .hpc-fullscreen-metaverse-layer {
+    background-color: #030818;
+    background-image:
+      radial-gradient(ellipse 130% 80% at 8% 6%, rgba(0, 209, 255, 0.16), transparent 58%),
+      radial-gradient(ellipse 100% 70% at 94% 16%, rgba(30, 136, 255, 0.12), transparent 54%),
+      radial-gradient(ellipse 95% 60% at 48% 98%, rgba(0, 209, 255, 0.09), transparent 52%),
+      radial-gradient(ellipse 85% 55% at 80% 42%, rgba(255, 149, 0, 0.12), transparent 52%),
+      radial-gradient(ellipse 70% 50% at 28% 70%, rgba(255, 184, 0, 0.08), transparent 50%),
+      linear-gradient(180deg, #020616 0%, #040a24 40%, #060c2e 72%, #030818 100%);
+  }
+
+  /* Achievement banner strip (above <main>): same blue field + mesh as landing sections */
+  .landing-metaverse-page .achievement-banner-landing-surface {
+    background-color: #050b2a;
+    background-image:
+      radial-gradient(ellipse 130% 80% at 10% 8%, rgba(0, 209, 255, 0.16), transparent 58%),
+      radial-gradient(ellipse 100% 70% at 92% 18%, rgba(30, 136, 255, 0.12), transparent 54%),
+      radial-gradient(ellipse 95% 60% at 50% 95%, rgba(0, 209, 255, 0.08), transparent 52%),
+      radial-gradient(ellipse 85% 55% at 78% 45%, rgba(255, 149, 0, 0.12), transparent 52%),
+      radial-gradient(ellipse 70% 50% at 30% 72%, rgba(255, 184, 0, 0.07), transparent 50%),
+      linear-gradient(180deg, #02081f 0%, #050b2a 38%, #070d32 72%, #06081f 100%);
+  }
+
+  [data-theme="night"] .landing-metaverse-page .achievement-banner-landing-surface {
+    background-color: #030818;
+    background-image:
+      radial-gradient(ellipse 130% 80% at 8% 6%, rgba(0, 209, 255, 0.16), transparent 58%),
+      radial-gradient(ellipse 100% 70% at 94% 16%, rgba(30, 136, 255, 0.12), transparent 54%),
+      radial-gradient(ellipse 95% 60% at 48% 98%, rgba(0, 209, 255, 0.09), transparent 52%),
+      radial-gradient(ellipse 85% 55% at 80% 42%, rgba(255, 149, 0, 0.12), transparent 52%),
+      radial-gradient(ellipse 70% 50% at 28% 70%, rgba(255, 184, 0, 0.08), transparent 50%),
+      linear-gradient(180deg, #020616 0%, #040a24 40%, #060c2e 72%, #030818 100%);
+  }
+
+  /* Embedded achievement banner on alumni dashboard: same strip mesh as home (parent is `.hpc-alumni-landing-shell`). */
+  .hpc-alumni-landing-shell .achievement-banner-landing-surface {
+    background-color: #050b2a;
+    background-image:
+      radial-gradient(ellipse 130% 80% at 10% 8%, rgba(0, 209, 255, 0.16), transparent 58%),
+      radial-gradient(ellipse 100% 70% at 92% 18%, rgba(30, 136, 255, 0.12), transparent 54%),
+      radial-gradient(ellipse 95% 60% at 50% 95%, rgba(0, 209, 255, 0.08), transparent 52%),
+      radial-gradient(ellipse 85% 55% at 78% 45%, rgba(255, 149, 0, 0.12), transparent 52%),
+      radial-gradient(ellipse 70% 50% at 30% 72%, rgba(255, 184, 0, 0.07), transparent 50%),
+      linear-gradient(180deg, #02081f 0%, #050b2a 38%, #070d32 72%, #06081f 100%);
+  }
+
+  [data-theme="night"] .hpc-alumni-landing-shell .achievement-banner-landing-surface {
+    background-color: #030818;
+    background-image:
+      radial-gradient(ellipse 130% 80% at 8% 6%, rgba(0, 209, 255, 0.16), transparent 58%),
+      radial-gradient(ellipse 100% 70% at 94% 16%, rgba(30, 136, 255, 0.12), transparent 54%),
+      radial-gradient(ellipse 95% 60% at 48% 98%, rgba(0, 209, 255, 0.09), transparent 52%),
+      radial-gradient(ellipse 85% 55% at 80% 42%, rgba(255, 149, 0, 0.12), transparent 52%),
+      radial-gradient(ellipse 70% 50% at 28% 70%, rgba(255, 184, 0, 0.08), transparent 50%),
+      linear-gradient(180deg, #020616 0%, #040a24 40%, #060c2e 72%, #030818 100%);
+  }
+
+  /**
+   * Alumni dashboard shell only (DashboardLayout when useAlumniShell): same tokens + mesh as landing metaverse,
+   * overrides theme green header/sidebar gradients inside this subtree.
+   */
+  .hpc-alumni-landing-shell {
+    background-color: #050b2a;
+    /* Match `.landing-rgbro.landing-copy-scale` for embedded landing sections + `text-landing-description`. */
+    --premium-orange: 255 184 0;
+    --premium-blue: 0 209 255;
+    --premium-blue-deep: 30 136 255;
+    --premium-purple: 255 149 0;
+    --premium-yellow: 255 214 0;
+    --landing-description-color: hsl(204 32% 78%);
+    --achievement-card-photo-bg: linear-gradient(
+      135deg,
+      rgba(0, 209, 255, 0.14) 0%,
+      rgba(255, 149, 0, 0.14) 48%,
+      rgba(10, 5, 27, 0.96) 100%
+    );
+    --committee-executive-card-bg: linear-gradient(
+      148deg,
+      #0a3d5c 0%,
+      #0c4a6e 14%,
+      #134e4a 28%,
+      #164e63 42%,
+      #1e3a5f 58%,
+      #155e75 72%,
+      #0f2847 88%,
+      #0a1929 100%
+    );
+    --landing-hero-mesh-bg:
+      radial-gradient(ellipse 130% 80% at 10% 8%, rgba(0, 209, 255, 0.16), transparent 58%),
+      radial-gradient(ellipse 100% 70% at 92% 18%, rgba(30, 136, 255, 0.12), transparent 54%),
+      radial-gradient(ellipse 95% 60% at 50% 95%, rgba(0, 209, 255, 0.08), transparent 52%),
+      radial-gradient(ellipse 85% 55% at 78% 45%, rgba(255, 149, 0, 0.12), transparent 52%),
+      radial-gradient(ellipse 70% 50% at 30% 72%, rgba(255, 184, 0, 0.07), transparent 50%),
+      linear-gradient(180deg, #02081f 0%, #050b2a 38%, #070d32 72%, #06081f 100%);
+    --achievement-card-bg: var(--landing-hero-mesh-bg);
+    --achievement-card-accent-bar: linear-gradient(90deg, #ff9100 0%, #ff6b00 34%, #00d1ff 65%, #ffcc33 94%);
+    --primary: 28 100% 54%;
+    --primary-foreground: 210 40% 99%;
+    --ring: 32 100% 50%;
+    --accent: 38 96% 54%;
+    --accent-foreground: 222 47% 8%;
+    --background: 222 47% 6%;
+    --foreground: 210 40% 98%;
+    --muted: 220 24% 14%;
+    --muted-foreground: 215 18% 68%;
+    --border: 215 22% 22%;
+    --card: 222 40% 11%;
+    --card-foreground: 210 40% 98%;
+    --secondary: 220 26% 16%;
+    --secondary-foreground: 210 40% 96%;
+    --popover: 222 40% 11%;
+    --popover-foreground: 210 40% 98%;
+    --input: 215 22% 26%;
+    --sidebar-background: 222 44% 9%;
+    --sidebar-foreground: 210 40% 96%;
+    --sidebar-primary: 28 100% 54%;
+    --sidebar-primary-foreground: 210 40% 99%;
+    --sidebar-accent: 220 26% 16%;
+    --sidebar-accent-foreground: 210 40% 96%;
+    --sidebar-border: 210 40% 28%;
+    --sidebar-ring: 32 100% 50%;
+    /* Same opaque landing metaverse chrome as home (no rgba transparency) */
+    --landing-topnav-bg: linear-gradient(90deg, #0a051b 0%, #0b2238 40%, #14102a 100%);
+    --theme-navbar-bg: var(--landing-topnav-bg);
+    --theme-header-bg: var(--landing-topnav-bg);
+  }
+
+  [data-theme="night"] .hpc-alumni-landing-shell {
+    background-color: #030818;
+    --landing-description-color: hsl(204 36% 80%);
+    --landing-hero-mesh-bg:
+      radial-gradient(ellipse 130% 80% at 8% 6%, rgba(0, 209, 255, 0.16), transparent 58%),
+      radial-gradient(ellipse 100% 70% at 94% 16%, rgba(30, 136, 255, 0.12), transparent 54%),
+      radial-gradient(ellipse 95% 60% at 48% 98%, rgba(0, 209, 255, 0.09), transparent 52%),
+      radial-gradient(ellipse 85% 55% at 80% 42%, rgba(255, 149, 0, 0.12), transparent 52%),
+      radial-gradient(ellipse 70% 50% at 28% 70%, rgba(255, 184, 0, 0.08), transparent 50%),
+      linear-gradient(180deg, #020616 0%, #040a24 40%, #060c2e 72%, #030818 100%);
+    --achievement-card-bg: var(--landing-hero-mesh-bg);
+  }
+
+  .hpc-alumni-landing-shell > aside.fixed {
+    border-right-color: rgba(0, 209, 255, 0.22);
+    box-shadow:
+      4px 0 32px -12px rgba(0, 209, 255, 0.12),
+      4px 0 28px -14px rgba(255, 149, 0, 0.08);
+    background: linear-gradient(
+        180deg,
+        color-mix(in srgb, hsl(var(--sidebar-background)) 78%, transparent) 0%,
+        color-mix(in srgb, hsl(var(--sidebar-background)) 64%, transparent) 100%
+      )
+      !important;
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hpc-alumni-landing-shell > aside.fixed {
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+      background: hsl(var(--sidebar-background)) !important;
+    }
+  }
+
+  /* Full content column (header strip + banners + main): one landing mesh, main stays transparent. */
+  .hpc-alumni-landing-shell .hpc-alumni-dashboard-column-mesh {
+    flex: 1 1 auto;
+    min-height: 0;
+    background-color: #050b2a;
+    background-image:
+      radial-gradient(ellipse 130% 80% at 10% 8%, rgba(0, 209, 255, 0.16), transparent 58%),
+      radial-gradient(ellipse 100% 70% at 92% 18%, rgba(30, 136, 255, 0.12), transparent 54%),
+      radial-gradient(ellipse 95% 60% at 50% 95%, rgba(0, 209, 255, 0.08), transparent 52%),
+      radial-gradient(ellipse 85% 55% at 78% 45%, rgba(255, 149, 0, 0.12), transparent 52%),
+      radial-gradient(ellipse 70% 50% at 30% 72%, rgba(255, 184, 0, 0.07), transparent 50%),
+      linear-gradient(180deg, #02081f 0%, #050b2a 38%, #070d32 72%, #06081f 100%);
+  }
+
+  [data-theme="night"] .hpc-alumni-landing-shell .hpc-alumni-dashboard-column-mesh {
+    background-color: #030818;
+    background-image:
+      radial-gradient(ellipse 130% 80% at 8% 6%, rgba(0, 209, 255, 0.16), transparent 58%),
+      radial-gradient(ellipse 100% 70% at 94% 16%, rgba(30, 136, 255, 0.12), transparent 54%),
+      radial-gradient(ellipse 95% 60% at 48% 98%, rgba(0, 209, 255, 0.09), transparent 52%),
+      radial-gradient(ellipse 85% 55% at 80% 42%, rgba(255, 149, 0, 0.12), transparent 52%),
+      radial-gradient(ellipse 70% 50% at 28% 70%, rgba(255, 184, 0, 0.08), transparent 50%),
+      linear-gradient(180deg, #020616 0%, #040a24 40%, #060c2e 72%, #030818 100%);
+  }
+
+  .hpc-alumni-landing-shell .hpc-alumni-dashboard-column-mesh section#committee {
+    background-color: transparent;
+  }
+
+  /* Embedded achievements in alumni `<main>`: same paint as `.landing-rgbro.landing-copy-scale > section` (beats `bg-background`). */
+  .hpc-alumni-landing-shell main section#achievements {
+    background-color: #050b2a !important;
+    background-image: var(--landing-hero-mesh-bg) !important;
+  }
+
+  [data-theme="night"] .hpc-alumni-landing-shell main section#achievements {
+    background-color: #030818 !important;
+    background-image: var(--landing-hero-mesh-bg) !important;
+  }
+
+  /**
+   * Alumni layout `<main>`: cards / rows / empties use landing-style glass (mesh shows through),
+   * not flat `bg-card` / `bg-muted` slabs. Applies to all outlet routes (dashboard, committee, …).
+   */
+  .hpc-alumni-landing-shell main .card-text-scale {
+    background: color-mix(in srgb, hsl(var(--card)) 94%, rgba(255, 255, 255, 0.03));
+    border-color: color-mix(in srgb, rgb(var(--premium-blue)) 38%, hsl(var(--border)));
+    box-shadow:
+      0 4px 36px -12px rgba(0, 209, 255, 0.22),
+      0 4px 28px -14px rgba(30, 136, 255, 0.12),
+      0 4px 24px -12px rgba(255, 149, 0, 0.11),
+      inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  }
+
+  [data-theme="night"] .hpc-alumni-landing-shell main .card-text-scale {
+    background: color-mix(in srgb, hsl(var(--card)) 96%, rgba(255, 255, 255, 0.02));
+    border-color: color-mix(in srgb, rgb(var(--premium-blue)) 42%, hsl(var(--border)));
+    box-shadow:
+      0 4px 40px -10px rgba(0, 209, 255, 0.26),
+      0 4px 32px -12px rgba(30, 136, 255, 0.16),
+      0 4px 28px -12px rgba(255, 149, 0, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+
+  /* Raw panels with `bg-card` but not shadcn Card (e.g. committee page wrapper). */
+  /* Administration / Board: `.hpc-administration-panel` — see block after `.hpc-alumni-dashboard-section-frame`. */
+  .hpc-alumni-landing-shell main .border-border.bg-card:not(.card-text-scale) {
+    background: color-mix(in srgb, hsl(var(--card)) 90%, rgba(255, 255, 255, 0.04)) !important;
+    border-color: color-mix(in srgb, rgb(var(--premium-blue)) 36%, hsl(var(--border))) !important;
+    box-shadow:
+      0 4px 32px -14px rgba(0, 209, 255, 0.16),
+      0 4px 24px -12px rgba(255, 149, 0, 0.07),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+
+  [data-theme="night"] .hpc-alumni-landing-shell main .border-border.bg-card:not(.card-text-scale) {
+    background: color-mix(in srgb, hsl(var(--card)) 92%, rgba(255, 255, 255, 0.02)) !important;
+    border-color: color-mix(in srgb, rgb(var(--premium-blue)) 40%, hsl(var(--border))) !important;
+  }
+
+  .hpc-alumni-landing-shell main [role="tablist"] {
+    background: color-mix(in srgb, hsl(var(--muted)) 45%, transparent) !important;
+    border-color: color-mix(in srgb, rgb(var(--premium-blue)) 28%, hsl(var(--border))) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+
+  /* Header profile menu (outside `<main>`). */
+  .hpc-alumni-landing-shell header .shadow-card-hover.bg-card {
+    background: color-mix(in srgb, hsl(var(--card)) 90%, rgba(255, 255, 255, 0.05)) !important;
+    border-color: color-mix(in srgb, rgb(var(--premium-blue)) 32%, hsl(var(--border))) !important;
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+  }
+
+  .hpc-alumni-landing-shell main .hpc-alumni-dashboard-glass-row {
+    background: color-mix(in srgb, hsl(var(--muted)) 42%, transparent);
+    border-color: color-mix(in srgb, rgb(var(--premium-blue)) 30%, hsl(var(--border)));
+  }
+
+  .hpc-alumni-landing-shell main .hpc-alumni-dashboard-glass-empty,
+  .hpc-alumni-landing-shell main .hpc-alumni-dashboard-glass-skeleton {
+    background: color-mix(in srgb, hsl(var(--muted)) 38%, transparent);
+    border-color: color-mix(in srgb, rgb(var(--premium-blue)) 26%, hsl(var(--border)));
+  }
+
+  /* Let column mesh show through (landing-like); inner cards carry glass. */
+  .hpc-alumni-landing-shell main .hpc-alumni-dashboard-section-frame {
+    background: transparent;
+    border-color: color-mix(in srgb, rgb(var(--premium-blue)) 36%, hsl(var(--border)));
+    box-shadow:
+      0 4px 32px -14px rgba(0, 209, 255, 0.18),
+      0 4px 24px -12px rgba(255, 149, 0, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+
+  [data-theme="night"] .hpc-alumni-landing-shell main .hpc-alumni-dashboard-section-frame {
+    background: transparent;
+    border-color: color-mix(in srgb, rgb(var(--premium-blue)) 40%, hsl(var(--border)));
+  }
+
+  /* Administration + Board Members panels: landing-style cyan rim, glass body, obvious header / content split. */
+  .landing-rgbro section#committee .hpc-administration-panel,
+  .hpc-alumni-landing-shell main section#committee .hpc-administration-panel {
+    background: color-mix(in srgb, hsl(var(--card)) 52%, transparent) !important;
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(0, 209, 255, 0.32) !important;
+    box-shadow:
+      0 4px 28px -12px rgba(0, 209, 255, 0.14),
+      0 8px 36px -16px rgba(255, 149, 0, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+
+  [data-theme="night"] .landing-rgbro section#committee .hpc-administration-panel,
+  [data-theme="night"] .hpc-alumni-landing-shell main section#committee .hpc-administration-panel {
+    background: color-mix(in srgb, hsl(var(--card)) 58%, transparent) !important;
+    border-color: rgba(0, 209, 255, 0.4) !important;
+  }
+
+  .landing-rgbro section#committee .hpc-administration-panel-header,
+  .hpc-alumni-landing-shell main section#committee .hpc-administration-panel-header {
+    border-bottom: 1px solid rgba(0, 209, 255, 0.28) !important;
+    background: linear-gradient(180deg, rgba(0, 209, 255, 0.1) 0%, rgba(0, 209, 255, 0.02) 100%);
+  }
+
+  /* Single merged panel (alumni dashboard): subtle line between Administration and Board sections. */
+  .hpc-alumni-landing-shell main section#committee .hpc-administration-panel-section-divider {
+    margin: 0;
+    height: 0;
+    border: 0;
+    border-top: 1px solid rgba(0, 209, 255, 0.24);
+    background: transparent;
+  }
+
+  /**
+   * G-body / board group photo: letterboxing must not use `bg-muted` (reads as black on metaverse shell).
+   * Cyan-tinted frame matches the administration panel; dashboard uses cover + top anchor to soften a bottom poster strip.
+   */
+  .landing-rgbro section#committee .hpc-administration-board-photo-frame,
+  .hpc-alumni-landing-shell main section#committee .hpc-administration-board-photo-frame {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border-radius: 0.75rem;
+    border: 1px solid rgba(0, 209, 255, 0.26);
+    background: linear-gradient(
+      155deg,
+      rgba(0, 209, 255, 0.11) 0%,
+      color-mix(in srgb, hsl(var(--card)) 52%, transparent) 45%,
+      rgba(30, 136, 255, 0.09) 100%
+    );
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.06),
+      0 2px 14px -5px rgba(0, 209, 255, 0.14);
+  }
+
+  .landing-rgbro section#committee .hpc-administration-board-photo-frame .hpc-administration-board-photo-img,
+  .hpc-alumni-landing-shell main section#committee .hpc-administration-board-photo-frame .hpc-administration-board-photo-img {
+    display: block;
+    max-height: 100%;
+    border-radius: 0.35rem;
+  }
+
+  @media (min-width: 640px) {
+    .hpc-alumni-landing-shell main section#committee .hpc-administration-board-photo-frame .hpc-administration-board-photo-img {
+      object-fit: cover;
+      object-position: center top;
+    }
+  }
+
+  /* Governing-body section title on alumni dashboard: cyan metaverse only (no warm stops that read as red). */
+  .hpc-alumni-landing-shell main section#committee .committee-governing-heading {
+    background: linear-gradient(
+      92deg,
+      hsl(192 100% 72%),
+      hsl(200 100% 80%),
+      hsl(192 100% 62%),
+      hsl(210 90% 72%),
+      hsl(192 100% 72%)
+    );
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .landing-rgbro section#committee .hpc-administration-panel,
+    .hpc-alumni-landing-shell main section#committee .hpc-administration-panel {
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+  }
+
+  /**
+   * Alumni dashboard page only (`AlumniDashboard` root): mesh-forward glass for shadcn Cards + achievement grid.
+   * Committee member tiles keep landing colors (`--committee-executive-card-bg` + `.committee-metaverse-surface` rim).
+   */
+  .hpc-alumni-landing-shell main .hpc-alumni-dashboard-root .card-text-scale {
+    background: color-mix(in srgb, hsl(var(--card)) 48%, transparent) !important;
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    border-color: color-mix(in srgb, rgb(var(--premium-blue)) 40%, hsl(var(--border))) !important;
+    box-shadow:
+      0 4px 36px -12px rgba(0, 209, 255, 0.22),
+      0 4px 28px -14px rgba(30, 136, 255, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
+
+  [data-theme="night"] .hpc-alumni-landing-shell main .hpc-alumni-dashboard-root .card-text-scale {
+    background: color-mix(in srgb, hsl(var(--card)) 52%, transparent) !important;
+    border-color: color-mix(in srgb, rgb(var(--premium-blue)) 44%, hsl(var(--border))) !important;
+    box-shadow:
+      0 4px 40px -10px rgba(0, 209, 255, 0.26),
+      0 4px 32px -12px rgba(30, 136, 255, 0.16),
+      0 4px 28px -12px rgba(255, 149, 0, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+
+  /* Same hero/section mesh as landing — do not override with glass `color-mix` (beats inline var without !important on TSX). */
+  .hpc-alumni-landing-shell main .hpc-alumni-dashboard-root a.achievement-alumni-landing-card {
+    background: var(--achievement-card-bg) !important;
+  }
+
+  [data-theme="night"] .hpc-alumni-landing-shell main .hpc-alumni-dashboard-root a.achievement-alumni-landing-card {
+    background: var(--achievement-card-bg) !important;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hpc-alumni-landing-shell main .hpc-alumni-dashboard-root .card-text-scale {
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+  }
+
+  /**
+   * Radix portals render under `body`; `DashboardLayout` toggles this class while alumni metaverse shell is active.
+   */
+  .hpc-alumni-metaverse-body [role="dialog"] {
+    background: color-mix(in srgb, hsl(var(--card)) 92%, rgba(8, 14, 32, 0.85)) !important;
+    border-color: color-mix(in srgb, rgb(var(--premium-blue)) 35%, hsl(var(--border))) !important;
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    box-shadow:
+      0 4px 40px -12px rgba(0, 209, 255, 0.2),
+      0 8px 48px -16px rgba(255, 149, 0, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hpc-alumni-metaverse-body [role="dialog"] {
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+  }
+
+  /* Banner text column (right): same mesh as landing sections */
+  .landing-metaverse-page .hpc-banner-right-landing-bg,
+  .hpc-alumni-landing-shell .hpc-banner-right-landing-bg {
+    background-color: #050b2a;
+    background-image:
+      radial-gradient(ellipse 130% 80% at 10% 8%, rgba(0, 209, 255, 0.16), transparent 58%),
+      radial-gradient(ellipse 100% 70% at 92% 18%, rgba(30, 136, 255, 0.12), transparent 54%),
+      radial-gradient(ellipse 95% 60% at 50% 95%, rgba(0, 209, 255, 0.08), transparent 52%),
+      radial-gradient(ellipse 85% 55% at 78% 45%, rgba(255, 149, 0, 0.12), transparent 52%),
+      radial-gradient(ellipse 70% 50% at 30% 72%, rgba(255, 184, 0, 0.07), transparent 50%),
+      linear-gradient(180deg, #02081f 0%, #050b2a 38%, #070d32 72%, #06081f 100%);
+  }
+
+  [data-theme="night"] .landing-metaverse-page .hpc-banner-right-landing-bg,
+  [data-theme="night"] .hpc-alumni-landing-shell .hpc-banner-right-landing-bg {
+    background-color: #030818;
+    background-image:
+      radial-gradient(ellipse 130% 80% at 8% 6%, rgba(0, 209, 255, 0.16), transparent 58%),
+      radial-gradient(ellipse 100% 70% at 94% 16%, rgba(30, 136, 255, 0.12), transparent 54%),
+      radial-gradient(ellipse 95% 60% at 48% 98%, rgba(0, 209, 255, 0.09), transparent 52%),
+      radial-gradient(ellipse 85% 55% at 80% 42%, rgba(255, 149, 0, 0.12), transparent 52%),
+      radial-gradient(ellipse 70% 50% at 28% 70%, rgba(255, 184, 0, 0.08), transparent 50%),
+      linear-gradient(180deg, #020616 0%, #040a24 40%, #060c2e 72%, #030818 100%);
+  }
+
+  @keyframes hpc-celebrate-title-landing-in {
+    from {
+      opacity: 0;
+      transform: translate3d(0, 10px, 0) scale(0.97);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  /* Congratulations box: same body + top accent bar as achievement grid cards */
+  .landing-metaverse-page .hpc-celebrate-landing-on-metaverse.hpc-celebrate-root,
+  .hpc-alumni-landing-shell .hpc-celebrate-landing-on-metaverse.hpc-celebrate-root {
+    position: relative;
+    background: var(--achievement-card-bg) !important;
+    border-color: rgba(251, 146, 60, 0.42) !important;
+    box-shadow:
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.07),
+      0 0 28px -10px rgba(0, 209, 255, 0.14),
+      0 0 24px -12px rgba(255, 149, 0, 0.12);
+  }
+
+  .landing-metaverse-page .hpc-celebrate-landing-on-metaverse.hpc-celebrate-root::before,
+  .hpc-alumni-landing-shell .hpc-celebrate-landing-on-metaverse.hpc-celebrate-root::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 4px;
+    z-index: 8;
+    pointer-events: none;
+    border-radius: inherit;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    background: var(--achievement-card-accent-bar);
+  }
+
+  [data-theme="night"] .landing-metaverse-page .hpc-celebrate-landing-on-metaverse.hpc-celebrate-root,
+  [data-theme="night"] .hpc-alumni-landing-shell .hpc-celebrate-landing-on-metaverse.hpc-celebrate-root {
+    background: var(--achievement-card-bg) !important;
+    border-color: rgba(251, 146, 60, 0.4) !important;
+  }
+
+  /* Heading: gold/yellow; no looping glow — clip so nothing paints outside the line box */
+  .landing-metaverse-page .hpc-celebrate-landing-on-metaverse .hpc-celebrate-title-row,
+  .hpc-alumni-landing-shell .hpc-celebrate-landing-on-metaverse .hpc-celebrate-title-row {
+    overflow: hidden;
+    contain: paint;
+    padding-bottom: 2px;
+  }
+
+  .landing-metaverse-page .hpc-celebrate-landing-on-metaverse .hpc-celebrate-title.hpc-celebrate-title-landing,
+  .hpc-alumni-landing-shell .hpc-celebrate-landing-on-metaverse .hpc-celebrate-title.hpc-celebrate-title-landing {
+    animation: hpc-celebrate-title-landing-in 0.88s cubic-bezier(0.22, 1, 0.36, 1) 0.12s both !important;
+    background-image: linear-gradient(95deg, #ca8a04 0%, #eab308 38%, #facc15 72%, #fef08a 100%) !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    color: transparent !important;
+    -webkit-text-fill-color: transparent !important;
+    text-shadow: none !important;
+    filter: none !important;
+  }
+
+  .landing-metaverse-page .hpc-celebrate-landing-on-metaverse .hpc-celebrate-message,
+  .hpc-alumni-landing-shell .hpc-celebrate-landing-on-metaverse .hpc-celebrate-message {
+    color: #ffedd5 !important;
+    -webkit-text-fill-color: unset;
+  }
+
+  /* Bottom org line: yellow, no outer glow */
+  .landing-metaverse-page .hpc-celebrate-landing-on-metaverse .hpc-celebrate-association-row,
+  .hpc-alumni-landing-shell .hpc-celebrate-landing-on-metaverse .hpc-celebrate-association-row {
+    overflow: hidden;
+    contain: paint;
+  }
+
+  .landing-metaverse-page .hpc-celebrate-landing-on-metaverse .fs-banner-association-line,
+  .hpc-alumni-landing-shell .hpc-celebrate-landing-on-metaverse .fs-banner-association-line {
+    color: #facc15 !important;
+    text-shadow: none !important;
+    filter: none !important;
+    border-top-color: rgba(250, 204, 21, 0.4) !important;
+  }
+
+  /* Banner achievement box (home): navy panel, gold L + bottom border, white label, yellow serif headline */
+  .landing-metaverse-page .achievement-banner-landing-fonts .hpc-banner-ach-box-landing,
+  .hpc-alumni-landing-shell .achievement-banner-landing-fonts .hpc-banner-ach-box-landing {
+    background: #080d18 !important;
+    border: none !important;
+    border-left: 3px solid #facc15 !important;
+    border-bottom: 3px solid #facc15 !important;
+    border-bottom-left-radius: 0.375rem;
+    padding: 0.65rem 0.75rem 0.75rem 0.85rem !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+  }
+
+  .landing-metaverse-page .achievement-banner-landing-fonts .hpc-banner-ach-box-landing .hpc-banner-ach-label,
+  .hpc-alumni-landing-shell .achievement-banner-landing-fonts .hpc-banner-ach-box-landing .hpc-banner-ach-label {
+    margin: 0;
+    padding: 0;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    color: #ffffff !important;
+    font-family: "Oswald", "Arial Narrow", ui-sans-serif, system-ui, sans-serif !important;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    font-size: clamp(0.5625rem, 0.5rem + 0.28vw, 0.75rem);
+    line-height: 1.25;
+  }
+
+  .landing-metaverse-page .achievement-banner-landing-fonts .hpc-banner-ach-box-landing .hpc-banner-ach-title,
+  .hpc-alumni-landing-shell .achievement-banner-landing-fonts .hpc-banner-ach-box-landing .hpc-banner-ach-title {
+    color: #facc15 !important;
+    font-family: "Playfair Display", Georgia, "Times New Roman", serif !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.02em;
+    line-height: 1.22;
+    text-shadow: none;
+  }
+
+  /* Alumni Spotlight pill + photo tagline (e.g. “Alumni of HPC”): yellow as before */
+  .landing-metaverse-page .hpc-banner-right-landing-bg .fs-banner-pill,
+  .hpc-alumni-landing-shell .hpc-banner-right-landing-bg .fs-banner-pill {
+    color: #fef08a !important;
+    border-color: rgba(250, 204, 21, 0.5) !important;
+    background-color: rgba(250, 204, 21, 0.14) !important;
+  }
+
+  .landing-metaverse-page .achievement-banner-landing-fonts .hpc-banner-photo-tagline,
+  .hpc-alumni-landing-shell .achievement-banner-landing-fonts .hpc-banner-photo-tagline {
+    color: #fde047 !important;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .landing-metaverse-page .hpc-celebrate-landing-on-metaverse .hpc-celebrate-title.hpc-celebrate-title-landing,
+    .hpc-alumni-landing-shell .hpc-celebrate-landing-on-metaverse .hpc-celebrate-title.hpc-celebrate-title-landing {
+      animation: none !important;
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  .landing-metaverse {
+    scroll-margin-top: 0;
+  }
+
+  .landing-rgbro .font-outfit-section {
+    font-family: "Montserrat", "Outfit", "Public Sans", ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: -0.02em;
+  }
+
+  /*
+   * Home achievement banner: Syne (display) + Playfair (message) + Outfit (meta) — distinct from rest of landing.
+   * !important wins over Theme 3 inline fontFamily.
+   */
+  .landing-metaverse-page .achievement-banner-landing-fonts .fs-banner-celebrate-heading,
+  .landing-metaverse-page .achievement-banner-landing-fonts .hpc-banner-photo-name,
+  .landing-metaverse-page .achievement-banner-landing-fonts .hpc-banner-ach-title,
+  .landing-metaverse-page .achievement-banner-landing-fonts .fs-banner-pill,
+  .hpc-alumni-landing-shell .achievement-banner-landing-fonts .fs-banner-celebrate-heading,
+  .hpc-alumni-landing-shell .achievement-banner-landing-fonts .hpc-banner-photo-name,
+  .hpc-alumni-landing-shell .achievement-banner-landing-fonts .hpc-banner-ach-title,
+  .hpc-alumni-landing-shell .achievement-banner-landing-fonts .fs-banner-pill {
+    font-family: "Syne", "Montserrat", ui-sans-serif, system-ui, sans-serif !important;
+    letter-spacing: -0.035em;
+  }
+
+  .landing-metaverse-page .achievement-banner-landing-fonts .fs-banner-message-body,
+  .hpc-alumni-landing-shell .achievement-banner-landing-fonts .fs-banner-message-body {
+    font-family: "Playfair Display", "Georgia", "Times New Roman", serif !important;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+  }
+
+  .landing-metaverse-page .achievement-banner-landing-fonts .fs-banner-association-line,
+  .landing-metaverse-page .achievement-banner-landing-fonts .hpc-banner-photo-tagline,
+  .landing-metaverse-page .achievement-banner-landing-fonts .hpc-banner-photo-chip,
+  .hpc-alumni-landing-shell .achievement-banner-landing-fonts .fs-banner-association-line,
+  .hpc-alumni-landing-shell .achievement-banner-landing-fonts .hpc-banner-photo-tagline,
+  .hpc-alumni-landing-shell .achievement-banner-landing-fonts .hpc-banner-photo-chip {
+    font-family: "Outfit", "Public Sans", ui-sans-serif, system-ui, sans-serif !important;
+    letter-spacing: 0.02em;
+  }
+
+  /* Achievement grid cards in #achievements — same stack as .landing-rgbro .font-outfit-section */
+  .landing-rgbro .achievement-alumni-landing-card {
+    font-family: "Montserrat", "Outfit", "Public Sans", ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: -0.02em;
+  }
+
+  /* Eyebrow gradient + title glow: sections below hero only — hero copy stays flat. */
+  .landing-rgbro.landing-copy-scale > section:not(.landing-rgbro-hero) .fs-eyebrow.text-primary {
+    background-image: linear-gradient(
+      92deg,
+      #00e5ff,
+      rgb(var(--premium-blue)) 28%,
+      rgb(var(--premium-blue-deep)) 48%,
+      rgb(var(--premium-purple)) 68%,
+      rgb(var(--premium-orange)) 86%,
+      rgb(var(--premium-yellow))
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent !important;
+    -webkit-text-fill-color: transparent;
+    font-weight: 700;
+    font-family: "Montserrat", "Poppins", system-ui, sans-serif;
+  }
+
+  [data-theme="night"] .landing-rgbro.landing-copy-scale > section:not(.landing-rgbro-hero) .fs-eyebrow.text-primary {
+    background-image: linear-gradient(
+      92deg,
+      #5ee9ff,
+      #ff9100 42%,
+      #ffc53d 75%,
+      #ffeb69
+    );
+  }
+
+  .landing-rgbro.landing-copy-scale > section:not(.landing-rgbro-hero) .fs-title.text-foreground {
+    text-shadow:
+      0 2px 48px rgba(0, 209, 255, 0.22),
+      0 2px 36px rgba(30, 136, 255, 0.14),
+      0 2px 28px rgba(255, 149, 0, 0.12);
+  }
+
+  [data-theme="night"] .landing-rgbro.landing-copy-scale > section:not(.landing-rgbro-hero) .fs-title.text-foreground {
+    text-shadow:
+      0 2px 56px rgba(0, 209, 255, 0.28),
+      0 2px 40px rgba(30, 136, 255, 0.18),
+      0 2px 32px rgba(255, 149, 0, 0.14);
+  }
+
+  .landing-rgbro .landing-rgbro-glass-card {
+    background: color-mix(in srgb, hsl(var(--card)) 94%, rgba(255, 255, 255, 0.03));
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    border-color: color-mix(in srgb, rgb(var(--premium-blue)) 38%, hsl(var(--border)));
+    box-shadow:
+      0 4px 36px -12px rgba(0, 209, 255, 0.22),
+      0 4px 28px -14px rgba(30, 136, 255, 0.12),
+      0 4px 24px -12px rgba(255, 149, 0, 0.11),
+      inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  }
+
+  [data-theme="night"] .landing-rgbro .landing-rgbro-glass-card {
+    background: color-mix(in srgb, hsl(var(--card)) 96%, rgba(255, 255, 255, 0.02));
+    border-color: color-mix(in srgb, rgb(var(--premium-blue)) 42%, hsl(var(--border)));
+    box-shadow:
+      0 4px 40px -10px rgba(0, 209, 255, 0.26),
+      0 4px 32px -12px rgba(30, 136, 255, 0.16),
+      0 4px 28px -12px rgba(255, 149, 0, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+
+  .landing-rgbro > *:not(.landing-rgbro-ambience) {
+    position: relative;
+    z-index: 2;
+  }
+
+  /* Section mood mesh: same on hero as About (#about). */
+  .landing-rgbro > section::after {
+    content: "";
+    pointer-events: none;
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    opacity: 1;
+    background:
+      radial-gradient(ellipse 90% 62% at 5% 5%, rgba(0, 209, 255, 0.12), transparent 58%),
+      radial-gradient(ellipse 75% 55% at 100% 100%, rgba(30, 136, 255, 0.1), transparent 52%),
+      radial-gradient(ellipse 72% 52% at 100% 20%, rgba(255, 149, 0, 0.11), transparent 50%),
+      radial-gradient(ellipse 48% 38% at 72% 28%, rgba(255, 184, 0, 0.06), transparent 44%),
+      radial-gradient(ellipse 55% 42% at 30% 88%, rgba(255, 214, 0, 0.05), transparent 48%);
+  }
+
+  .landing-rgbro > section > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .landing-rgbro > section:not(:first-of-type)::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 50%;
+    z-index: 4;
+    width: min(72rem, 94vw);
+    height: 2px;
+    border-radius: 9999px;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(0, 209, 255, 0.55),
+      rgba(30, 136, 255, 0.45),
+      rgba(255, 149, 0, 0.42),
+      rgba(255, 184, 0, 0.4),
+      rgba(255, 214, 0, 0.38),
+      transparent
+    );
+    opacity: 0.9;
+  }
+
+  /* Inner hero wrapper: no extra lighting layer (section handles background). */
+  .landing-rgbro .landing-meta-hero {
+    background: none;
+    background-color: transparent;
+  }
+
+  /* Hero headline: white → cyan → blue → orange → yellow (metaverse gradient). */
+  .landing-rgbro-hero-title {
+    font-family: "Montserrat", "Poppins", "Outfit", system-ui, sans-serif;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.08;
+    background-image: linear-gradient(
+      105deg,
+      #ffffff 0%,
+      #e0f7ff 12%,
+      #00e5ff 26%,
+      #00d1ff 40%,
+      #38bdf8 52%,
+      #60a5fa 62%,
+      #fb923c 74%,
+      #fde047 88%,
+      #ffffff 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+  }
+
+  [data-theme="night"] .landing-rgbro-hero-title {
+    background-image: linear-gradient(
+      105deg,
+      #f8fafc 0%,
+      #cffafe 14%,
+      #22d3ee 28%,
+      #00d1ff 42%,
+      #38bdf8 54%,
+      #fb923c 68%,
+      #facc15 88%,
+      #f8fafc 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .landing-rgbro .landing-cta-secondary {
+    border: 1px solid rgba(0, 209, 255, 0.55);
+    background: rgba(255, 255, 255, 0.04);
+    color: hsl(var(--foreground)) !important;
+    box-shadow:
+      0 0 24px rgba(0, 209, 255, 0.12),
+      0 0 40px rgba(30, 136, 255, 0.06);
+    transition:
+      background 0.2s ease-out,
+      border-color 0.2s ease-out,
+      box-shadow 0.2s ease-out,
+      transform 0.15s ease-out;
+  }
+
+  .landing-rgbro .landing-cta-secondary:hover {
+    background: rgba(0, 209, 255, 0.1);
+    border-color: rgba(0, 229, 255, 0.75);
+    box-shadow:
+      0 0 32px rgba(0, 209, 255, 0.2),
+      0 0 48px rgba(30, 136, 255, 0.1);
+  }
+
+  .landing-rgbro > footer {
+    position: relative;
+    z-index: 2;
+  }
+
+  .landing-rgbro > footer::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 3px;
+    pointer-events: none;
+    background: linear-gradient(
+      90deg,
+      rgb(var(--premium-blue)),
+      rgb(var(--premium-purple)),
+      rgb(var(--premium-orange)),
+      rgb(var(--premium-yellow))
+    );
+    opacity: 0.9;
+  }
+
+  /**
+   * Home-only wrapper: dark blue/purple base, RGBRO tokens, no green primary.
+   * Navbar + achievement strip inherit; main `.landing-rgbro` adds mesh.
+   */
+  .landing-metaverse-page {
+    /* Banner strip above main: same mesh as hero / achievement cards */
+    --landing-hero-mesh-bg:
+      radial-gradient(ellipse 130% 80% at 10% 8%, rgba(0, 209, 255, 0.16), transparent 58%),
+      radial-gradient(ellipse 100% 70% at 92% 18%, rgba(30, 136, 255, 0.12), transparent 54%),
+      radial-gradient(ellipse 95% 60% at 50% 95%, rgba(0, 209, 255, 0.08), transparent 52%),
+      radial-gradient(ellipse 85% 55% at 78% 45%, rgba(255, 149, 0, 0.12), transparent 52%),
+      radial-gradient(ellipse 70% 50% at 30% 72%, rgba(255, 184, 0, 0.07), transparent 50%),
+      linear-gradient(180deg, #02081f 0%, #050b2a 38%, #070d32 72%, #06081f 100%);
+    --achievement-card-bg: var(--landing-hero-mesh-bg);
+    --achievement-card-accent-bar: linear-gradient(90deg, #ff9100 0%, #ff6b00 34%, #00d1ff 65%, #ffcc33 94%);
+    /* Solid top chrome (no transparency / blur) — shared with alumni dashboard header */
+    --landing-topnav-bg: linear-gradient(90deg, #0a051b 0%, #0b2238 40%, #14102a 100%);
+    /* Opaque bar — avoid backdrop blur so content behind nav stays sharp */
+    --navbar-bg: #0a051b;
+    --navbar-text: #f8fafc;
+    --navbar-text-muted: #94a3b8;
+    /* Vibrant orange nav + link accents (no purple/magenta) */
+    --primary: 28 100% 54%;
+    --primary-foreground: 210 40% 99%;
+    --ring: 32 100% 50%;
+    --accent: 38 96% 54%;
+    --accent-foreground: 222 47% 8%;
+    --background: 222 47% 6%;
+    --foreground: 210 40% 98%;
+    --muted: 220 24% 14%;
+    --muted-foreground: 215 18% 68%;
+    --border: 215 22% 22%;
+    --card: 222 40% 11%;
+    --card-foreground: 210 40% 98%;
+  }
+
+  [data-theme="night"] .landing-metaverse-page {
+    --landing-hero-mesh-bg:
+      radial-gradient(ellipse 130% 80% at 8% 6%, rgba(0, 209, 255, 0.16), transparent 58%),
+      radial-gradient(ellipse 100% 70% at 94% 16%, rgba(30, 136, 255, 0.12), transparent 54%),
+      radial-gradient(ellipse 95% 60% at 48% 98%, rgba(0, 209, 255, 0.09), transparent 52%),
+      radial-gradient(ellipse 85% 55% at 80% 42%, rgba(255, 149, 0, 0.12), transparent 52%),
+      radial-gradient(ellipse 70% 50% at 28% 70%, rgba(255, 184, 0, 0.08), transparent 50%),
+      linear-gradient(180deg, #020616 0%, #040a24 40%, #060c2e 72%, #030818 100%);
+    --achievement-card-bg: var(--landing-hero-mesh-bg);
+  }
+
+  .landing-navbar-metaverse {
+    background: var(--landing-topnav-bg, linear-gradient(90deg, #0a051b 0%, #0b2238 40%, #14102a 100%));
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    box-shadow: 0 4px 28px -8px rgba(0, 209, 255, 0.12), 0 8px 32px -12px rgba(255, 149, 0, 0.14);
+  }
+
+  .landing-nav-mobile-drawer-metaverse {
+    background: var(--landing-topnav-bg, linear-gradient(90deg, #0a051b 0%, #0b2238 40%, #14102a 100%));
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .landing-metaverse-page .landing-nav-cta-gradient {
+    background-image: linear-gradient(95deg, #ff9500 0%, #ff7a00 45%, #ffb020 92%);
+    color: #1a0a02 !important;
+    border: 1px solid rgba(255, 220, 150, 0.45);
+    box-shadow: 0 0 26px rgba(255, 149, 0, 0.45), 0 6px 22px -8px rgba(255, 120, 0, 0.35);
+    transition: filter 0.2s ease-out, box-shadow 0.2s ease-out, transform 0.15s ease-out;
+  }
+
+  .landing-metaverse-page .landing-nav-cta-gradient:hover {
+    filter: brightness(1.08);
+    box-shadow: 0 0 36px rgba(255, 180, 0, 0.5), 0 8px 28px -8px rgba(0, 209, 255, 0.18);
+  }
+
+  .landing-metaverse-page .landing-nav-cta-ghost {
+    background: rgba(255, 255, 255, 0.04);
+    transition: background 0.2s ease-out, border-color 0.2s ease-out, color 0.2s ease-out;
+  }
+
+  .landing-metaverse-page .landing-nav-cta-ghost:hover {
+    background: rgba(255, 149, 0, 0.1);
+    border-color: rgba(255, 180, 0, 0.5) !important;
+    color: #ffedd5 !important;
+  }
+
+  /* Primary actions: vibrant orange / amber (no magenta) */
+  .landing-rgbro .landing-cta-primary,
+  .metaverse-cta-pill {
+    background-image: linear-gradient(95deg, #ff9a1a 0%, #ff7a00 38%, #ffb020 85%);
+    color: #1a0d04 !important;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.25);
+    box-shadow:
+      0 0 32px rgba(255, 149, 0, 0.42),
+      0 8px 28px -8px rgba(255, 120, 0, 0.38);
+    border: 1px solid rgba(255, 210, 120, 0.5);
+    transition: filter 0.2s ease-out, box-shadow 0.2s ease-out, transform 0.15s ease-out;
+  }
+
+  .landing-rgbro .landing-cta-primary:hover,
+  .metaverse-cta-pill:hover {
+    filter: brightness(1.06);
+    box-shadow:
+      0 0 40px rgba(255, 180, 0, 0.5),
+      0 10px 32px -8px rgba(0, 209, 255, 0.18);
+  }
+
+  /* Glassy cards: cyan edge + warm orange bloom */
+  .landing-rgbro section .rounded-xl.border.border-border.bg-card,
+  .landing-rgbro section .rounded-2xl.border.border-border.bg-card {
+    border-color: rgba(0, 209, 255, 0.22) !important;
+    box-shadow:
+      0 4px 28px -12px rgba(0, 209, 255, 0.1),
+      0 8px 36px -16px rgba(255, 149, 0, 0.14),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+
+  .landing-rgbro section .rounded-xl.border.border-border.bg-card:hover,
+  .landing-rgbro section .rounded-2xl.border.border-border.bg-card:hover {
+    border-color: rgba(255, 149, 0, 0.4) !important;
+    box-shadow:
+      0 4px 32px -10px rgba(255, 149, 0, 0.22),
+      0 8px 40px -14px rgba(251, 146, 60, 0.18),
+      0 0 28px -12px rgba(0, 209, 255, 0.14),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+
+  /* Committee president + member cards on landing — RGB accent bar + rim glow */
+  .landing-rgbro .committee-metaverse-surface,
+  .hpc-alumni-landing-shell .committee-metaverse-surface {
+    position: relative;
+    overflow: hidden;
+    box-shadow:
+      0 0 36px -8px rgba(0, 209, 255, 0.28),
+      0 0 44px -12px rgba(56, 189, 248, 0.22),
+      0 10px 32px -14px rgba(99, 102, 241, 0.1),
+      inset 0 1px 0 rgba(255, 255, 255, 0.09);
+    border-color: rgba(56, 189, 248, 0.45) !important;
+  }
+
+  .landing-rgbro .committee-metaverse-surface::before,
+  .hpc-alumni-landing-shell .committee-metaverse-surface::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    z-index: 6;
+    pointer-events: none;
+    background: linear-gradient(
+      90deg,
+      #00d1ff 0%,
+      #38bdf8 22%,
+      #22d3ee 44%,
+      #818cf8 62%,
+      #06b6d4 78%,
+      #2dd4bf 92%,
+      #00d1ff 100%
+    );
+    background-size: 200% 100%;
+    animation: committee-card-accent-shift 8s ease-in-out infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .landing-rgbro .committee-metaverse-surface::before,
+    .hpc-alumni-landing-shell .committee-metaverse-surface::before {
+      animation: none;
+      background-size: 100% 100%;
+    }
+  }
+
+  .landing-rgbro .committee-metaverse-surface:hover,
+  .hpc-alumni-landing-shell .committee-metaverse-surface:hover {
+    border-color: rgba(56, 189, 248, 0.62) !important;
+    box-shadow:
+      0 0 48px -6px rgba(0, 209, 255, 0.34),
+      0 0 52px -10px rgba(34, 211, 238, 0.28),
+      0 14px 40px -12px rgba(129, 140, 248, 0.14),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  }
+
+  /* Wishing quote — landing sans + glass; colorful heading + high-contrast body (all roles). */
+  .landing-rgbro .committee-wishing-pane,
+  .hpc-alumni-landing-shell .committee-wishing-pane {
+    font-family: "Montserrat", "Outfit", "Public Sans", ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: -0.02em;
+    background: rgba(8, 22, 42, 0.88) !important;
+    border-color: rgba(0, 209, 255, 0.38) !important;
+    box-shadow:
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.07),
+      0 0 24px -12px rgba(0, 209, 255, 0.2);
+  }
+
+  .landing-rgbro .committee-wishing-pane,
+  .hpc-alumni-landing-shell .committee-wishing-pane,
+  .landing-rgbro .committee-wishing-pane .committee-wishing-heading,
+  .hpc-alumni-landing-shell .committee-wishing-pane .committee-wishing-heading,
+  .landing-rgbro .committee-wishing-pane .committee-wishing-body,
+  .hpc-alumni-landing-shell .committee-wishing-pane .committee-wishing-body {
+    font-family: "Montserrat", "Outfit", "Public Sans", ui-sans-serif, system-ui, sans-serif;
+  }
+
+  .landing-rgbro .committee-wishing-pane .committee-wishing-heading,
+  .hpc-alumni-landing-shell .committee-wishing-pane .committee-wishing-heading {
+    margin: 0;
+    width: 100%;
+    text-align: left;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.25;
+    background-image: linear-gradient(
+      100deg,
+      #5eead4 0%,
+      #38bdf8 28%,
+      #a5b4fc 55%,
+      #fcd34d 82%,
+      #22d3ee 100%
+    );
+    background-size: 140% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent !important;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .landing-rgbro .committee-wishing-pane .committee-wishing-body,
+  .hpc-alumni-landing-shell .committee-wishing-pane .committee-wishing-body {
+    color: hsl(204 52% 96%) !important;
+    -webkit-text-fill-color: unset;
+    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+    scrollbar-color: rgba(56, 189, 248, 0.45) rgba(255, 255, 255, 0.06);
+    text-align: justify !important;
+    text-align-last: left !important;
+    text-wrap: pretty;
+    hyphens: none !important;
+    word-break: normal !important;
+    overflow-wrap: normal !important;
+  }
+
+  .landing-rgbro .committee-wishing-pane .committee-wishing-body::selection,
+  .hpc-alumni-landing-shell .committee-wishing-pane .committee-wishing-body::selection {
+    background: rgba(0, 209, 255, 0.35);
+    color: hsl(204 40% 100%);
+  }
+
+  @keyframes committee-card-accent-shift {
+    0%,
+    100% {
+      background-position: 0% center;
+    }
+    50% {
+      background-position: 100% center;
+    }
+  }
+
+  /**
+   * Alumni directory + profile: night theme neon rim (cyan + orange) without changing light theme.
+   */
+  [data-theme="night"] .alumni-directory-neon-card {
+    border-color: rgba(0, 209, 255, 0.22);
+    box-shadow:
+      0 4px 24px -12px rgba(0, 209, 255, 0.08),
+      0 8px 32px -14px rgba(255, 149, 0, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    transition: border-color 0.2s ease-out, box-shadow 0.2s ease-out;
+  }
+
+  [data-theme="night"] a:hover .alumni-directory-neon-card,
+  [data-theme="night"] .alumni-directory-neon-card:hover {
+    border-color: rgba(255, 149, 0, 0.45);
+    box-shadow:
+      0 4px 28px -10px rgba(255, 160, 0, 0.22),
+      0 10px 36px -12px rgba(0, 209, 255, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
 }
 
 /*
@@ -1405,6 +2748,33 @@
   100% { background-position: -200% center; }
 }
 
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes landing-rgbro-drift-a {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    40% { transform: translate(-5%, 6%) scale(1.05); }
+    70% { transform: translate(4%, -4%) scale(0.97); }
+  }
+  @keyframes landing-rgbro-drift-b {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    45% { transform: translate(6%, -5%) scale(1.04); }
+    80% { transform: translate(-4%, 5%) scale(0.98); }
+  }
+  @keyframes landing-rgbro-drift-c {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    50% { transform: translate(-7%, 8%) scale(1.07); }
+  }
+
+  .landing-rgbro-orb-a {
+    animation: landing-rgbro-drift-a 24s ease-in-out infinite;
+  }
+  .landing-rgbro-orb-b {
+    animation: landing-rgbro-drift-b 28s ease-in-out infinite;
+  }
+  .landing-rgbro-orb-c {
+    animation: landing-rgbro-drift-c 20s ease-in-out infinite;
+  }
+}
+
 /* President card fire/glow (KING badge + name) */
 @keyframes hpcPresidentKingFire {
   0%, 100% {
@@ -1433,5 +2803,338 @@
     filter:
       drop-shadow(0 0 10px rgba(251, 146, 60, 0.45))
       drop-shadow(0 0 22px rgba(245, 158, 11, 0.35));
+  }
+}
+
+/* ── Global cursor-follow ambient glow (premium shell; honors reduced motion + touch) ── */
+@layer components {
+  @media (hover: none), (pointer: coarse) {
+    .hpc-cursor-glow-root {
+      display: none !important;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hpc-cursor-glow-root {
+      display: none !important;
+    }
+  }
+
+  .hpc-cursor-glow-blobs {
+    --hx: 50vw;
+    --hy: 45vh;
+    --hi: 0;
+  }
+
+  .hpc-cursor-glow-blobs::before,
+  .hpc-cursor-glow-blobs::after {
+    content: "";
+    position: absolute;
+    left: var(--hx);
+    top: var(--hy);
+    translate: -50% -50%;
+    border-radius: 50%;
+    pointer-events: none;
+    will-change: left, top, opacity;
+  }
+
+  .hpc-cursor-glow-blobs::before {
+    width: min(72vw, 520px);
+    height: min(72vw, 520px);
+    background: radial-gradient(
+      circle closest-side,
+      hsl(var(--primary) / 0.11) 0%,
+      hsl(var(--accent) / 0.07) 42%,
+      transparent 70%
+    );
+    opacity: calc(0.5 + var(--hi) * 0.38);
+    filter: blur(0);
+  }
+
+  .hpc-cursor-glow-blobs::after {
+    width: min(44vw, 300px);
+    height: min(44vw, 300px);
+    background: radial-gradient(circle closest-side, hsl(var(--ring) / 0.14) 0%, transparent 72%);
+    opacity: calc(0.28 + var(--hi) * 0.32);
+    filter: blur(20px);
+  }
+
+  /* ── Landing-style shell: auth backgrounds + public navbar on light pages ── */
+  /* Same blue metaverse field as `.landing-rgbro` sections (hero / about / …) */
+  .hpc-auth-premium-canvas {
+    background-color: #050b2a;
+    background-image:
+      radial-gradient(ellipse 130% 80% at 10% 8%, rgba(0, 209, 255, 0.16), transparent 58%),
+      radial-gradient(ellipse 100% 70% at 92% 18%, rgba(30, 136, 255, 0.12), transparent 54%),
+      radial-gradient(ellipse 95% 60% at 50% 95%, rgba(0, 209, 255, 0.08), transparent 52%),
+      radial-gradient(ellipse 85% 55% at 78% 45%, rgba(255, 149, 0, 0.12), transparent 52%),
+      radial-gradient(ellipse 70% 50% at 30% 72%, rgba(255, 184, 0, 0.07), transparent 50%),
+      linear-gradient(180deg, #02081f 0%, #050b2a 38%, #070d32 72%, #06081f 100%);
+  }
+
+  [data-theme="night"] .hpc-auth-premium-canvas {
+    background-color: #030818;
+    background-image:
+      radial-gradient(ellipse 130% 80% at 8% 6%, rgba(0, 209, 255, 0.16), transparent 58%),
+      radial-gradient(ellipse 100% 70% at 94% 16%, rgba(30, 136, 255, 0.12), transparent 54%),
+      radial-gradient(ellipse 95% 60% at 48% 98%, rgba(0, 209, 255, 0.09), transparent 52%),
+      radial-gradient(ellipse 85% 55% at 80% 42%, rgba(255, 149, 0, 0.12), transparent 52%),
+      radial-gradient(ellipse 70% 50% at 28% 70%, rgba(255, 184, 0, 0.08), transparent 50%),
+      linear-gradient(180deg, #020616 0%, #040a24 40%, #060c2e 72%, #030818 100%);
+  }
+
+  /* Login / auth: match landing hero + navbar CTA typography (Syne) and metaverse chrome */
+  .hpc-auth-premium-canvas .hpc-auth-brand-title {
+    font-family: "Syne", "Outfit", ui-sans-serif, system-ui, sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+  }
+
+  .hpc-auth-premium-canvas .hpc-auth-brand-subtitle {
+    font-family: "Syne", "Outfit", ui-sans-serif, system-ui, sans-serif;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    line-height: 1.2;
+  }
+
+  .hpc-auth-premium-canvas .hpc-auth-card-title {
+    font-family: "Syne", "Outfit", ui-sans-serif, system-ui, sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+  }
+
+  .hpc-auth-premium-canvas .hpc-auth-card-desc {
+    font-family: "Outfit", "Public Sans", ui-sans-serif, system-ui, sans-serif;
+    font-weight: 500;
+    line-height: 1.45;
+  }
+
+  .hpc-auth-premium-canvas .hpc-auth-btn-primary {
+    font-family: "Syne", "Outfit", ui-sans-serif, system-ui, sans-serif;
+    font-size: clamp(0.8125rem, 0.78rem + 0.2vw, 0.875rem);
+    line-height: 1.25;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    border: 1px solid rgba(255, 210, 120, 0.5) !important;
+    background-color: transparent !important;
+    background-image: linear-gradient(95deg, #ff9a1a 0%, #ff7a00 38%, #ffb020 85%) !important;
+    color: #1a0d04 !important;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.25);
+    box-shadow:
+      0 0 32px rgba(255, 149, 0, 0.42),
+      0 8px 28px -8px rgba(255, 120, 0, 0.38) !important;
+    transition: filter 0.2s ease-out, box-shadow 0.2s ease-out, transform 0.15s ease-out;
+  }
+
+  .hpc-auth-premium-canvas .hpc-auth-btn-primary:hover:not(:disabled) {
+    filter: brightness(1.06);
+    background-image: linear-gradient(95deg, #ff9a1a 0%, #ff7a00 38%, #ffb020 85%) !important;
+    box-shadow:
+      0 0 40px rgba(255, 180, 0, 0.5),
+      0 10px 32px -8px rgba(0, 209, 255, 0.18) !important;
+  }
+
+  .hpc-auth-premium-canvas .hpc-auth-btn-primary:disabled {
+    opacity: 0.55;
+    filter: none;
+  }
+
+  .hpc-auth-premium-canvas .hpc-auth-btn-secondary {
+    font-family: "Syne", "Outfit", ui-sans-serif, system-ui, sans-serif;
+    font-size: clamp(0.8125rem, 0.78rem + 0.2vw, 0.875rem);
+    line-height: 1.25;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    border: 1px solid rgba(0, 209, 255, 0.5) !important;
+    background: rgba(255, 255, 255, 0.72) !important;
+    color: rgb(15 23 42) !important;
+    box-shadow: 0 0 24px rgba(0, 209, 255, 0.1), 0 0 40px rgba(30, 136, 255, 0.06) !important;
+    transition: background 0.2s ease-out, border-color 0.2s ease-out, box-shadow 0.2s ease-out;
+  }
+
+  .hpc-auth-premium-canvas .hpc-auth-btn-secondary:hover {
+    background: rgba(0, 209, 255, 0.1) !important;
+    border-color: rgba(0, 229, 255, 0.72) !important;
+    color: rgb(15 23 42) !important;
+    box-shadow: 0 0 32px rgba(0, 209, 255, 0.18), 0 0 48px rgba(30, 136, 255, 0.1) !important;
+  }
+
+  .hpc-auth-premium-canvas .hpc-auth-icon-ring {
+    box-shadow: 0 0 24px rgba(255, 149, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  }
+
+  /* Register: field labels — Outfit, explicit slate (no theme primary / “green label” read) */
+  .hpc-auth-premium-canvas .hpc-auth-register-label {
+    font-family: "Outfit", "Public Sans", ui-sans-serif, system-ui, sans-serif;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.35;
+    color: rgb(30 41 59);
+  }
+
+  [data-theme="night"] .hpc-auth-premium-canvas .hpc-auth-register-label {
+    color: rgb(226 232 240);
+  }
+
+  /* Register (long form): section titles — Syne + landing gradient clip (navbar subtitle family) */
+  .hpc-auth-premium-canvas .hpc-auth-register-section-heading {
+    font-family: "Syne", "Outfit", ui-sans-serif, system-ui, sans-serif;
+    font-size: clamp(0.875rem, 0.82rem + 0.15vw, 0.9375rem);
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    line-height: 1.35;
+    background-image: linear-gradient(100deg, #fde68a 0%, #fb923c 32%, #38bdf8 68%, #fcd34d 100%);
+    background-size: 140% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent !important;
+    -webkit-text-fill-color: transparent;
+  }
+
+  [data-theme="night"] .hpc-auth-premium-canvas .hpc-auth-register-section-heading {
+    background-image: linear-gradient(100deg, #fef3c7 0%, #fbbf24 30%, #22d3ee 65%, #fde68a 100%);
+    background-size: 140% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent !important;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .hpc-auth-premium-canvas .hpc-auth-register-google-panel {
+    border: 1px solid rgba(34, 211, 238, 0.42);
+    background: rgba(255, 255, 255, 0.76);
+    box-shadow:
+      0 0 32px rgba(0, 209, 255, 0.12),
+      0 8px 28px -8px rgba(255, 149, 0, 0.1),
+      inset 0 1px 0 rgba(255, 255, 255, 0.58);
+  }
+
+  [data-theme="night"] .hpc-auth-premium-canvas .hpc-auth-register-google-panel {
+    background: rgba(15, 23, 42, 0.58);
+    border-color: rgba(34, 211, 238, 0.32);
+    box-shadow:
+      0 0 28px rgba(0, 209, 255, 0.1),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+
+  .hpc-auth-premium-canvas .hpc-auth-register-callout {
+    border: 1px solid rgba(34, 211, 238, 0.28);
+    background: rgba(255, 251, 235, 0.94);
+    box-shadow:
+      0 0 24px rgba(255, 149, 0, 0.1),
+      0 0 28px rgba(0, 209, 255, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  }
+
+  [data-theme="night"] .hpc-auth-premium-canvas .hpc-auth-register-callout {
+    border-color: rgba(251, 191, 36, 0.38);
+    background: rgba(30, 27, 15, 0.78);
+    box-shadow: 0 0 22px rgba(255, 149, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+
+  /* Register card: selects + text fields — cyan/amber focus (override theme primary ring) */
+  .hpc-auth-premium-canvas .card-text-scale button[role="combobox"]:not(:disabled) {
+    border-color: rgba(34, 211, 238, 0.42);
+    transition: border-color 0.2s ease-out, box-shadow 0.2s ease-out;
+  }
+
+  .hpc-auth-premium-canvas .card-text-scale button[role="combobox"]:not(:disabled):hover {
+    border-color: rgba(251, 191, 36, 0.45);
+  }
+
+  .hpc-auth-premium-canvas .card-text-scale button[role="combobox"]:focus-visible {
+    border-color: rgba(251, 191, 36, 0.55) !important;
+    box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.22), 0 0 0 4px rgba(251, 191, 36, 0.18) !important;
+  }
+
+  .hpc-auth-premium-canvas .card-text-scale input:focus-visible,
+  .hpc-auth-premium-canvas .card-text-scale textarea:focus-visible {
+    border-color: rgba(251, 191, 36, 0.5) !important;
+    box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.18), 0 0 0 4px rgba(251, 191, 36, 0.14) !important;
+  }
+
+  /* DOB + calendar popover (portaled): chrome + dropdowns */
+  .hpc-auth-calendar-popover {
+    border-color: rgba(34, 211, 238, 0.38) !important;
+    box-shadow:
+      0 0 32px rgba(0, 209, 255, 0.14),
+      0 12px 36px -12px rgba(255, 149, 0, 0.12) !important;
+  }
+
+  /* Register social labels + portaled dialogs: not always under .hpc-auth-premium-canvas */
+  .hpc-auth-inline-icon {
+    color: rgb(251 191 36);
+    filter: drop-shadow(0 0 5px rgba(251, 191, 36, 0.35));
+  }
+
+  [data-theme="night"] .hpc-auth-inline-icon {
+    color: rgb(253 230 138);
+    filter: drop-shadow(0 0 6px rgba(251, 191, 36, 0.4));
+  }
+
+  /**
+   * Public routes that use the metaverse navbar with a light main column:
+   * sync navbar token vars (inline nav background is skipped when metaverse — see Navbar.tsx).
+   */
+  .hpc-public-premium-shell {
+    --landing-topnav-bg: linear-gradient(90deg, #0a051b 0%, #0b2238 40%, #14102a 100%);
+    --navbar-bg: #0a051b;
+    --navbar-text: #f8fafc;
+    --navbar-text-muted: #94a3b8;
+  }
+
+  /* CTA + ghost buttons: same as `.landing-metaverse-page` rules, scoped to the nav */
+  nav.landing-navbar-metaverse .landing-nav-cta-gradient {
+    background-image: linear-gradient(95deg, #ff9500 0%, #ff7a00 45%, #ffb020 92%);
+    color: #1a0a02 !important;
+    border: 1px solid rgba(255, 220, 150, 0.45);
+    box-shadow: 0 0 26px rgba(255, 149, 0, 0.45), 0 6px 22px -8px rgba(255, 120, 0, 0.35);
+    transition: filter 0.2s ease-out, box-shadow 0.2s ease-out, transform 0.15s ease-out;
+  }
+
+  nav.landing-navbar-metaverse .landing-nav-cta-gradient:hover {
+    filter: brightness(1.08);
+    box-shadow: 0 0 36px rgba(255, 180, 0, 0.5), 0 8px 28px -8px rgba(0, 209, 255, 0.18);
+  }
+
+  nav.landing-navbar-metaverse .landing-nav-cta-ghost {
+    background: rgba(255, 255, 255, 0.04);
+    transition: background 0.2s ease-out, border-color 0.2s ease-out, color 0.2s ease-out;
+  }
+
+  nav.landing-navbar-metaverse .landing-nav-cta-ghost:hover {
+    background: rgba(255, 149, 0, 0.1);
+    border-color: rgba(255, 180, 0, 0.5) !important;
+    color: #ffedd5 !important;
+  }
+
+  nav.landing-navbar-metaverse .nav-role-link.text-muted-foreground,
+  nav.landing-navbar-metaverse button.nav-role-link.text-muted-foreground {
+    color: rgb(203 213 225);
+  }
+
+  nav.landing-navbar-metaverse .nav-role-link.text-primary,
+  nav.landing-navbar-metaverse a.nav-role-link.text-primary,
+  nav.landing-navbar-metaverse button.nav-role-link.text-primary {
+    color: rgb(251 191 36);
+  }
+
+  nav.landing-navbar-metaverse .nav-role-link.text-muted-foreground:hover,
+  nav.landing-navbar-metaverse button.nav-role-link.text-muted-foreground:hover {
+    color: rgb(253 230 138);
+  }
+
+  nav.landing-navbar-metaverse #landing-nav-mobile-menu .text-muted-foreground {
+    color: rgb(203 213 225);
+  }
+
+  nav.landing-navbar-metaverse #landing-nav-mobile-menu .text-foreground {
+    color: rgb(248 250 252);
+  }
+
+  nav.landing-navbar-metaverse > div > button.lg\:hidden.text-foreground {
+    color: rgb(248 250 252);
   }
 }

@@ -128,9 +128,9 @@ function ElectionDetail({ electionId, onBack }: { electionId: string; onBack: ()
           )}
 
           {userCandidacy && (
-            <div className="p-3 rounded-lg bg-blue-50 border border-blue-200">
-              <p className="text-sm font-medium text-blue-800">
-                <CheckCircle className="w-4 h-4 inline mr-1" />
+            <div className="rounded-lg border border-sky-400/40 bg-sky-500/10 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+              <p className="text-sm font-medium text-sky-100">
+                <CheckCircle className="mr-1 inline w-4 h-4" />
                 You have applied as a candidate — Status: {userCandidacy.status}
               </p>
             </div>
@@ -184,25 +184,28 @@ function ElectionDetail({ electionId, onBack }: { electionId: string; onBack: ()
                 {postCandidates.map(c => {
                   const w = winnerMap.get(c.id);
                   return (
-                    <div key={c.id} className={`flex items-center justify-between p-3 rounded-lg border ${w ? "border-yellow-400 bg-yellow-50" : "border-border"}`}>
+                    <div
+                      key={c.id}
+                      className={`flex items-center justify-between rounded-lg border p-3 ${w ? "border-amber-400/55 bg-amber-500/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]" : "border-border"}`}
+                    >
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center shrink-0">
-                          {c.photo_url ? <img src={c.photo_url} className="w-10 h-10 rounded-full object-cover" alt={c.name} /> : <User className="w-5 h-5 text-muted-foreground" />}
+                        <div className="hpc-alumni-dashboard-glass-skeleton flex h-10 w-10 shrink-0 items-center justify-center rounded-full border">
+                          {c.photo_url ? <img src={c.photo_url} className="h-10 w-10 rounded-full object-cover" alt={c.name} /> : <User className="h-5 w-5 text-muted-foreground" />}
                         </div>
                         <div className="min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-medium text-sm">{c.name}</span>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-sm font-medium">{c.name}</span>
                             {c.candidate_number && <Badge variant="secondary" className="text-xs">#{c.candidate_number}</Badge>}
-                            {w && <Trophy className="w-4 h-4 text-yellow-600" />}
+                            {w && <Trophy className="h-4 w-4 text-amber-300" />}
                           </div>
                           <p className="text-xs text-muted-foreground">Batch: {c.batch || "—"}</p>
-                          {c.manifesto && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{c.manifesto}</p>}
-                          {w?.congratulation_message && <p className="text-xs text-yellow-700 mt-1 italic">{w.congratulation_message}</p>}
+                          {c.manifesto && <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{c.manifesto}</p>}
+                          {w?.congratulation_message && <p className="mt-1 text-xs italic text-amber-100/90">{w.congratulation_message}</p>}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex shrink-0 items-center gap-2">
                         {stageInfo.stage === "results_published" && w && (
-                          <Badge className="bg-yellow-100 text-yellow-800 border-yellow-400">Winner ({w.vote_count} votes)</Badge>
+                          <Badge className="border-amber-400/50 bg-amber-500/15 text-amber-50">Winner ({w.vote_count} votes)</Badge>
                         )}
                         {isVoting && !hasVoted && user?.approved && (
                           <VoteButton electionId={electionId} postId={post.id} candidateId={c.id} />
@@ -285,9 +288,13 @@ function CandidateApplicationForm({ electionId, posts, user }: { electionId: str
       <DialogContent>
         <DialogHeader><DialogTitle>Apply as Candidate</DialogTitle></DialogHeader>
         <div className="space-y-4">
-          <div className="p-3 rounded-lg bg-muted text-sm">
-            <p><strong>Name:</strong> {user.name}</p>
-            <p><strong>Batch:</strong> {user.batch}</p>
+          <div className="hpc-alumni-dashboard-glass-empty rounded-lg border p-3 text-sm text-foreground/95">
+            <p>
+              <strong>Name:</strong> {user.name}
+            </p>
+            <p>
+              <strong>Batch:</strong> {user.batch}
+            </p>
           </div>
           <div><Label>Select Post *</Label>
             <Select value={form.post_id} onValueChange={v => setForm(f => ({ ...f, post_id: v }))}>

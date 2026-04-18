@@ -206,7 +206,7 @@ const Documents = () => {
             </DialogHeader>
 
             {/* Preview Area */}
-            <div className="flex-1 min-h-0 rounded-lg border bg-muted overflow-hidden relative">
+            <div className="hpc-alumni-dashboard-glass-empty relative min-h-0 flex-1 overflow-hidden rounded-lg border">
               {selectedDoc.file_type === "application/pdf" && pdfBlobUrl ? (
                 <iframe
                   src={pdfBlobUrl}

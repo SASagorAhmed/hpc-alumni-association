@@ -9,7 +9,7 @@ import {
   type RefObject,
 } from "react";
 import { motion } from "framer-motion";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import type { StructuredCommitteePayload } from "@/components/committee/StructuredCommitteeDisplay";
 import type { CommitteeMemberRow, CommitteePostBlock } from "@/components/committee/StructuredCommitteeDisplay";
 import {
@@ -18,6 +18,7 @@ import {
   type BoardSectionKey,
   resolveBoardSection,
 } from "@/components/committee/boardSections";
+import { useCommitteeMemberProfilePrefetch } from "@/hooks/useCommitteeMemberProfilePrefetch";
 import { cn } from "@/lib/utils";
 import { displayCollegeName } from "@/lib/collegeDisplay";
 import { isIosSafariViewport } from "@/lib/iosSafari";
@@ -40,7 +41,6 @@ import {
   setOverflowSingleLineFit,
 } from "@/components/committee/committeeTextFit";
 import { API_BASE_URL } from "@/api-production/api.js";
-import { saveNavScrollRestore } from "@/lib/navScrollRestore";
 import {
   Briefcase,
   Camera,
@@ -60,6 +60,7 @@ import {
 export interface DBMember {
   id: string;
   name: string;
+  nickname?: string | null;
   /** Optional shorter label for cards when full name is too long */
   name_short?: string | null;
   designation: string;
@@ -69,6 +70,8 @@ export interface DBMember {
   phone: string | null;
   email: string | null;
   institution: string | null;
+  university_short_name?: string | null;
+  universityShortName?: string | null;
   /** Optional shorter label for cards when full university name is too long */
   institution_short?: string | null;
   profession: string | null;
@@ -134,10 +137,36 @@ function CommitteePhoto({
   );
 }
 
+/** Post-title pill — executive committee (warm gold). */
+const EXECUTIVE_POST_TITLE_PILL_STYLE: CSSProperties = {
+  backgroundColor: "rgba(251, 146, 60, 0.25)",
+  borderColor: "rgba(253, 224, 71, 0.65)",
+  color: "#FFF7D6",
+  textShadow: "0 1px 4px rgba(0,0,0,0.55)",
+};
+
+/** Post-title pill — governing body / president (cyan metaverse, matches alumni dashboard). */
+const GOVERNING_POST_TITLE_PILL_STYLE: CSSProperties = {
+  backgroundColor: "rgba(0, 209, 255, 0.16)",
+  borderColor: "rgba(56, 189, 248, 0.5)",
+  color: "#e8fbff",
+  textShadow: "0 1px 5px rgba(0, 0, 0, 0.5)",
+};
+
+/** “PRESIDENT” badge overlay on hero photo — cyan rim to match governing theme. */
+const PRESIDENT_PHOTO_BADGE_STYLE: CSSProperties = {
+  color: "#e8fbff",
+  borderColor: "rgba(56, 189, 248, 0.55)",
+  backgroundColor: "rgba(4, 24, 48, 0.62)",
+  textShadow: "0 0 12px rgba(0, 209, 255, 0.35), 0 2px 4px rgba(0, 0, 0, 0.75)",
+  fontFamily: "Georgia, 'Times New Roman', serif",
+};
+
 export function committeeRowToDBMember(m: CommitteeMemberRow): DBMember {
   return {
     id: m.id,
     name: m.name,
+    nickname: m.nickname ?? null,
     name_short: m.name_short ?? null,
     designation: m.designation,
     category: m.category || "executive",
@@ -146,6 +175,8 @@ export function committeeRowToDBMember(m: CommitteeMemberRow): DBMember {
     phone: m.phone ?? null,
     email: m.email ?? null,
     institution: m.institution,
+    university_short_name: m.university_short_name ?? null,
+    universityShortName: m.university_short_name ?? null,
     institution_short: m.institution_short ?? null,
     profession: m.profession ?? null,
     college_name: m.college_name ?? null,
@@ -359,6 +390,8 @@ export function PresidentHeroCard({
   const cardBg = "hsl(var(--card))";
 
   const fallbackCollege = displayCollegeName(member.college_name);
+  const location = useLocation();
+  const prefetchProfile = useCommitteeMemberProfilePrefetch();
 
   const href = `/committee/member/${member.id}`;
 
@@ -376,18 +409,24 @@ export function PresidentHeroCard({
   return (
     <Link
       to={href}
+      state={{ backgroundLocation: location }}
       aria-label={`Open profile: ${member.name}`}
       className="block max-w-full"
-      onClick={() => saveNavScrollRestore()}
+      onPointerEnter={() => prefetchProfile(member.id)}
+      onMouseEnter={() => prefetchProfile(member.id)}
+      onFocus={() => prefetchProfile(member.id)}
+      onTouchStart={() => prefetchProfile(member.id)}
     >
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
         transition={{ duration: 0.6 }}
-        className="relative mx-auto w-fit max-w-full cursor-pointer overflow-hidden rounded-[13px] border border-border/55 bg-card shadow-card transition-shadow hover:shadow-card-hover"
+        className={cn(
+          "committee-metaverse-surface relative mx-auto w-fit max-w-full cursor-pointer overflow-hidden rounded-[13px] border border-border/55 bg-card shadow-card transition-shadow hover:shadow-card-hover"
+        )}
         style={{
-          background: "linear-gradient(135deg, #0a6f62 0%, #075f54 48%, #045248 100%)",
+          background: "var(--committee-executive-card-bg)",
         }}
       >
         <div className="flex w-fit max-w-full flex-col">
@@ -415,7 +454,7 @@ export function PresidentHeroCard({
 
           <h3
             ref={presidentNameRef}
-            className="block w-full min-w-0 whitespace-nowrap font-bold leading-tight text-foreground"
+            className="block w-full min-w-0 overflow-hidden text-ellipsis whitespace-nowrap font-bold leading-tight text-foreground"
             title={member.name}
             style={{
               fontFamily: "'Cinzel', Georgia, serif",
@@ -429,12 +468,7 @@ export function PresidentHeroCard({
 
           <div
             className="inline-flex w-fit items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold"
-            style={{
-              backgroundColor: "rgba(251, 146, 60, 0.25)",
-              borderColor: "rgba(253, 224, 71, 0.65)",
-              color: "#FFF7D6",
-              textShadow: "0 1px 4px rgba(0,0,0,0.55)",
-            }}
+            style={GOVERNING_POST_TITLE_PILL_STYLE}
           >
             {roleLine}
           </div>
@@ -489,14 +523,14 @@ export function PresidentHeroCard({
 
           {member.wishing_message ? (
             <div
-              className="committee-member-wishing-box mt-0.5 w-full max-w-full rounded-md border p-2"
+              className="committee-member-wishing-box committee-wishing-pane mt-0.5 w-full max-w-full rounded-md border p-2"
               style={WISHING_BOX_STYLE}
             >
-              <p className="fs-caption font-semibold text-black">
+              <p className="committee-wishing-heading fs-caption font-semibold text-black">
                 Wishing you
               </p>
               <div
-                className="fs-caption mt-0.5 max-h-[7.92rem] overflow-y-auto overscroll-contain pr-0.5 leading-[1.4] [scrollbar-gutter:stable] text-black"
+                className="committee-wishing-body fs-caption mt-0.5 max-h-[7.92rem] overflow-y-auto overscroll-contain pr-0.5 leading-[1.4] [scrollbar-gutter:stable] text-black"
               >
                 {member.wishing_message}
               </div>
@@ -526,13 +560,7 @@ export function PresidentHeroCard({
             <div className="pointer-events-none absolute inset-x-0 bottom-2 z-[12] flex justify-center px-2">
               <span
                 className="inline-flex rounded-full border px-4 py-1.5 fs-button-text font-extrabold tracking-[0.16em]"
-                style={{
-                  color: "#FFE566",
-                  borderColor: "rgba(253,224,71,0.65)",
-                  backgroundColor: "rgba(0,0,0,0.42)",
-                  textShadow: "0 2px 4px rgba(0,0,0,0.7)",
-                  fontFamily: "Georgia, 'Times New Roman', serif",
-                }}
+                style={PRESIDENT_PHOTO_BADGE_STYLE}
               >
                 PRESIDENT
               </span>
@@ -556,16 +584,25 @@ export function ExecutiveMemberCard({
   postTitle?: string;
   governingBody?: boolean;
 }) {
+  const fullName = fullNameForCard(member);
+  const shortNameCandidate = shortNameForCard(member);
+  const fullInstitution = fullInstitutionForCard(member);
+  const shortInstitutionCandidate = shortInstitutionForCard(member);
   const { ref: nameRef, text: nameDisplay } = useAdaptiveHeadingFitLine(
-    fullNameForCard(member),
-    shortNameForCard(member),
+    fullName,
+    shortNameCandidate,
     governingBody ? 22 : 20,
     governingBody ? 16 : 14
   );
   const { ref: instRef, text: instDisplay } = useAdaptiveInstitutionBreakValue(
-    fullInstitutionForCard(member),
-    shortInstitutionForCard(member)
+    fullInstitution,
+    shortInstitutionCandidate
   );
+  const shouldForceCompactInstitution =
+    governingBody &&
+    Boolean(shortInstitutionCandidate) &&
+    fullInstitution.length >= 26;
+  const institutionDisplayValue = shouldForceCompactInstitution ? (shortInstitutionCandidate as string) : instDisplay;
   const wishingYouText = member.wishing_message
     ? truncateToWordCount(member.wishing_message, EXECUTIVE_WISHING_DISPLAY_WORDS)
     : "";
@@ -577,17 +614,22 @@ export function ExecutiveMemberCard({
   const badgeText = `#${String(serial).padStart(2, "0")}`;
 
   const fallbackCollege = displayCollegeName(member.college_name);
+  const location = useLocation();
 
   const href = `/committee/member/${member.id}`;
+  const prefetchProfile = useCommitteeMemberProfilePrefetch();
   const photoSize = governingBody ? 180 : 151;
   const cameraClassName = governingBody ? "h-[42px] w-[42px]" : "h-[34px] w-[34px]";
-
   return (
     <Link
       to={href}
+      state={{ backgroundLocation: location }}
       aria-label={`Open profile: ${member.name}`}
       className="block w-full"
-      onClick={() => saveNavScrollRestore()}
+      onPointerEnter={() => prefetchProfile(member.id)}
+      onMouseEnter={() => prefetchProfile(member.id)}
+      onFocus={() => prefetchProfile(member.id)}
+      onTouchStart={() => prefetchProfile(member.id)}
     >
       <motion.div
         initial={{ opacity: 0, y: 10 }}
@@ -595,11 +637,11 @@ export function ExecutiveMemberCard({
         viewport={{ once: true }}
         transition={{ duration: 0.5 }}
         className={cn(
-          "relative flex h-full min-h-[216px] w-full min-w-0 cursor-pointer flex-col overflow-hidden rounded-[13px] border border-border/55 bg-card shadow-card transition-shadow hover:shadow-card-hover",
+          "committee-metaverse-surface relative flex h-full min-h-[216px] w-full min-w-0 cursor-pointer flex-col overflow-hidden rounded-[13px] border border-border/55 bg-card shadow-card transition-shadow hover:shadow-card-hover",
           governingBody && "min-h-[260px]"
         )}
         style={{
-          background: "linear-gradient(135deg, #0a6f62 0%, #075f54 48%, #045248 100%)",
+          background: "var(--committee-executive-card-bg)",
         }}
       >
         <div className="flex h-full w-full flex-col">
@@ -642,7 +684,7 @@ export function ExecutiveMemberCard({
               <h3
                 ref={nameRef}
                 title={member.name}
-                className="block w-full min-w-0 whitespace-nowrap font-bold leading-tight text-foreground"
+                className="block w-full min-w-0 overflow-hidden text-ellipsis whitespace-nowrap font-bold leading-tight text-foreground"
                 style={{
                   fontFamily: "'Cinzel', Georgia, serif",
                   fontWeight: 900,
@@ -655,12 +697,7 @@ export function ExecutiveMemberCard({
 
               <div
                 className="inline-flex w-fit max-w-full items-center rounded-full border border-primary/20 px-2.5 py-0.5 text-xs font-semibold"
-                style={{
-                  backgroundColor: "rgba(251, 146, 60, 0.25)",
-                  borderColor: "rgba(253, 224, 71, 0.65)",
-                  color: "#FFF7D6",
-                  textShadow: "0 1px 4px rgba(0,0,0,0.55)",
-                }}
+                style={governingBody ? GOVERNING_POST_TITLE_PILL_STYLE : EXECUTIVE_POST_TITLE_PILL_STYLE}
               >
                 {role}
               </div>
@@ -698,7 +735,7 @@ export function ExecutiveMemberCard({
                       <span className="min-w-0">
                         <span className="font-bold" style={{ color: "#FFFFFF" }}>University: </span>
                         <span ref={instRef} className="inline-block max-w-full overflow-hidden text-ellipsis whitespace-nowrap align-bottom">
-                          {instDisplay}
+                          {institutionDisplayValue}
                         </span>
                       </span>
                     </span>
@@ -726,7 +763,7 @@ export function ExecutiveMemberCard({
                 <span className="min-w-0">
                   <span className="font-bold" style={{ color: "#FFFFFF" }}>University: </span>
                   <span ref={instRef} className="inline-block max-w-full overflow-hidden text-ellipsis whitespace-nowrap align-bottom">
-                    {instDisplay}
+                    {institutionDisplayValue}
                   </span>
                 </span>
               </span>
@@ -744,12 +781,12 @@ export function ExecutiveMemberCard({
 
         {wishingYouText ? (
           <div className="mt-auto space-y-1 px-2.5 pb-2.5">
-            <div className="committee-member-wishing-box w-full rounded-md border p-2" style={WISHING_BOX_STYLE}>
-              <p className="fs-caption font-semibold" style={{ color: "#000000" }}>
+            <div className="committee-member-wishing-box committee-wishing-pane w-full rounded-md border p-2" style={WISHING_BOX_STYLE}>
+              <p className="committee-wishing-heading fs-caption font-semibold" style={{ color: "#000000" }}>
                 Wishing you
               </p>
               <p
-                className="mt-0.5 max-h-[10.5rem] overflow-hidden fs-caption leading-[1.4] break-words text-muted-foreground font-normal"
+                className="committee-wishing-body mt-0.5 max-h-[10.5rem] overflow-hidden fs-caption leading-[1.4] break-words text-muted-foreground font-normal"
                 style={{ color: "#000000" }}
               >
                 {wishingYouText}
@@ -811,6 +848,8 @@ export function MobilePresidentCard({
 
   const photoBoxRef = useRef<HTMLDivElement | null>(null);
   const [photoDrivenFontPx, setPhotoDrivenFontPx] = useState<number | null>(null);
+  const location = useLocation();
+  const prefetchProfile = useCommitteeMemberProfilePrefetch();
 
   const href = `/committee/member/${member.id}`;
 
@@ -842,9 +881,13 @@ export function MobilePresidentCard({
   return (
     <Link
       to={href}
+      state={{ backgroundLocation: location }}
       aria-label={`Open profile: ${member.name}`}
       className="block w-full min-w-0"
-      onClick={() => saveNavScrollRestore()}
+      onPointerEnter={() => prefetchProfile(member.id)}
+      onMouseEnter={() => prefetchProfile(member.id)}
+      onFocus={() => prefetchProfile(member.id)}
+      onTouchStart={() => prefetchProfile(member.id)}
     >
       <motion.div
         data-committee-mobile-card
@@ -852,9 +895,9 @@ export function MobilePresidentCard({
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
         transition={{ duration: 0.6 }}
-        className="cursor-pointer overflow-hidden rounded-[13px] border border-border/55 shadow-card pb-[0.35em]"
+        className="committee-metaverse-surface cursor-pointer overflow-hidden rounded-[13px] border border-border/55 shadow-card pb-[0.35em]"
         style={{
-          background: "linear-gradient(135deg, #0a6f62 0%, #075f54 48%, #045248 100%)",
+          background: "var(--committee-executive-card-bg)",
           ...mobilePresidentRoot,
         }}
       >
@@ -888,13 +931,7 @@ export function MobilePresidentCard({
           <div className="pointer-events-none absolute inset-x-0 bottom-[0.5em] z-[8] flex justify-center px-[0.5em]">
             <span
               className="inline-flex rounded-full border px-[1em] py-[0.45em] fs-ui font-extrabold tracking-[0.12em]"
-              style={{
-                color: "#FFE566",
-                borderColor: "rgba(253,224,71,0.65)",
-                backgroundColor: "rgba(0,0,0,0.42)",
-                textShadow: "0 0 10px rgba(255,229,102,0.42), 0 2px 4px rgba(0,0,0,0.7)",
-                fontFamily: "Georgia, 'Times New Roman', serif",
-              }}
+              style={PRESIDENT_PHOTO_BADGE_STYLE}
             >
               PRESIDENT
             </span>
@@ -907,7 +944,7 @@ export function MobilePresidentCard({
           <h3
             ref={nameHeadingRef}
             title={member.name}
-            className="block w-full min-w-0 whitespace-nowrap font-bold"
+            className="block w-full min-w-0 overflow-hidden text-ellipsis whitespace-nowrap font-bold"
             style={{
               fontFamily: "'Cinzel', Georgia, serif",
               fontWeight: 900,
@@ -920,12 +957,7 @@ export function MobilePresidentCard({
 
           <span
             className="inline-flex w-fit max-w-full min-w-0 shrink-0 self-start items-center rounded-full border px-[0.65em] py-[0.25em] fs-ui font-semibold leading-snug"
-            style={{
-              backgroundColor: "rgba(251, 146, 60, 0.25)",
-              borderColor: "rgba(253, 224, 71, 0.65)",
-              color: "#FFF7D6",
-              textShadow: "0 1px 4px rgba(0,0,0,0.55)",
-            }}
+            style={GOVERNING_POST_TITLE_PILL_STYLE}
           >
             {roleLine}
           </span>
@@ -977,11 +1009,11 @@ export function MobilePresidentCard({
           </div>
 
           {member.wishing_message && (
-            <div className="rounded-md border px-[0.65em] pb-[0.65em] pt-[0.55em]" style={WISHING_BOX_STYLE}>
-              <p className="fs-caption font-semibold leading-snug" style={{ color: "#000000" }}>
+            <div className="committee-wishing-pane rounded-md border px-[0.65em] pb-[0.65em] pt-[0.55em]" style={WISHING_BOX_STYLE}>
+              <p className="committee-wishing-heading fs-caption font-semibold leading-snug" style={{ color: "#000000" }}>
                 Wishing you
               </p>
-              <p className="mt-[0.35em] break-words fs-ui font-normal italic leading-relaxed text-justify text-black [overflow-wrap:anywhere] hyphens-auto pb-px">
+              <p className="committee-wishing-body mt-[0.35em] break-words fs-ui font-normal italic leading-relaxed text-justify text-black [overflow-wrap:anywhere] hyphens-auto pb-px">
                 &ldquo;{member.wishing_message}&rdquo;
               </p>
             </div>
@@ -1033,6 +1065,8 @@ export function MobileMemberCard({
   );
   const photoBoxRef = useRef<HTMLDivElement | null>(null);
   const [photoDrivenFontPx, setPhotoDrivenFontPx] = useState<number | null>(null);
+  const location = useLocation();
+  const prefetchProfile = useCommitteeMemberProfilePrefetch();
 
   const href = `/committee/member/${member.id}`;
 
@@ -1060,9 +1094,13 @@ export function MobileMemberCard({
   return (
     <Link
       to={href}
+      state={{ backgroundLocation: location }}
       aria-label={`Open profile: ${member.name}`}
       className="block w-full"
-      onClick={() => saveNavScrollRestore()}
+      onPointerEnter={() => prefetchProfile(member.id)}
+      onMouseEnter={() => prefetchProfile(member.id)}
+      onFocus={() => prefetchProfile(member.id)}
+      onTouchStart={() => prefetchProfile(member.id)}
     >
       <motion.div
         data-committee-mobile-card
@@ -1070,9 +1108,9 @@ export function MobileMemberCard({
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
         transition={{ duration: 0.5 }}
-        className="flex w-full min-w-0 cursor-pointer flex-col overflow-hidden rounded-[0.85em] border border-border/55 shadow-card pb-[0.35em]"
+        className="committee-metaverse-surface flex w-full min-w-0 cursor-pointer flex-col overflow-hidden rounded-[0.85em] border border-border/55 shadow-card pb-[0.35em]"
         style={{
-          background: "linear-gradient(135deg, #0a6f62 0%, #075f54 48%, #045248 100%)",
+          background: "var(--committee-executive-card-bg)",
           ...mobileCardUnit,
         }}
       >
@@ -1104,7 +1142,7 @@ export function MobileMemberCard({
             <h3
               ref={nameHeadingRef}
               title={member.name}
-              className="block w-full min-w-0 whitespace-nowrap font-bold"
+              className="block w-full min-w-0 overflow-hidden text-ellipsis whitespace-nowrap font-bold"
               style={{
                 fontFamily: "'Cinzel', Georgia, serif",
                 fontWeight: 900,
@@ -1117,12 +1155,7 @@ export function MobileMemberCard({
 
             <span
               className="inline-flex w-fit max-w-full min-w-0 shrink-0 self-start items-center rounded-full border px-[0.5em] py-[0.15em] fs-ui font-semibold leading-snug"
-              style={{
-                backgroundColor: "rgba(251, 146, 60, 0.25)",
-                borderColor: "rgba(253, 224, 71, 0.65)",
-                color: "#FFF7D6",
-                textShadow: "0 1px 4px rgba(0,0,0,0.55)",
-              }}
+              style={governingBody ? GOVERNING_POST_TITLE_PILL_STYLE : EXECUTIVE_POST_TITLE_PILL_STYLE}
             >
               {role}
             </span>
@@ -1159,14 +1192,14 @@ export function MobileMemberCard({
 
       {wishingText && (
         <div
-          className="mx-[0.55em] mb-[0.5em] mt-0 min-w-0 rounded-[0.35em] border px-[0.55em] pb-[0.65em] pt-[0.55em]"
+          className="committee-wishing-pane mx-[0.55em] mb-[0.5em] mt-0 min-w-0 rounded-[0.35em] border px-[0.55em] pb-[0.65em] pt-[0.55em]"
           style={WISHING_BOX_STYLE}
         >
-          <p className="fs-caption font-semibold leading-snug" style={{ color: "#000000" }}>
+          <p className="committee-wishing-heading fs-caption font-semibold leading-snug" style={{ color: "#000000" }}>
             Wishing you
           </p>
           <p
-            className="mt-[0.35em] break-words fs-ui font-normal italic leading-relaxed text-muted-foreground [overflow-wrap:anywhere] pb-px"
+            className="committee-wishing-body mt-[0.35em] break-words fs-ui font-normal italic leading-relaxed text-muted-foreground [overflow-wrap:anywhere] pb-px"
             style={{ color: "#000000" }}
           >
             &ldquo;{wishingText}&rdquo;
@@ -1195,7 +1228,7 @@ export function AlumniExecutiveCommitteeIntro({
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-50px" }}
       transition={{ duration: 0.5 }}
-      className={compact ? "mb-8 text-center" : "mb-12 text-center"}
+      className={compact ? "mb-4 text-center sm:mb-6" : "mb-12 text-center"}
     >
       <p className="mb-2 fs-eyebrow font-semibold tracking-wider font-outfit-section" style={{ color: "var(--committee-intro-eyebrow)" }}>
         HPC Alumni Executive Committee
@@ -1204,30 +1237,22 @@ export function AlumniExecutiveCommitteeIntro({
         Alumni Executive Committee 2025–2027
       </h2>
 
-      <p className="mt-3 w-full max-w-none fs-body text-muted-foreground leading-relaxed text-justify hyphens-auto">
-        The Alumni Executive Committee represents the elected and appointed leadership of the Hamdard Public
-        College Alumni Association. These members are responsible for guiding the alumni network, organizing
-        activities, and supporting the growth of the HPC alumni community.
-        <br />
-        <br />
-        Meet the leadership team shaping the future of the HPC Alumni Association.
-        <br />
-        <br />
-        The Alumni Executive Committee serves as the core leadership body of the Hamdard Public College Alumni
-        Association. It is composed of elected and appointed members who are dedicated to guiding the vision, mission,
-        and strategic direction of the alumni network.
-        <br />
-        <br />
-        The committee plays a vital role in strengthening connections among alumni, organizing events, promoting
-        collaboration, and supporting initiatives that benefit both former and current students of the college. Through
-        active leadership and commitment, the committee ensures that the values, traditions, and reputation of Hamdard
-        Public College are upheld and carried forward.
-        <br />
-        <br />
-        By fostering communication, mentorship, and professional networking opportunities, the Alumni Executive
-        Committee continues to build a strong and united global alumni community that contributes positively to society
-        and the development of the institution.
-      </p>
+      <div className="mt-3 w-full max-w-none space-y-3 fs-banner-message-body text-muted-foreground leading-relaxed text-justify [text-align-last:left] hyphens-none break-normal [word-break:normal] [overflow-wrap:normal]">
+        <p>
+          The Alumni Executive Committee represents the elected and appointed leadership of the Hamdard Public College
+          Alumni Association. These members are responsible for guiding the alumni network, organizing activities, and
+          supporting the growth of the HPC alumni community. As the core leadership body, the committee is dedicated to
+          shaping the vision, mission, and strategic direction of the alumni network while upholding the values,
+          traditions, and reputation of the institution.
+        </p>
+        <p>
+          The committee plays a vital role in strengthening connections among alumni by organizing events, promoting
+          collaboration, and supporting initiatives that benefit both former and current students. By fostering
+          communication, mentorship, and professional networking opportunities, the Alumni Executive Committee continues
+          to build a strong, united, and globally connected alumni community that contributes positively to society and the
+          ongoing development of Hamdard Public College.
+        </p>
+      </div>
 
       <p className="mt-4 text-sm text-muted-foreground/70">Total Members: {totalMembers}</p>
     </motion.div>
@@ -1268,7 +1293,7 @@ function sectionItemsFor(
   return withSerial.filter((x) => x.section === sec);
 }
 
-export function AlumniExecutiveCommitteeBoard({
+function AlumniExecutiveCommitteeBoard({
   data,
   showAll = false,
   compactIntro = false,
@@ -1749,3 +1774,5 @@ export function AlumniExecutiveCommitteeBoard({
     </>
   );
 }
+
+export { AlumniExecutiveCommitteeBoard };

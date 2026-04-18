@@ -35,7 +35,9 @@ const FeaturesTeaserSection = ({ content }: Props) => {
           <h2 className="fs-title mb-3 font-bold tracking-tight text-foreground font-outfit-section">
             {teaserHeading}
           </h2>
-          <p className="fs-body mb-6 text-muted-foreground text-justify hyphens-auto leading-relaxed">{teaserBody}</p>
+          <p className="fs-banner-message-body mb-6 text-landing-description text-justify [text-align-last:left] hyphens-none break-normal [word-break:normal] [overflow-wrap:normal] leading-relaxed">
+            {teaserBody}
+          </p>
           <Link
             to="/core-features"
             className="fs-button-text inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-primary px-5 py-2.5 font-semibold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 active:scale-[0.98]"

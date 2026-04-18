@@ -44,8 +44,7 @@ const ForgotPassword = () => {
 
   return (
     <div
-      className="relative min-h-screen flex items-center justify-center p-4"
-      style={{ background: "linear-gradient(135deg, #065F46, #059669, #064E3B)" }}
+      className="relative flex min-h-screen items-center justify-center p-4 hpc-auth-premium-canvas"
     >
       <div className="absolute top-4 left-4 z-10">
         <Link to="/login" className="inline-flex items-center gap-1 text-sm text-white/80 hover:text-amber-300 transition-colors">
@@ -62,7 +61,7 @@ const ForgotPassword = () => {
             </div>
           </Link>
         </div>
-        <Card className="shadow-card bg-card/95 backdrop-blur-sm">
+        <Card className="shadow-card border-white/15 bg-card/95 backdrop-blur-md">
           <CardHeader className="text-center">
             <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-2">
               <KeyRound className="w-6 h-6 text-primary" />

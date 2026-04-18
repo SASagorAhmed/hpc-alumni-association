@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { UserPlus, ArrowRight } from "lucide-react";
+import { captureRegisterBackSnapshot } from "@/lib/registerBackSnapshot";
 
 interface JoinProps { content?: Record<string, any>; }
 
@@ -12,6 +13,7 @@ const JoinSection = ({ content }: JoinProps) => {
   const ctaPrimaryHref = content?.ctaPrimaryHref ?? "/register";
   const ctaSecondaryHref = content?.ctaSecondaryHref ?? "/login";
   const primaryExternal = /^https?:\/\//i.test(ctaPrimaryHref);
+  const primaryIsInternalRegister = !primaryExternal && /^\/register(?:[/?#]|$)/i.test(ctaPrimaryHref);
   const secondaryExternal = /^https?:\/\//i.test(ctaSecondaryHref);
 
   return (
@@ -24,21 +26,22 @@ const JoinSection = ({ content }: JoinProps) => {
         <h2 className="mb-3 fs-title font-bold text-foreground">
           Join <span className="text-primary underline decoration-primary/30 underline-offset-4">{heading}</span>
         </h2>
-        <p className="mx-auto mb-6 max-w-lg fs-body text-muted-foreground text-justify hyphens-auto">{description}</p>
+        <p className="mx-auto mb-6 max-w-lg fs-banner-message-body text-landing-description text-justify [text-align-last:left] hyphens-none break-normal [word-break:normal] [overflow-wrap:normal]">{description}</p>
         <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
           {primaryExternal ? (
             <a
               href={ctaPrimaryHref}
               target="_blank"
               rel="noopener noreferrer"
-              className="fs-button-text inline-flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 font-semibold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 active:scale-[0.98]"
+              className="landing-cta-primary fs-button-text inline-flex items-center gap-2 rounded-md px-5 py-2.5 font-semibold active:scale-[0.98]"
             >
               {ctaPrimary} <ArrowRight size={16} />
             </a>
           ) : (
             <Link
               to={ctaPrimaryHref}
-              className="fs-button-text inline-flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 font-semibold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 active:scale-[0.98]"
+              onClick={primaryIsInternalRegister ? () => captureRegisterBackSnapshot() : undefined}
+              className="landing-cta-primary fs-button-text inline-flex items-center gap-2 rounded-md px-5 py-2.5 font-semibold active:scale-[0.98]"
             >
               {ctaPrimary} <ArrowRight size={16} />
             </Link>

@@ -1,22 +1,22 @@
-import { useState, useEffect, useCallback, useMemo, useId, useRef, type MouseEvent } from "react";
+import { useState, useEffect, useCallback, useMemo, useId, type MouseEvent } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, Menu, X, LogOut } from "lucide-react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate, type Location } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdminViewAsAlumni } from "@/contexts/AdminViewAsAlumniContext";
 import { cn } from "@/lib/utils";
 import { getAuthToken } from "@/lib/authToken";
 import { primeJsonCache } from "@/lib/requestCache";
+import { consumeFreshLandingNavTarget, setLandingNavIntent } from "@/lib/landingNavIntent";
+import { captureRegisterBackSnapshot } from "@/lib/registerBackSnapshot";
 import hpcLogo from "@/assets/hpc-logo.png";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import type { StructuredCommitteePayload } from "@/components/committee/StructuredCommitteeDisplay";
 import type { AchievementPublicRecord } from "@/lib/achievementPublic";
+import { useCommitteeMemberProfilePrefetch } from "@/hooks/useCommitteeMemberProfilePrefetch";
 import { useLandingContent } from "@/hooks/useLandingContent";
 import { API_BASE_URL } from "@/api-production/api.js";
-
-/** Matches scroll offset logic in Navbar (fixed bar ~48px + breathing room). */
-const LANDING_NAV_SCROLL_OFFSET = 80;
 
 const navLinks = [
   { label: "Home", href: "#" },
@@ -27,6 +27,33 @@ const navLinks = [
   { label: "Community", href: "#community" },
   { label: "Contact", href: "#contact" },
 ];
+const NAVBAR_SCROLL_OFFSET = 72;
+const SECTION_SWITCH_BIAS_PX = 220;
+const LANDING_SECTION_IDS_FOR_ACTIVE = [
+  "committee",
+  "achievements",
+  "notices",
+  "memories",
+  "academics",
+  "campus",
+  "community",
+  "contact",
+] as const;
+
+const SECTION_ID_TO_NAV_HREF: Partial<Record<(typeof LANDING_SECTION_IDS_FOR_ACTIVE)[number], string>> = {
+  academics: "#community",
+  campus: "#community",
+  community: "#community",
+};
+
+function sectionIdToNavHref(id: (typeof LANDING_SECTION_IDS_FOR_ACTIVE)[number]) {
+  return SECTION_ID_TO_NAV_HREF[id] ?? `#${id}`;
+}
+
+function landingHrefToScrollId(href: string) {
+  if (href === "#community") return "academics";
+  return href.replace("#", "");
+}
 
 type NavDropItem = { key: string; label: string; to: string; external?: boolean };
 
@@ -143,17 +170,19 @@ function DesktopNavDropdown({
   items,
   ariaLabel,
   onLandingClick,
+  onMenuItemIntent,
 }: {
   link: (typeof navLinks)[number];
   activeSection: string;
   items: NavDropItem[];
   ariaLabel: string;
   onLandingClick: (e: MouseEvent<HTMLAnchorElement>, href: string) => void;
+  onMenuItemIntent?: (item: NavDropItem) => void;
 }) {
   return (
     <div className="group relative inline-flex h-8 shrink-0 items-center">
       <Link
-        to={link.href === "#" ? "/" : `/${link.href}`}
+        to="/"
         onClick={(e) => onLandingClick(e, link.href)}
         className={cn(
             "nav-role-link topnav-btn-text relative inline-flex h-8 min-h-0 items-center whitespace-nowrap rounded-md px-1.5 font-semibold transition-colors lg:px-2",
@@ -193,6 +222,10 @@ function DesktopNavDropdown({
                 key={item.key}
                 role="menuitem"
                 to={item.to}
+                onPointerEnter={() => onMenuItemIntent?.(item)}
+                onMouseEnter={() => onMenuItemIntent?.(item)}
+                onFocus={() => onMenuItemIntent?.(item)}
+                onTouchStart={() => onMenuItemIntent?.(item)}
                 className="nav-role-row block w-full whitespace-normal break-words px-3 py-2 text-left font-medium leading-snug text-foreground transition-colors hover:bg-muted/70 hover:text-primary [overflow-wrap:anywhere]"
               >
                 {item.label}
@@ -211,12 +244,14 @@ function MobileNavDropSection({
   items,
   onLandingClick,
   onItemNavigate,
+  onMenuItemIntent,
 }: {
   link: (typeof navLinks)[number];
   activeSection: string;
   items: NavDropItem[];
   onLandingClick: (href: string) => void;
   onItemNavigate: () => void;
+  onMenuItemIntent?: (item: NavDropItem) => void;
 }) {
   const [subOpen, setSubOpen] = useState(false);
   const subMenuId = useId();
@@ -286,6 +321,10 @@ function MobileNavDropSection({
                     key={item.key}
                     to={item.to}
                     onClick={onItemNavigate}
+                    onPointerEnter={() => onMenuItemIntent?.(item)}
+                    onMouseEnter={() => onMenuItemIntent?.(item)}
+                    onFocus={() => onMenuItemIntent?.(item)}
+                    onTouchStart={() => onMenuItemIntent?.(item)}
                     className="nav-role-row topnav-btn-text block w-full whitespace-normal break-words rounded-md px-2 py-1.5 text-left font-medium leading-snug text-muted-foreground transition-colors hover:bg-muted/60 hover:text-primary [overflow-wrap:anywhere]"
                   >
                     {item.label}
@@ -300,66 +339,14 @@ function MobileNavDropSection({
   );
 }
 
-function scrollToLandingSection(href: string) {
-  if (href === "#") {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-    return;
-  }
-  const id = href.replace(/^#/, "");
-  if (!id) return;
-  const el = document.getElementById(id);
-  if (!el) return;
-  const y = el.getBoundingClientRect().top + window.scrollY - LANDING_NAV_SCROLL_OFFSET;
-  window.scrollTo({ top: Math.max(0, y), behavior: "smooth" });
+interface NavbarProps {
+  /** Full RGBRO metaverse chrome on the home page only (navbar + tokens). */
+  landingMetaverse?: boolean;
 }
 
-function startLandingSectionScrollWhenReady(href: string): () => void {
-  let cancelled = false;
-  const timers: number[] = [];
-  const startedAt = performance.now();
-
-  const stop = () => {
-    if (cancelled) return;
-    cancelled = true;
-    for (const id of timers) window.clearTimeout(id);
-    window.removeEventListener("wheel", cancelByUserInput);
-    window.removeEventListener("touchmove", cancelByUserInput);
-  };
-
-  const cancelByUserInput = () => {
-    // Ignore tiny finger jitter right after tap; only real user scrolling should cancel retries.
-    if (performance.now() - startedAt < 120) return;
-    stop();
-  };
-
-  const tryScroll = (attempt = 0) => {
-    if (cancelled) return;
-    if (href === "#") {
-      scrollToLandingSection(href);
-      return;
-    }
-    const id = href.replace(/^#/, "");
-    if (!id) return;
-    if (document.getElementById(id)) {
-      scrollToLandingSection(href);
-      return;
-    }
-    if (attempt >= 20) return;
-    timers.push(window.setTimeout(() => tryScroll(attempt + 1), 80));
-  };
-
-  window.addEventListener("wheel", cancelByUserInput, { passive: true });
-  window.addEventListener("touchmove", cancelByUserInput, { passive: true });
-  tryScroll();
-  return stop;
-}
-
-const Navbar = () => {
+const Navbar = ({ landingMetaverse = true }: NavbarProps) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeSection, setActiveSection] = useState("#");
-  const pendingLandingScrollCancelRef = useRef<(() => void) | null>(null);
-  const pendingMobileNavRafRef = useRef<number | null>(null);
-  const pendingMobileNavTimeoutRef = useRef<number | null>(null);
   const { user, isLoading, isAuthReady, logout } = useAuth();
   const { viewAsAlumni } = useAdminViewAsAlumni();
   const location = useLocation();
@@ -477,45 +464,84 @@ const Navbar = () => {
     prefetchDashboardDestination();
   }, [prefetchDashboardDestination]);
 
+  const prefetchCommitteeProfile = useCommitteeMemberProfilePrefetch();
+  const onCommitteeNavItemIntent = useCallback(
+    (item: NavDropItem) => {
+      const m = /^\/committee\/member\/([^/]+)\/?$/.exec(item.to);
+      if (m) prefetchCommitteeProfile(m[1]);
+    },
+    [prefetchCommitteeProfile]
+  );
+
   const closeMobileMenu = useCallback(() => {
     setMobileOpen(false);
   }, []);
 
-  const clearPendingMobileNavSchedule = useCallback(() => {
-    if (pendingMobileNavRafRef.current != null) {
-      window.cancelAnimationFrame(pendingMobileNavRafRef.current);
-      pendingMobileNavRafRef.current = null;
-    }
-    if (pendingMobileNavTimeoutRef.current != null) {
-      window.clearTimeout(pendingMobileNavTimeoutRef.current);
-      pendingMobileNavTimeoutRef.current = null;
-    }
+  const handleRegisterNavigationCapture = useCallback(() => {
+    captureRegisterBackSnapshot();
   }, []);
 
-  /** SPA-safe: go to `/` + hash and scroll (hash-only links break off-home and often don’t scroll with RR). */
-  const runLandingNavigation = useCallback(
-    (href: string) => {
-      setActiveSection(href === "#" ? "#" : href);
-      pendingLandingScrollCancelRef.current?.();
-      pendingLandingScrollCancelRef.current = null;
-
-      const onHome = location.pathname === "/";
-      const sectionHash = href === "#" ? "" : `#${href.replace(/^#/, "")}`;
-
-      if (!onHome) {
-        navigate(sectionHash ? `/${sectionHash}` : "/");
-        pendingLandingScrollCancelRef.current = startLandingSectionScrollWhenReady(href);
+  const scrollToLandingSection = useCallback((href: string) => {
+    const cleanUrl = `${window.location.pathname}${window.location.search}`;
+    if (window.location.hash) {
+      window.history.replaceState({}, "", cleanUrl);
+    }
+    const id = landingHrefToScrollId(href);
+    const maxFrames = 24;
+    let frame = 0;
+    const applyScroll = () => {
+      const prevScrollBehavior = document.documentElement.style.scrollBehavior;
+      document.documentElement.style.scrollBehavior = "auto";
+      if (!id) {
+        window.scrollTo(0, 0);
+        document.documentElement.style.scrollBehavior = prevScrollBehavior;
+        setActiveSection("#");
         return;
       }
-
-      if (sectionHash) {
-        window.history.replaceState(null, "", `/${sectionHash}`);
-      } else {
-        window.history.replaceState(null, "", "/");
+      const target = document.getElementById(id);
+      if (!target && frame < maxFrames) {
+        frame += 1;
+        requestAnimationFrame(applyScroll);
+        return;
       }
+      if (!target) {
+        document.documentElement.style.scrollBehavior = prevScrollBehavior;
+        return;
+      }
+      const y = Math.max(0, target.getBoundingClientRect().top + window.scrollY - NAVBAR_SCROLL_OFFSET);
+      window.scrollTo(0, y);
+      document.documentElement.style.scrollBehavior = prevScrollBehavior;
+      setActiveSection(href);
+    };
+    applyScroll();
+  }, []);
+
+  const runLandingNavigation = useCallback(
+    (href: string) => {
+      const pushLandingTarget = () => {
+        try {
+          setLandingNavIntent(href);
+          window.dispatchEvent(new CustomEvent("hpc:landing-nav-target", { detail: href }));
+        } catch {
+          /* ignore */
+        }
+      };
+      if (location.pathname !== "/") {
+        pushLandingTarget();
+        const state = location.state as { backgroundLocation?: Location } | null;
+        if (state?.backgroundLocation) {
+          navigate(-1);
+          return;
+        }
+        navigate("/");
+        return;
+      }
+      // Already on landing: use direct one-click section scroll only.
+      // Do not set cross-route nav intent/event here, which can cause
+      // duplicate scroll paths and active-section desync.
       scrollToLandingSection(href);
     },
-    [location.pathname, navigate]
+    [location.pathname, navigate, scrollToLandingSection]
   );
 
   const handleLandingNavClick = useCallback(
@@ -526,47 +552,27 @@ const Navbar = () => {
     [runLandingNavigation]
   );
 
-  const runMobileLandingNavigationAfterClose = useCallback(
-    (href: string) => {
-      clearPendingMobileNavSchedule();
-      let executed = false;
-      const execute = () => {
-        if (executed) return;
-        executed = true;
-        clearPendingMobileNavSchedule();
-        runLandingNavigation(href);
-      };
-      let frameCount = 0;
-      const tick = () => {
-        frameCount += 1;
-        if (frameCount >= 2) {
-          execute();
-          return;
-        }
-        pendingMobileNavRafRef.current = window.requestAnimationFrame(tick);
-      };
-      pendingMobileNavRafRef.current = window.requestAnimationFrame(tick);
-      // Fallback for browsers throttling RAF during overlays.
-      pendingMobileNavTimeoutRef.current = window.setTimeout(execute, 120);
-    },
-    [clearPendingMobileNavSchedule, runLandingNavigation]
-  );
-
   const handleMobileLandingNavClick = useCallback(
     (href: string) => {
       closeMobileMenu();
-      runMobileLandingNavigationAfterClose(href);
+      runLandingNavigation(href);
     },
-    [closeMobileMenu, runMobileLandingNavigationAfterClose]
+    [closeMobileMenu, runLandingNavigation]
   );
 
   useEffect(() => {
-    return () => {
-      pendingLandingScrollCancelRef.current?.();
-      pendingLandingScrollCancelRef.current = null;
-      clearPendingMobileNavSchedule();
-    };
-  }, [clearPendingMobileNavSchedule]);
+    // Fallback for cross-route/overlay flows:
+    // when we arrive back on landing, consume pending target and
+    // apply the section scroll once so first click always works.
+    if (location.pathname !== "/") return;
+    const pendingTarget = consumeFreshLandingNavTarget();
+    if (!pendingTarget) return;
+    scrollToLandingSection(pendingTarget);
+  }, [location.pathname, scrollToLandingSection]);
+
+  useEffect(() => {
+    if (mobileOpen) setMobileOpen(false);
+  }, [location.pathname, mobileOpen]);
 
   useEffect(() => {
     if (!mobileOpen) return;
@@ -583,55 +589,94 @@ const Navbar = () => {
   }, [mobileOpen]);
 
   useEffect(() => {
-    // Ensure mobile menu never lingers across route changes.
-    if (mobileOpen) setMobileOpen(false);
-    if (window.matchMedia("(max-width: 1024px)").matches) {
-      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
-    }
-  }, [location.pathname]);
+    if (!isLandingRoute || typeof window === "undefined") return;
 
-  useEffect(() => {
-    const handleScroll = () => {
+    let raf = 0;
+    let settleRaf = 0;
+    const resolveActiveSection = () => {
       const scrollY = window.scrollY;
-      const offset = 80;
-      const activationY = scrollY + offset + 40;
+      // Switch section when previous section is effectively out of view
+      // (user preference), not too early at heading touch.
+      const activationY = scrollY + NAVBAR_SCROLL_OFFSET + SECTION_SWITCH_BIAS_PX;
 
-      if (scrollY < 72) {
-        setActiveSection("#");
+      if (scrollY < NAVBAR_SCROLL_OFFSET) {
+        setActiveSection((prev) => (prev === "#" ? prev : "#"));
         return;
       }
 
       if (window.innerHeight + scrollY >= document.body.scrollHeight - 50) {
         const lastLink = navLinks[navLinks.length - 1];
-        setActiveSection(lastLink.href);
+        setActiveSection((prev) => (prev === lastLink.href ? prev : lastLink.href));
         return;
       }
 
-      let current = "#";
+      let next = "#";
       let currentTop = 0;
-      for (const link of navLinks) {
-        const id = link.href.replace("#", "");
-        if (!id) continue;
-        const el = document.getElementById(id);
-        if (!el) continue;
-        const top = el.offsetTop;
+      for (const id of LANDING_SECTION_IDS_FOR_ACTIVE) {
+        const node = document.getElementById(id);
+        if (!node) continue;
+        const top = node.getBoundingClientRect().top + window.scrollY;
         if (top <= activationY && top >= currentTop) {
-          current = link.href;
+          next = sectionIdToNavHref(id);
           currentTop = top;
         }
       }
-      setActiveSection(current);
+      setActiveSection((prev) => (prev === next ? prev : next));
     };
 
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    handleScroll();
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
+    const scheduleResolve = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(resolveActiveSection);
+    };
+
+    // Deterministic settle pass + short bounded polling for late async layout shifts.
+    // This keeps community/contact mapping correct after refresh without long-running polling.
+    const runSettlePass = () => {
+      let pass = 0;
+      const maxPasses = 14;
+      const tick = () => {
+        scheduleResolve();
+        if (pass >= maxPasses) return;
+        pass += 1;
+        settleRaf = requestAnimationFrame(tick);
+      };
+      cancelAnimationFrame(settleRaf);
+      tick();
+    };
+
+    window.addEventListener("scroll", scheduleResolve, { passive: true });
+    window.addEventListener("resize", scheduleResolve);
+    window.addEventListener("load", runSettlePass as EventListener);
+    window.addEventListener("hpc:route-scroll-restored", runSettlePass as EventListener);
+    window.addEventListener("pageshow", runSettlePass as EventListener);
+    runSettlePass();
+
+    return () => {
+      cancelAnimationFrame(raf);
+      cancelAnimationFrame(settleRaf);
+      window.removeEventListener("scroll", scheduleResolve);
+      window.removeEventListener("resize", scheduleResolve);
+      window.removeEventListener("load", runSettlePass as EventListener);
+      window.removeEventListener("hpc:route-scroll-restored", runSettlePass as EventListener);
+      window.removeEventListener("pageshow", runSettlePass as EventListener);
+    };
+  }, [
+    isLandingRoute,
+    committeeNavItems.length,
+    achievementNavItems.length,
+    noticeNavItems.length,
+    memoryNavItems.length,
+  ]);
 
   return (
     <nav
-      className="fixed top-0 left-0 right-0 z-50 border-b border-border/30 backdrop-blur-md"
-      style={{ background: "var(--navbar-bg)" }}
+      className={cn(
+        "fixed top-0 left-0 right-0 z-50 border-b",
+        landingMetaverse
+          ? "landing-navbar-metaverse border-cyan-400/25"
+          : "border-border/30 backdrop-blur-md"
+      )}
+      style={!landingMetaverse ? { background: "var(--navbar-bg)" } : undefined}
       data-navbar-text-scale="1.1"
     >
       <div className="layout-container flex h-11 items-center justify-between sm:h-12">
@@ -642,7 +687,6 @@ const Navbar = () => {
             if (location.pathname === "/") {
               e.preventDefault();
               setActiveSection("#");
-              window.scrollTo({ top: 0, behavior: "smooth" });
             }
           }}
         >
@@ -655,7 +699,12 @@ const Navbar = () => {
               Hamdard Public College
             </span>
             <span
-              className="nav-brand-subtitle mt-px block truncate bg-gradient-to-r from-[#fb4d3d] via-[#16a34a] to-[#22c55e] bg-clip-text font-extrabold tracking-[0.12em] text-transparent"
+              className={cn(
+                "nav-brand-subtitle mt-px block truncate bg-clip-text font-extrabold tracking-[0.12em] text-transparent",
+                landingMetaverse
+                  ? "bg-gradient-to-r from-amber-300 via-orange-400 to-yellow-300"
+                  : "bg-gradient-to-r from-[#fb4d3d] via-[#16a34a] to-[#22c55e]"
+              )}
               style={{ textShadow: "0 0 0.15px rgba(0,0,0,0.25)" }}
             >
               ALUMNI ASSOCIATION
@@ -677,7 +726,8 @@ const Navbar = () => {
                       activeSection={activeSection}
                       items={committeeNavItems}
                       ariaLabel="Committee assigned posts"
-                      onLandingClick={handleLandingNavClick}
+                      onLandingClick={(e) => handleLandingNavClick(e, link.href)}
+                      onMenuItemIntent={onCommitteeNavItemIntent}
                     />
                   );
                 }
@@ -689,7 +739,7 @@ const Navbar = () => {
                       activeSection={activeSection}
                       items={achievementNavItems}
                       ariaLabel="Achievements"
-                      onLandingClick={handleLandingNavClick}
+                      onLandingClick={(e) => handleLandingNavClick(e, link.href)}
                     />
                   );
                 }
@@ -701,7 +751,7 @@ const Navbar = () => {
                       activeSection={activeSection}
                       items={noticeNavItems}
                       ariaLabel="Notices"
-                      onLandingClick={handleLandingNavClick}
+                      onLandingClick={(e) => handleLandingNavClick(e, link.href)}
                     />
                   );
                 }
@@ -713,7 +763,7 @@ const Navbar = () => {
                       activeSection={activeSection}
                       items={memoryNavItems}
                       ariaLabel="Memories"
-                      onLandingClick={handleLandingNavClick}
+                      onLandingClick={(e) => handleLandingNavClick(e, link.href)}
                     />
                   );
                 }
@@ -725,14 +775,14 @@ const Navbar = () => {
                       activeSection={activeSection}
                       items={communityNavItems}
                       ariaLabel="Community links"
-                      onLandingClick={handleLandingNavClick}
+                      onLandingClick={(e) => handleLandingNavClick(e, link.href)}
                     />
                   );
                 }
                 return (
                   <Link
                     key={link.href + link.label}
-                    to={link.href === "#" ? "/" : `/${link.href}`}
+                    to="/"
                     onClick={(e) => handleLandingNavClick(e, link.href)}
                     className={cn(
                       "nav-role-link topnav-btn-text group relative inline-flex h-8 min-h-0 shrink-0 items-center whitespace-nowrap rounded-md px-1.5 font-semibold transition-colors lg:px-2",
@@ -767,14 +817,24 @@ const Navbar = () => {
                 onFocus={prefetchDashboardDestination}
                 onTouchStart={prefetchDashboardDestination}
                 onClick={handleDashboardTap}
-                className="nav-role-action nav-role-action-logged topnav-btn-text inline-flex h-9 min-h-0 items-center justify-center whitespace-nowrap rounded-md border border-transparent bg-primary px-3.5 font-semibold text-primary-foreground transition-all hover:bg-primary/90 active:scale-[0.98]"
+                className={cn(
+                  "nav-role-action nav-role-action-logged topnav-btn-text inline-flex h-9 min-h-0 items-center justify-center whitespace-nowrap rounded-md border border-transparent px-3.5 font-semibold transition-all active:scale-[0.98]",
+                  landingMetaverse
+                    ? "landing-nav-cta-gradient text-white shadow-lg"
+                    : "bg-primary text-primary-foreground hover:bg-primary/90"
+                )}
               >
                 Dashboard
               </Link>
               <button
                 type="button"
                 onClick={logout}
-                className="nav-role-action nav-role-action-logged topnav-btn-text inline-flex h-9 min-h-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-border/80 px-3.5 font-medium text-foreground transition-colors hover:bg-muted/50 hover:text-primary"
+                className={cn(
+                  "nav-role-action nav-role-action-logged topnav-btn-text inline-flex h-9 min-h-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border px-3.5 font-medium transition-colors",
+                  landingMetaverse
+                    ? "landing-nav-cta-ghost border-white/20 text-slate-200 hover:text-amber-200"
+                    : "border-border/80 text-foreground hover:bg-muted/50 hover:text-primary"
+                )}
               >
                 <LogOut className="nav-icon-inline shrink-0" />
                 Logout
@@ -787,13 +847,24 @@ const Navbar = () => {
             <div className="ml-2 flex shrink-0 items-center gap-2 border-l border-border/40 pl-3">
               <Link
                 to="/login"
-                className="nav-role-action topnav-btn-text inline-flex h-9 min-h-0 items-center justify-center whitespace-nowrap rounded-md border border-border/80 px-3.5 font-semibold text-foreground transition-all hover:border-primary/40 hover:bg-muted/60 active:scale-[0.98]"
+                className={cn(
+                  "nav-role-action topnav-btn-text inline-flex h-9 min-h-0 items-center justify-center whitespace-nowrap rounded-md border px-3.5 font-semibold transition-all active:scale-[0.98]",
+                  landingMetaverse
+                    ? "landing-nav-cta-ghost border-white/25 text-slate-100"
+                    : "border-border/80 text-foreground hover:border-primary/40 hover:bg-muted/60"
+                )}
               >
                 Login
               </Link>
               <Link
                 to="/register"
-                className="nav-role-action topnav-btn-text inline-flex h-9 min-h-0 items-center justify-center whitespace-nowrap rounded-md border border-transparent bg-primary px-3.5 font-semibold text-primary-foreground transition-all hover:bg-primary/90 active:scale-[0.98]"
+                onClick={handleRegisterNavigationCapture}
+                className={cn(
+                  "nav-role-action topnav-btn-text inline-flex h-9 min-h-0 items-center justify-center whitespace-nowrap rounded-md border border-transparent px-3.5 font-semibold transition-all active:scale-[0.98]",
+                  landingMetaverse
+                    ? "landing-nav-cta-gradient text-white shadow-lg"
+                    : "bg-primary text-primary-foreground hover:bg-primary/90"
+                )}
               >
                 Join Alumni
               </Link>
@@ -811,8 +882,6 @@ const Navbar = () => {
           aria-controls="landing-nav-mobile-menu"
           aria-label={mobileOpen ? "Close menu" : "Open menu"}
           onClick={() => {
-            pendingLandingScrollCancelRef.current?.();
-            pendingLandingScrollCancelRef.current = null;
             setMobileOpen((prev) => !prev);
           }}
           className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-foreground hover:bg-muted/50 sm:h-11 sm:w-11 lg:hidden"
@@ -834,7 +903,10 @@ const Navbar = () => {
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.14, ease: "easeOut" }}
-            className="overflow-hidden border-t border-border/50 bg-card lg:hidden"
+            className={cn(
+              "overflow-hidden border-t border-border/50 bg-card lg:hidden",
+              landingMetaverse && "landing-nav-mobile-drawer-metaverse border-cyan-500/20"
+            )}
           >
             <div className="flex max-h-[min(70vh,calc(100dvh-2.75rem))] flex-col gap-0.5 overflow-y-auto overscroll-contain px-4 py-2.5 sm:max-h-[min(70vh,calc(100dvh-3rem))]">
               {navLinks.map((link) => {
@@ -845,8 +917,9 @@ const Navbar = () => {
                       link={link}
                       activeSection={activeSection}
                       items={committeeNavItems}
-                      onLandingClick={handleMobileLandingNavClick}
+                      onLandingClick={() => handleMobileLandingNavClick(link.href)}
                       onItemNavigate={closeMobileMenu}
+                      onMenuItemIntent={onCommitteeNavItemIntent}
                     />
                   );
                 }
@@ -857,7 +930,7 @@ const Navbar = () => {
                       link={link}
                       activeSection={activeSection}
                       items={achievementNavItems}
-                      onLandingClick={handleMobileLandingNavClick}
+                      onLandingClick={() => handleMobileLandingNavClick(link.href)}
                       onItemNavigate={closeMobileMenu}
                     />
                   );
@@ -869,7 +942,7 @@ const Navbar = () => {
                       link={link}
                       activeSection={activeSection}
                       items={noticeNavItems}
-                      onLandingClick={handleMobileLandingNavClick}
+                      onLandingClick={() => handleMobileLandingNavClick(link.href)}
                       onItemNavigate={closeMobileMenu}
                     />
                   );
@@ -881,7 +954,7 @@ const Navbar = () => {
                       link={link}
                       activeSection={activeSection}
                       items={memoryNavItems}
-                      onLandingClick={handleMobileLandingNavClick}
+                      onLandingClick={() => handleMobileLandingNavClick(link.href)}
                       onItemNavigate={closeMobileMenu}
                     />
                   );
@@ -893,7 +966,7 @@ const Navbar = () => {
                       link={link}
                       activeSection={activeSection}
                       items={communityNavItems}
-                      onLandingClick={handleMobileLandingNavClick}
+                      onLandingClick={() => handleMobileLandingNavClick(link.href)}
                       onItemNavigate={closeMobileMenu}
                     />
                   );
@@ -925,13 +998,21 @@ const Navbar = () => {
                     onFocus={prefetchDashboardDestination}
                     onTouchStart={prefetchDashboardDestination}
                     onClick={handleDashboardTap}
-                    className="nav-role-action topnav-btn-text mt-2 rounded-md bg-primary px-4 py-2 text-center font-semibold text-primary-foreground shadow-sm"
+                    className={cn(
+                      "nav-role-action topnav-btn-text mt-2 rounded-md px-4 py-2 text-center font-semibold shadow-sm",
+                      landingMetaverse ? "landing-nav-cta-gradient text-white" : "bg-primary text-primary-foreground"
+                    )}
                   >
                     Dashboard
                   </Link>
                   <button
                     onClick={() => { logout(); closeMobileMenu(); }}
-                    className="nav-role-action topnav-btn-text mt-1 inline-flex items-center justify-center gap-1.5 rounded-md border border-border px-4 py-2 font-medium text-foreground hover:text-primary"
+                    className={cn(
+                      "nav-role-action topnav-btn-text mt-1 inline-flex items-center justify-center gap-1.5 rounded-md border px-4 py-2 font-medium",
+                      landingMetaverse
+                        ? "landing-nav-cta-ghost border-white/20 text-slate-200 hover:text-amber-200"
+                        : "border-border text-foreground hover:text-primary"
+                    )}
                   >
                     <LogOut className="nav-icon-inline" />
                     Logout
@@ -941,13 +1022,20 @@ const Navbar = () => {
                 <>
                   <Link
                     to="/login"
-                    className="nav-role-action topnav-btn-text mt-2 rounded-md border border-border px-4 py-2 text-center font-semibold text-foreground"
+                    className={cn(
+                      "nav-role-action topnav-btn-text mt-2 rounded-md border px-4 py-2 text-center font-semibold",
+                      landingMetaverse ? "landing-nav-cta-ghost border-white/25 text-slate-100" : "border-border text-foreground"
+                    )}
                   >
                     Login
                   </Link>
                   <Link
                     to="/register"
-                    className="nav-role-action topnav-btn-text mt-1 rounded-md bg-primary px-4 py-2 text-center font-semibold text-primary-foreground shadow-sm"
+                    onClick={handleRegisterNavigationCapture}
+                    className={cn(
+                      "nav-role-action topnav-btn-text mt-1 rounded-md px-4 py-2 text-center font-semibold shadow-sm",
+                      landingMetaverse ? "landing-nav-cta-gradient text-white" : "bg-primary text-primary-foreground"
+                    )}
                   >
                     Join Alumni
                   </Link>

@@ -34,6 +34,61 @@
       content="Official HPC Alumni Association website for alumni directory, committee, notices, and events."
     />
     <meta name="twitter:image" content="/hpc-logo.png" />
+    <script>
+      (function () {
+        var KEY_PREFIX = "HPC_SCROLL:route";
+        var routeKey = window.location.pathname + window.location.search;
+        var storageKey = KEY_PREFIX + ":" + routeKey;
+
+        if ("scrollRestoration" in window.history) {
+          window.history.scrollRestoration = "manual";
+        }
+
+        var raw = null;
+        try {
+          raw = window.sessionStorage.getItem(storageKey);
+        } catch (_err) {
+          raw = null;
+        }
+
+        if (!raw) return;
+        var snapshot = null;
+        var numeric = Number(raw);
+        if (Number.isFinite(numeric)) {
+          snapshot = { y: numeric };
+        } else {
+          try {
+            var parsed = JSON.parse(raw);
+            if (parsed && typeof parsed.y === "number" && Number.isFinite(parsed.y)) {
+              snapshot = {
+                y: parsed.y,
+                sectionId: typeof parsed.sectionId === "string" ? parsed.sectionId : undefined,
+                sectionOffset:
+                  typeof parsed.sectionOffset === "number" && Number.isFinite(parsed.sectionOffset)
+                    ? parsed.sectionOffset
+                    : undefined,
+              };
+            }
+          } catch (_parseErr) {
+            snapshot = null;
+          }
+        }
+
+        if (!snapshot) return;
+
+        document.documentElement.style.visibility = "hidden";
+        window.__HPC_SCROLL_VISIBILITY_LOCK__ = true;
+        if (window.location.hash) {
+          window.history.replaceState({}, "", window.location.pathname + window.location.search);
+        }
+        window.__HPC_PENDING_SCROLL_RESTORE__ = {
+          key: storageKey,
+          y: snapshot.y,
+          sectionId: snapshot.sectionId,
+          sectionOffset: snapshot.sectionOffset,
+        };
+      })();
+    </script>
 
     <script type="application/ld+json">
       {

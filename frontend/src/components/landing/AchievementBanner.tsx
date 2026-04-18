@@ -266,6 +266,35 @@ function celebrateParticlesFor(slideKey: string): { dx: number; dy: number; dela
   });
 }
 
+function celebrateSlideHash(slideKey: string): number {
+  let h = 0;
+  for (let i = 0; i < slideKey.length; i++) h = (h * 31 + slideKey.charCodeAt(i)) | 0;
+  return h;
+}
+
+/** Hues + motion seeds per slide — orange / amber band (banner congratulations only). */
+function celebrateVisualVarsFromSlideKey(slideKey: string): CSSProperties {
+  const h = celebrateSlideHash(slideKey);
+  const u8 = (n: number) => (h >>> n) & 255;
+  const hueA = 16 + (u8(0) % 34);
+  const hueB = 32 + (u8(8) % 26);
+  const rayDir = (h & 1) === 0 ? -1 : 1;
+  const shimmerDelay = ((u8(16) % 22) / 100).toFixed(2);
+  return {
+    ["--hpc-celebrate-hue-a" as string]: String(hueA),
+    ["--hpc-celebrate-hue-b" as string]: String(hueB),
+    ["--hpc-celebrate-ray-dir" as string]: String(rayDir),
+    ["--hpc-celebrate-shimmer-delay" as string]: `${shimmerDelay}s`,
+  };
+}
+
+function celebrateParticleBackground(slideKey: string, index: number): string {
+  const h = celebrateSlideHash(slideKey);
+  const hue = 14 + (((h + index * 37) >>> 0) % 44);
+  const hue2 = (hue + 8 + (index % 6) * 4) % 60;
+  return `linear-gradient(to bottom right, hsl(${hue} 95% 82%), hsl(${hue2} 88% 52%))`;
+}
+
 /** Theme 3 only — luxury editorial palette + typography (fonts in loadFonts.ts). */
 const THEME3_NAVY = "#001F3F";
 const THEME3_GOLD = "#D4AF37";
@@ -415,6 +444,7 @@ function CongratulationsBurstReveal({
   isPaused,
   presetBannerTokens,
   bannerTheme = "default",
+  landingRight = false,
 }: {
   message: string;
   heading?: string | null;
@@ -423,6 +453,8 @@ function CongratulationsBurstReveal({
   /** Theme 2 / 3 inline token sets (achievement card + congratulations panel). */
   presetBannerTokens?: boolean;
   bannerTheme?: "default" | "theme2" | "theme3";
+  /** Home banner: match landing section field + orange congratulations copy */
+  landingRight?: boolean;
 }) {
   const theme3Celebrate = bannerTheme === "theme3";
   /** Default theme message panel matches Theme 3 box (spacing, fonts, backdrop); themes stay separate elsewhere. */
@@ -444,33 +476,54 @@ function CongratulationsBurstReveal({
   }, [messageWithBreaks]);
 
   const messageBodyClass = cn(
-    "fs-banner-message-body min-h-0 w-full max-w-full whitespace-pre-line",
-    "text-justify [text-align-last:left] hyphens-none break-words text-pretty",
+    "hpc-celebrate-message hpc-celebrate-pauseable fs-banner-message-body min-h-0 w-full max-w-full whitespace-pre-line",
+    "text-justify [text-align-last:left] hyphens-none break-normal text-pretty [word-break:normal] [overflow-wrap:normal]",
     messagePanelLikeTheme3 ? "not-italic" : "italic leading-snug text-white/85"
+  );
+
+  const celebrateShellStyle = useMemo(
+    () => ({
+      contain: "paint" as const,
+      isolation: "isolate" as const,
+      ...celebrateVisualVarsFromSlideKey(slideKey),
+    }),
+    [slideKey]
   );
 
   return (
     <div
       className={cn(
         "hpc-celebrate-root relative w-full min-w-0 max-w-full overflow-hidden rounded-md border bg-gradient-to-b from-white/[0.1] to-white/[0.04] px-2 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] sm:rounded-lg sm:px-3 sm:py-2.5",
-        !(messagePanelLikeTheme3 && presetBannerTokens) && "backdrop-blur-[2px]",
+        landingRight && "hpc-celebrate-landing-on-metaverse",
+        !(messagePanelLikeTheme3 && presetBannerTokens) && !landingRight && "backdrop-blur-[2px]",
         isPaused && "achievement-winner-paused"
       )}
       style={
-        presetBannerTokens
+        landingRight
           ? {
-              borderColor: "var(--achievement-banner-congrats-border)",
-              background: "var(--achievement-banner-congrats-bg)",
-              ...(messagePanelLikeTheme3 ? { backdropFilter: "none" } : { backdropFilter: "blur(6px)" }),
+              ...celebrateShellStyle,
+              backdropFilter: "none",
             }
-          : { borderColor: "var(--achievement-banner-tag-border)" }
+          : presetBannerTokens
+            ? {
+                ...celebrateShellStyle,
+                borderColor: "var(--achievement-banner-congrats-border)",
+                background: "var(--achievement-banner-congrats-bg)",
+                ...(messagePanelLikeTheme3 ? { backdropFilter: "none" } : { backdropFilter: "blur(6px)" }),
+              }
+            : { ...celebrateShellStyle, borderColor: "var(--achievement-banner-tag-border)" }
       }
     >
+      {/* Contained highlight: shimmer + rim stay inside rounded rect (contain: paint on root). */}
+      <div
+        className="pointer-events-none absolute inset-0 z-0 hpc-celebrate-shimmer-layer hpc-celebrate-pauseable rounded-[inherit]"
+        aria-hidden
+      />
       <div className="pointer-events-none absolute inset-0 z-0 hpc-celebrate-ambient hpc-celebrate-pauseable" aria-hidden />
 
-      {/* Burst + rays: centered on “Congratulations” (full-width box), not offset — matches previous visual balance */}
+      {/* Burst + rays: centered on “Congratulations”; clip stays inside root overflow. */}
       <div
-        className="pointer-events-none absolute left-1/2 top-0 z-[1] h-[min(9rem,56%)] w-full max-lg:max-w-full lg:max-w-[min(100%,24rem)] -translate-x-1/2 overflow-hidden sm:top-1 sm:h-[min(10rem,58%)]"
+        className="pointer-events-none absolute left-1/2 top-0 z-[1] h-[min(8rem,52%)] w-[min(100%,20rem)] max-w-full -translate-x-1/2 overflow-hidden rounded-t-[inherit] sm:top-0.5 sm:h-[min(8.5rem,54%)]"
         aria-hidden
       >
         <div className="hpc-celebrate-blast-ring hpc-celebrate-pauseable" />
@@ -478,18 +531,19 @@ function CongratulationsBurstReveal({
       </div>
 
       <div
-        className="pointer-events-none absolute left-1/2 top-[1.2rem] z-[2] w-0 -translate-x-1/2 sm:top-[1.45rem]"
+        className="pointer-events-none absolute left-1/2 top-[1.2rem] z-[2] w-0 max-w-full -translate-x-1/2 overflow-visible sm:top-[1.45rem]"
         aria-hidden
       >
         {particles.map((p, i) => (
           <span
             key={`${slideKey}-sp-${i}`}
-            className="absolute left-0 top-0 hpc-celebrate-particle hpc-celebrate-pauseable rounded-full bg-gradient-to-br from-amber-50/98 to-amber-500/85 shadow-[0_0_8px_rgba(251,191,36,0.65),0_0_14px_rgba(255,255,255,0.2)]"
+            className="absolute left-0 top-0 hpc-celebrate-particle hpc-celebrate-pauseable rounded-full shadow-[0_0_6px_rgba(255,255,255,0.35)]"
             style={{
               width: p.size,
               height: p.size,
               marginLeft: `${-p.size / 2}px`,
               marginTop: `${-p.size / 2}px`,
+              background: celebrateParticleBackground(slideKey, i),
               ["--dx" as string]: `${p.dx}px`,
               ["--dy" as string]: `${p.dy}px`,
               animationDelay: `${p.delay}s`,
@@ -499,15 +553,22 @@ function CongratulationsBurstReveal({
       </div>
 
       <div className="relative z-10 flex w-full min-w-0 flex-col">
-        <div className="flex w-full justify-center px-0.5 pt-0.5">
+        <div
+          className={cn(
+            "flex w-full justify-center px-0.5 pt-0.5",
+            landingRight && "hpc-celebrate-title-row"
+          )}
+        >
           <span
             className={cn(
               "hpc-celebrate-title hpc-celebrate-pauseable inline-block text-center fs-banner-celebrate-heading",
-              theme3Celebrate
+              landingRight && "hpc-celebrate-title-landing font-extrabold uppercase tracking-[0.12em] sm:tracking-[0.14em]",
+              theme3Celebrate && !landingRight
                 ? "uppercase tracking-[0.04em] sm:tracking-[0.05em]"
-                : "font-extrabold uppercase tracking-[0.12em] sm:tracking-[0.14em] bg-gradient-to-r from-amber-100 via-white to-amber-200/95 bg-clip-text text-transparent"
+                : !landingRight &&
+                    "font-extrabold uppercase tracking-[0.12em] sm:tracking-[0.14em] bg-gradient-to-r from-orange-200 via-amber-100 to-orange-300/95 bg-clip-text text-transparent"
             )}
-            style={theme3Celebrate ? THEME3_CONGRATS_TITLE_STYLE : undefined}
+            style={theme3Celebrate && !landingRight ? THEME3_CONGRATS_TITLE_STYLE : undefined}
           >
             {heading?.trim() || "Congratulations"}
           </span>
@@ -518,7 +579,7 @@ function CongratulationsBurstReveal({
               messageBodyClass,
               "mt-1 line-clamp-[10] max-lg:line-clamp-none"
             )}
-            style={messagePanelLikeTheme3 ? THEME3_MESSAGE_BODY_STYLE : undefined}
+            style={messagePanelLikeTheme3 && !landingRight ? THEME3_MESSAGE_BODY_STYLE : undefined}
           >
             &ldquo;{messageParagraphs[0]}&rdquo;
           </p>
@@ -528,7 +589,7 @@ function CongratulationsBurstReveal({
               <p
                 key={`${slideKey}-msg-p-${i}`}
                 className={messageBodyClass}
-                style={messagePanelLikeTheme3 ? THEME3_MESSAGE_BODY_STYLE : undefined}
+                style={messagePanelLikeTheme3 && !landingRight ? THEME3_MESSAGE_BODY_STYLE : undefined}
               >
                 {i === 0 ? "\u201C" : null}
                 {para}
@@ -537,17 +598,23 @@ function CongratulationsBurstReveal({
             ))}
           </div>
         )}
-        <p
-          className={cn(
-            "fs-banner-association-line mt-1.5 shrink-0 border-t border-white/10 pt-1.5 text-right",
-            messagePanelLikeTheme3
-              ? "normal-case tracking-normal font-normal opacity-100"
-              : "font-semibold uppercase tracking-[0.08em] opacity-90"
-          )}
-          style={messagePanelLikeTheme3 ? THEME3_ASSOCIATION_LINE_STYLE : { color: "var(--achievement-banner-line)" }}
-        >
-          HPC Alumni Association
-        </p>
+        <div className={cn(landingRight && "hpc-celebrate-association-row w-full")}>
+          <p
+            className={cn(
+              "fs-banner-association-line mt-1.5 w-full shrink-0 border-t border-white/10 pt-1.5 !text-right",
+              messagePanelLikeTheme3
+                ? "normal-case tracking-normal font-normal opacity-100"
+                : "font-semibold uppercase tracking-[0.08em] opacity-90"
+            )}
+            style={
+              messagePanelLikeTheme3 && !landingRight
+                ? THEME3_ASSOCIATION_LINE_STYLE
+                : { color: "var(--achievement-banner-line)" }
+            }
+          >
+            HPC Alumni Association
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -817,24 +884,44 @@ function resolveAchievementBannerTheme(itemThemeRaw: string, fallbackThemeRaw: s
   return "default";
 }
 
-/** Theme 2 — teal / tomato palette (inline tokens). */
+/** Theme 2 — dark ember base + full orange / amber accents (no cyan on chrome). */
 const THEME2_BANNER_CSS_VARS: CSSProperties = {
   ["--achievement-banner-side-bg" as string]:
-    "linear-gradient(135deg, #0a6f62 0%, #075f54 48%, #045248 100%)",
-  ["--achievement-banner-side-overlay" as string]: "linear-gradient(to left, #14303d, transparent)",
-  ["--achievement-banner-eyebrow" as string]: "#fcd34d",
-  ["--achievement-banner-line" as string]: "#fbbf24",
-  ["--achievement-banner-progress" as string]: "#3fb8af",
-  ["--achievement-banner-tag-fg" as string]: "#fde68a",
-  ["--achievement-banner-tag-bg" as string]: "rgba(251, 191, 36, 0.20)",
-  ["--achievement-banner-tag-border" as string]: "rgba(251, 191, 36, 0.40)",
-  ["--achievement-banner-ach-bg" as string]: "rgba(255, 255, 255, 0.12)",
-  ["--achievement-banner-ach-border" as string]: "rgba(255, 149, 89, 0.62)",
-  ["--achievement-banner-ach-title" as string]: "#FFF0EA",
-  ["--achievement-banner-congrats-bg" as string]: "rgba(255, 255, 255, 0.18)",
-  ["--achievement-banner-congrats-border" as string]: "rgba(255, 149, 89, 0.72)",
-  ["--achievement-banner-congrats-heading" as string]: "#FFF7D6",
-  ["--achievement-banner-icon-accent" as string]: "#3fb8af",
+    "linear-gradient(148deg, #100605 0%, #160a04 42%, #0a0503 78%, #050302 100%)",
+  ["--achievement-banner-side-overlay" as string]: "linear-gradient(to left, rgba(255, 100, 30, 0.28), transparent)",
+  ["--achievement-banner-eyebrow" as string]: "#fed7aa",
+  ["--achievement-banner-line" as string]: "#fb923c",
+  ["--achievement-banner-progress" as string]: "#ff9100",
+  ["--achievement-banner-tag-fg" as string]: "#ffedd5",
+  ["--achievement-banner-tag-bg" as string]: "rgba(255, 149, 0, 0.2)",
+  ["--achievement-banner-tag-border" as string]: "rgba(251, 146, 60, 0.45)",
+  ["--achievement-banner-ach-bg" as string]: "rgba(255, 255, 255, 0.06)",
+  ["--achievement-banner-ach-border" as string]: "rgba(255, 149, 0, 0.42)",
+  ["--achievement-banner-ach-title" as string]: "#fff7ed",
+  ["--achievement-banner-congrats-bg" as string]: "rgba(255, 120, 40, 0.12)",
+  ["--achievement-banner-congrats-border" as string]: "rgba(251, 146, 60, 0.5)",
+  ["--achievement-banner-congrats-heading" as string]: "#fed7aa",
+  ["--achievement-banner-icon-accent" as string]: "#ff9100",
+};
+
+/** Home Index only: “default” DB theme still gets warm orange metaverse banner (matches landing). */
+const DEFAULT_LANDING_BANNER_CSS_VARS: CSSProperties = {
+  ["--achievement-banner-side-bg" as string]:
+    "linear-gradient(152deg, #120807 0%, #1a0f06 40%, #0d0804 72%, #060403 100%)",
+  ["--achievement-banner-side-overlay" as string]: "linear-gradient(to left, rgba(255, 120, 40, 0.22), transparent)",
+  ["--achievement-banner-eyebrow" as string]: "#fdba74",
+  ["--achievement-banner-line" as string]: "#fb923c",
+  ["--achievement-banner-progress" as string]: "#ff9100",
+  ["--achievement-banner-tag-fg" as string]: "#ffedd5",
+  ["--achievement-banner-tag-bg" as string]: "rgba(255, 149, 0, 0.18)",
+  ["--achievement-banner-tag-border" as string]: "rgba(251, 146, 60, 0.45)",
+  ["--achievement-banner-ach-bg" as string]: "rgba(255, 255, 255, 0.06)",
+  ["--achievement-banner-ach-border" as string]: "rgba(255, 149, 0, 0.4)",
+  ["--achievement-banner-ach-title" as string]: "#fff7ed",
+  ["--achievement-banner-congrats-bg" as string]: "rgba(255, 120, 40, 0.12)",
+  ["--achievement-banner-congrats-border" as string]: "rgba(251, 146, 60, 0.5)",
+  ["--achievement-banner-congrats-heading" as string]: "#fed7aa",
+  ["--achievement-banner-icon-accent" as string]: "#fb923c",
 };
 
 /**
@@ -1025,10 +1112,20 @@ const AchievementBanner = ({ embedded = false }: { embedded?: boolean }) => {
 
   if (bannerLoading) {
     return (
-      <div className="w-full rounded-xl border border-border/80 bg-card p-3 sm:p-4">
+      <div
+        className={cn(
+          "w-full min-w-0 overflow-x-hidden rounded-xl border p-3 sm:p-4",
+          embedded
+            ? "achievement-banner-landing-surface border-white/15"
+            : "border-border/80 bg-card"
+        )}
+      >
         <div className="animate-pulse space-y-2">
-          <div className="h-5 w-40 rounded bg-muted" />
-          <div className="w-full rounded bg-muted" style={{ aspectRatio: ACHIEVEMENT_BANNER_CROP_ASPECT }} />
+          <div className={cn("h-5 w-40 rounded", embedded ? "bg-white/10" : "bg-muted")} />
+          <div
+            className={cn("w-full rounded", embedded ? "bg-white/10" : "bg-muted")}
+            style={{ aspectRatio: ACHIEVEMENT_BANNER_CROP_ASPECT }}
+          />
         </div>
       </div>
     );
@@ -1036,12 +1133,26 @@ const AchievementBanner = ({ embedded = false }: { embedded?: boolean }) => {
 
   if (bannerError) {
     return (
-      <div className="w-full rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm">
-        <p className="font-medium text-destructive">Achievement banner could not load.</p>
+      <div
+        className={cn(
+          "w-full min-w-0 rounded-xl border p-3 text-sm",
+          embedded
+            ? "achievement-banner-landing-surface border-destructive/40 bg-transparent text-foreground"
+            : "border-destructive/30 bg-destructive/5"
+        )}
+      >
+        <p className={cn("font-medium", embedded ? "text-red-300" : "text-destructive")}>
+          Achievement banner could not load.
+        </p>
         <button
           type="button"
           onClick={() => refetchBanner()}
-          className="mt-2 inline-flex items-center rounded-md border border-border px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
+          className={cn(
+            "mt-2 inline-flex items-center rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors",
+            embedded
+              ? "border-white/25 text-foreground hover:bg-white/10"
+              : "border-border text-foreground hover:bg-muted"
+          )}
         >
           Refresh banner
         </button>
@@ -1069,7 +1180,7 @@ const AchievementBanner = ({ embedded = false }: { embedded?: boolean }) => {
       ? THEME2_BANNER_CSS_VARS
       : activeBannerTheme === "theme3"
         ? THEME3_BANNER_CSS_VARS
-        : {};
+        : DEFAULT_LANDING_BANNER_CSS_VARS;
 
   const presetNavBtnStyle: CSSProperties | undefined =
     !bannerUsesPresetTokens
@@ -1077,8 +1188,8 @@ const AchievementBanner = ({ embedded = false }: { embedded?: boolean }) => {
       : activeBannerTheme === "theme2"
         ? {
             color: "var(--achievement-banner-icon-accent)",
-            borderColor: "rgba(34,197,94,0.55)",
-            backgroundColor: "rgba(34,197,94,0.12)",
+            borderColor: "rgba(251, 146, 60, 0.55)",
+            backgroundColor: "rgba(255, 149, 0, 0.14)",
           }
         : {
             color: THEME3_GOLD,
@@ -1090,7 +1201,7 @@ const AchievementBanner = ({ embedded = false }: { embedded?: boolean }) => {
     "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-primary/45 bg-primary/[0.08] text-primary shadow-md backdrop-blur-sm transition-all hover:border-primary hover:bg-primary/15 hover:text-primary hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-95 sm:h-10 sm:w-10 dark:border-primary/50 dark:bg-primary/[0.12] dark:hover:bg-primary/20";
 
   return (
-    <div className="w-full min-w-0 overflow-x-hidden bg-background" style={bannerThemeVars}>
+    <div className={cn("achievement-banner-landing-surface w-full min-w-0 overflow-x-hidden")} style={bannerThemeVars}>
       <div className={embedded ? "min-w-0 pb-0 pt-0" : "layout-container min-w-0 pb-2 pt-2 sm:pb-2.5 sm:pt-2.5 md:pb-3 md:pt-3"}>
         <div
           className={cn(
@@ -1099,7 +1210,9 @@ const AchievementBanner = ({ embedded = false }: { embedded?: boolean }) => {
           )}
         >
         <div
-          className="@container/achievement-banner hpc-banner-typography-root relative flex min-w-0 w-full flex-1 max-w-full flex-col overflow-hidden rounded-xl border border-border/90 bg-background shadow-md ring-1 ring-border/40"
+          className={cn(
+            "@container/achievement-banner achievement-banner-landing-fonts hpc-banner-typography-root relative flex min-w-0 w-full flex-1 max-w-full flex-col overflow-hidden rounded-xl border border-border/90 bg-background shadow-md ring-1 ring-border/40"
+          )}
           onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
         >
@@ -1232,7 +1345,7 @@ const AchievementBanner = ({ embedded = false }: { embedded?: boolean }) => {
           </div>
 
           {/* Alumni Spotlight pill row — with prev/next buttons on mobile */}
-          <div className="flex shrink-0 items-center justify-between gap-2 px-3 py-2" style={{ background: "var(--achievement-banner-side-bg)" }}>
+          <div className={cn("flex shrink-0 items-center justify-between gap-2 px-3 py-2 hpc-banner-right-landing-bg")}>
             {/* Prev button */}
             {achievements.length > 1 ? (
               <button type="button" onClick={prev} aria-label="Previous slide"
@@ -1277,8 +1390,10 @@ const AchievementBanner = ({ embedded = false }: { embedded?: boolean }) => {
 
           {/* Text content — grows vertically; min-h-0 avoids flex squashing the photo */}
           <div
-            className={cn("relative flex min-h-0 flex-col gap-2.5 px-4 py-3", isPaused && "achievement-winner-paused")}
-            style={{ background: "var(--achievement-banner-side-bg)" }}
+            className={cn(
+              "relative flex min-h-0 flex-col gap-2.5 px-4 py-3 hpc-banner-right-landing-bg",
+              isPaused && "achievement-winner-paused"
+            )}
           >
             {/* Spotlight radial glow — same feel as achievement banner ambient */}
             <div className="pointer-events-none absolute inset-0 z-[1] hpc-celebrate-ambient hpc-celebrate-pauseable" aria-hidden />
@@ -1294,21 +1409,11 @@ const AchievementBanner = ({ embedded = false }: { embedded?: boolean }) => {
               {item.achievement_title?.trim() ? (
                 <div
                   key={`mob-ach-${item.id}-${animCycle}`}
-                  className={cn(
-                    "hpc-banner-right-enter w-full min-w-0 rounded-lg border bg-white/[0.06] px-3 py-2",
-                    !isTheme3 && "backdrop-blur-[2px]"
-                  )}
-                  style={{
-                    borderColor: bannerUsesPresetTokens ? "var(--achievement-banner-ach-border)" : "var(--achievement-banner-tag-border)",
-                    background: bannerUsesPresetTokens ? "var(--achievement-banner-ach-bg)" : undefined,
-                    animationDelay: "0.08s",
-                  }}
+                  className="hpc-banner-right-enter hpc-banner-ach-box-landing w-full min-w-0"
+                  style={{ animationDelay: "0.08s" }}
                 >
                   <p
-                    className={cn(
-                      "fs-banner-pill uppercase",
-                      isTheme3 ? "tracking-[0.14em]" : isDefaultBannerTheme ? "tracking-[0.12em]" : "font-semibold tracking-widest"
-                    )}
+                    className="hpc-banner-ach-label uppercase"
                     style={
                       isTheme3
                         ? THEME3_ACH_LABEL_STYLE
@@ -1317,16 +1422,12 @@ const AchievementBanner = ({ embedded = false }: { embedded?: boolean }) => {
                           : { color: "#FFFFFF" }
                     }
                   >
-                    {isTheme3 ? "ACHIEVEMENT" : "Achievement"}
+                    ACHIEVEMENT
                   </p>
                   <MobileAchievementTitleOneLine
                     text={item.achievement_title.trim()}
                     maxRem={isTheme3 ? 1.15 : isDefaultBannerTheme ? 1.38 : 0.95}
-                    className={cn(
-                      "hpc-banner-ach-title mt-0.5 w-full min-w-0 leading-snug text-left",
-                      isDefaultBannerTheme && "uppercase",
-                      !isTheme3 && !isDefaultBannerTheme && "font-semibold"
-                    )}
+                    className="hpc-banner-ach-title mt-1 w-full min-w-0 leading-snug text-left font-bold uppercase"
                     style={
                       isTheme3
                         ? THEME3_ACH_TITLE_STYLE
@@ -1352,6 +1453,7 @@ const AchievementBanner = ({ embedded = false }: { embedded?: boolean }) => {
                     isPaused={isPaused}
                     presetBannerTokens={bannerUsesPresetTokens}
                     bannerTheme={activeBannerTheme}
+                    landingRight
                   />
                 </div>
               ) : null}
@@ -1428,10 +1530,9 @@ const AchievementBanner = ({ embedded = false }: { embedded?: boolean }) => {
             {/* Right column — stretches to photo height via flex align-items:stretch */}
             <div
               className={cn(
-                "hpc-achievement-right-pane relative z-[10] box-border flex min-w-0 flex-1 flex-col justify-start overflow-x-hidden overflow-y-hidden pt-6",
+                "hpc-achievement-right-pane relative z-[10] box-border flex min-w-0 flex-1 flex-col justify-start overflow-x-hidden overflow-y-hidden pt-6 hpc-banner-right-landing-bg",
                 isPaused && "achievement-winner-paused"
               )}
-              style={{ background: "var(--achievement-banner-side-bg)" }}
             >
               {achievements.length > 1 ? (
                 <button
@@ -1492,21 +1593,9 @@ const AchievementBanner = ({ embedded = false }: { embedded?: boolean }) => {
                       className="hpc-banner-right-enter w-full min-w-0 shrink-0"
                       style={{ animationDelay: "0.12s" }}
                     >
-                      <div
-                        className={cn(
-                          "hpc-banner-right-pauseable w-full rounded-lg border bg-white/[0.06] px-2.5 py-1.5",
-                          isTheme3 ? "" : "hpc-banner-right-box-glow backdrop-blur-[2px]"
-                        )}
-                        style={{
-                          borderColor: bannerUsesPresetTokens ? "var(--achievement-banner-ach-border)" : "var(--achievement-banner-tag-border)",
-                          background: bannerUsesPresetTokens ? "var(--achievement-banner-ach-bg)" : undefined,
-                        }}
-                      >
+                      <div className="hpc-banner-right-pauseable hpc-banner-ach-box-landing w-full">
                         <p
-                          className={cn(
-                            "fs-banner-pill uppercase",
-                            isTheme3 ? "tracking-[0.14em]" : isDefaultBannerTheme ? "tracking-[0.12em]" : "font-semibold tracking-widest"
-                          )}
+                          className="hpc-banner-ach-label uppercase"
                           style={
                             isTheme3
                               ? THEME3_ACH_LABEL_STYLE
@@ -1515,14 +1604,10 @@ const AchievementBanner = ({ embedded = false }: { embedded?: boolean }) => {
                                 : { color: "#FFFFFF" }
                           }
                         >
-                          {isTheme3 ? "ACHIEVEMENT" : "Achievement"}
+                          ACHIEVEMENT
                         </p>
                         <p
-                          className={cn(
-                            "hpc-banner-ach-title mt-0.5 w-full min-w-0 break-words text-wrap leading-snug text-left hyphens-none",
-                            isDefaultBannerTheme && "uppercase",
-                            !isTheme3 && !isDefaultBannerTheme && "font-semibold"
-                          )}
+                          className="hpc-banner-ach-title mt-1 w-full min-w-0 break-words text-wrap leading-snug text-left hyphens-none font-bold uppercase"
                           style={
                             isTheme3
                               ? THEME3_ACH_TITLE_STYLE
@@ -1550,6 +1635,7 @@ const AchievementBanner = ({ embedded = false }: { embedded?: boolean }) => {
                         isPaused={isPaused}
                         presetBannerTokens={bannerUsesPresetTokens}
                         bannerTheme={activeBannerTheme}
+                        landingRight
                       />
                     </div>
                   ) : null}
@@ -1718,7 +1804,7 @@ const AchievementBanner = ({ embedded = false }: { embedded?: boolean }) => {
           animation: hpc-banner-right-item-in 0.48s cubic-bezier(0.22, 1, 0.36, 1) both;
         }
 
-        /* —— Congratulations burst reveal (right column message only) —— */
+        /* —— Congratulations panel (banner only): per-slide tint vars + effects clipped to .hpc-celebrate-root —— */
         @keyframes hpc-celebrate-ambient {
           from {
             opacity: 0;
@@ -1728,20 +1814,72 @@ const AchievementBanner = ({ embedded = false }: { embedded?: boolean }) => {
           }
         }
         .hpc-celebrate-ambient {
-          animation: hpc-celebrate-ambient 0.32s ease-out forwards;
-          background: radial-gradient(ellipse 96% 80% at 50% 12%, hsl(var(--primary) / 0.26), transparent 60%);
+          animation: hpc-celebrate-ambient 0.36s ease-out forwards;
+          background:
+            radial-gradient(
+              ellipse 82% 72% at 50% 10%,
+              hsl(var(--hpc-celebrate-hue-a, 24) 82% 56% / 0.22),
+              transparent 58%
+            ),
+            radial-gradient(
+              ellipse 52% 42% at 72% 102%,
+              hsl(var(--hpc-celebrate-hue-b, 38) 86% 52% / 0.12),
+              transparent 56%
+            );
+        }
+
+        @keyframes hpc-celebrate-shimmer-enter {
+          0% {
+            background-position: 120% 50%;
+            opacity: 0;
+          }
+          18% {
+            opacity: 0.5;
+          }
+          100% {
+            background-position: -40% 50%;
+            opacity: 0;
+          }
+        }
+        .hpc-celebrate-shimmer-layer {
+          background: linear-gradient(
+            105deg,
+            transparent 0%,
+            transparent 38%,
+            hsl(var(--hpc-celebrate-hue-a, 24) 88% 68% / 0.26) 50%,
+            transparent 62%,
+            transparent 100%
+          );
+          background-size: 240% 100%;
+          mix-blend-mode: screen;
+          animation: hpc-celebrate-shimmer-enter 1.18s cubic-bezier(0.22, 1, 0.36, 1) var(--hpc-celebrate-shimmer-delay, 0s)
+            forwards;
+        }
+
+        @keyframes hpc-celebrate-message-reveal {
+          from {
+            opacity: 0;
+            transform: translate3d(0, 8px, 0);
+          }
+          to {
+            opacity: 1;
+            transform: translate3d(0, 0, 0);
+          }
+        }
+        .hpc-celebrate-message {
+          animation: hpc-celebrate-message-reveal 0.58s cubic-bezier(0.22, 1, 0.36, 1) 0.16s both;
         }
 
         @keyframes hpc-celebrate-blast-ring {
           0% {
-            transform: translate(-50%, -50%) scale(0.18);
+            transform: translate(-50%, -50%) scale(0.16);
             opacity: 0;
           }
-          18% {
-            opacity: 0.95;
+          20% {
+            opacity: 0.92;
           }
           100% {
-            transform: translate(-50%, -50%) scale(1.62);
+            transform: translate(-50%, -50%) scale(1.22);
             opacity: 0;
           }
         }
@@ -1749,31 +1887,31 @@ const AchievementBanner = ({ embedded = false }: { embedded?: boolean }) => {
           position: absolute;
           left: 50%;
           top: 50%;
-          width: 132%;
+          width: 118%;
           aspect-ratio: 1;
           border-radius: 50%;
           transform: translate(-50%, -50%);
           background: radial-gradient(
             circle,
-            rgba(255, 255, 255, 0.32) 0%,
-            rgba(251, 191, 36, 0.48) 26%,
-            rgba(251, 191, 36, 0.14) 48%,
-            transparent 72%
+            hsl(var(--hpc-celebrate-hue-a, 24) 90% 72% / 0.36) 0%,
+            hsl(var(--hpc-celebrate-hue-b, 40) 88% 58% / 0.28) 28%,
+            hsl(var(--hpc-celebrate-hue-b, 40) 82% 52% / 0.1) 46%,
+            transparent 70%
           );
-          filter: blur(1px);
-          animation: hpc-celebrate-blast-ring 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.1s forwards;
+          filter: blur(0.5px);
+          animation: hpc-celebrate-blast-ring 0.88s cubic-bezier(0.22, 1, 0.36, 1) 0.08s forwards;
         }
 
         @keyframes hpc-celebrate-blast-rays {
           0% {
-            transform: translate(-50%, -50%) scale(0.22) rotate(-8deg);
+            transform: translate(-50%, -50%) scale(0.2) rotate(calc(-10deg * var(--hpc-celebrate-ray-dir, 1)));
             opacity: 0;
           }
-          26% {
-            opacity: 0.72;
+          28% {
+            opacity: 0.68;
           }
           100% {
-            transform: translate(-50%, -50%) scale(1.38) rotate(0deg);
+            transform: translate(-50%, -50%) scale(1.12) rotate(0deg);
             opacity: 0;
           }
         }
@@ -1781,18 +1919,18 @@ const AchievementBanner = ({ embedded = false }: { embedded?: boolean }) => {
           position: absolute;
           left: 50%;
           top: 50%;
-          width: 248%;
-          height: 248%;
+          width: 200%;
+          height: 200%;
           transform: translate(-50%, -50%);
           background: repeating-conic-gradient(
             from 0deg at 50% 50%,
-            rgba(255, 255, 255, 0.18) 0deg 3.5deg,
-            transparent 3.5deg 17deg
+            hsl(var(--hpc-celebrate-hue-a, 24) 85% 70% / 0.16) 0deg 3.2deg,
+            transparent 3.2deg 16deg
           );
           opacity: 0;
-          animation: hpc-celebrate-blast-rays 0.86s cubic-bezier(0.22, 1, 0.36, 1) 0.12s forwards;
-          mask-image: radial-gradient(circle, black 10%, transparent 72%);
-          -webkit-mask-image: radial-gradient(circle, black 10%, transparent 72%);
+          animation: hpc-celebrate-blast-rays 0.84s cubic-bezier(0.22, 1, 0.36, 1) 0.1s forwards;
+          mask-image: radial-gradient(circle, black 12%, transparent 70%);
+          -webkit-mask-image: radial-gradient(circle, black 12%, transparent 70%);
         }
 
         @keyframes hpc-celebrate-particle {
@@ -1830,16 +1968,15 @@ const AchievementBanner = ({ embedded = false }: { embedded?: boolean }) => {
           0%,
           100% {
             text-shadow:
-              0 0 18px rgba(251, 191, 36, 0.55),
-              0 0 32px rgba(251, 191, 36, 0.22),
-              0 2px 0 rgba(0, 0, 0, 0.45);
+              0 0 6px hsl(var(--hpc-celebrate-hue-b, 43) 90% 58% / 0.45),
+              0 0 12px hsl(var(--hpc-celebrate-hue-a, 24) 85% 55% / 0.28),
+              0 1px 0 rgba(0, 0, 0, 0.48);
           }
           50% {
             text-shadow:
-              0 0 28px rgba(251, 191, 36, 0.75),
-              0 0 48px rgba(255, 255, 255, 0.22),
-              0 0 64px rgba(251, 191, 36, 0.18),
-              0 2px 0 rgba(0, 0, 0, 0.5);
+              0 0 10px hsl(var(--hpc-celebrate-hue-b, 43) 92% 56% / 0.55),
+              0 0 18px hsl(var(--hpc-celebrate-hue-a, 24) 88% 52% / 0.35),
+              0 1px 0 rgba(0, 0, 0, 0.52);
           }
         }
         .hpc-celebrate-title {
@@ -1868,25 +2005,44 @@ const AchievementBanner = ({ embedded = false }: { embedded?: boolean }) => {
           .hpc-celebrate-blast-ring,
           .hpc-celebrate-blast-rays,
           .hpc-celebrate-particle,
-          .hpc-celebrate-ambient {
+          .hpc-celebrate-ambient,
+          .hpc-celebrate-shimmer-layer,
+          .hpc-celebrate-message {
             animation: none !important;
           }
           .hpc-celebrate-title {
             opacity: 1;
             transform: none;
             text-shadow:
-              0 0 16px rgba(251, 191, 36, 0.45),
-              0 0 28px rgba(251, 191, 36, 0.2),
-              0 2px 0 rgba(0, 0, 0, 0.4);
+              0 0 8px hsl(var(--hpc-celebrate-hue-b, 43) 85% 55% / 0.4),
+              0 0 14px hsl(var(--hpc-celebrate-hue-a, 24) 80% 50% / 0.22),
+              0 1px 0 rgba(0, 0, 0, 0.42);
           }
           .hpc-celebrate-blast-ring,
           .hpc-celebrate-blast-rays,
           .hpc-celebrate-particle {
             display: none !important;
           }
+          .hpc-celebrate-shimmer-layer {
+            opacity: 0 !important;
+          }
+          .hpc-celebrate-message {
+            opacity: 1;
+            transform: none;
+          }
           .hpc-celebrate-ambient {
             opacity: 1;
-            background: radial-gradient(ellipse 96% 64% at 50% 12%, hsl(var(--primary) / 0.14), transparent 56%);
+            background:
+              radial-gradient(
+                ellipse 88% 68% at 50% 12%,
+                hsl(var(--hpc-celebrate-hue-a, 24) 75% 52% / 0.14),
+                transparent 56%
+              ),
+              radial-gradient(
+                ellipse 50% 40% at 72% 100%,
+                hsl(var(--hpc-celebrate-hue-b, 38) 80% 48% / 0.08),
+                transparent 55%
+              );
           }
         }
 

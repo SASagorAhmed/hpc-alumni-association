@@ -6,6 +6,7 @@ import { getAuthToken } from "@/lib/authToken";
 export type LandingContent = Record<string, Record<string, any>>;
 
 export const LANDING_CONTENT_QUERY_KEY = ["landing-content"] as const;
+const LANDING_CONTENT_CACHE_KEY = "hpc:landing:content-cache";
 
 export async function fetchLandingContent(): Promise<LandingContent> {
   const res = await fetch(`${API_BASE_URL}/api/public/landing-content`, { method: "GET" });
@@ -15,11 +16,39 @@ export async function fetchLandingContent(): Promise<LandingContent> {
   return (await res.json()) as LandingContent;
 }
 
+function readCachedLandingContent(): LandingContent | undefined {
+  if (typeof window === "undefined") return undefined;
+  try {
+    const raw = window.sessionStorage.getItem(LANDING_CONTENT_CACHE_KEY);
+    if (!raw) return undefined;
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return undefined;
+    return parsed as LandingContent;
+  } catch {
+    return undefined;
+  }
+}
+
+function writeCachedLandingContent(data: LandingContent): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(LANDING_CONTENT_CACHE_KEY, JSON.stringify(data));
+  } catch {
+    // ignore cache write errors
+  }
+}
+
 export const useLandingContent = (options?: { enabled?: boolean }) => {
   return useQuery({
     queryKey: LANDING_CONTENT_QUERY_KEY,
     queryFn: fetchLandingContent,
     staleTime: 1000 * 60 * 5,
+    refetchOnWindowFocus: false,
+    placeholderData: (previousData) => previousData,
+    initialData: readCachedLandingContent,
+    onSuccess: (data) => {
+      writeCachedLandingContent(data);
+    },
     enabled: options?.enabled !== false,
   });
 };

@@ -1,10 +1,10 @@
 import {
-  createBrowserRouter,
-  createRoutesFromElements,
+  BrowserRouter,
+  type Location,
   Outlet,
   Route,
-  RouterProvider,
-  ScrollRestoration,
+  Routes,
+  useLocation,
 } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
@@ -14,7 +14,6 @@ import { AdminViewAsAlumniProvider } from "@/contexts/AdminViewAsAlumniContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { ThemeToggleFixedFallback } from "@/components/ThemeToggleFixedFallback";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import { ScrollToTopOnRouteChange } from "@/components/ScrollToTopOnRouteChange";
 import { SplashGate } from "@/components/splash/SplashGate";
 import AutoRepairBoundary from "@/components/ui/AutoRepairBoundary";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
@@ -65,13 +64,13 @@ import AdminSettings from "./pages/admin/AdminSettings.tsx";
 import AdminLandingEditor from "./pages/admin/AdminLandingEditor.tsx";
 import AdminMemories from "./pages/admin/AdminMemories.tsx";
 import AdminUserProfile from "./pages/admin/AdminUserProfile.tsx";
+import { useRouteScrollPersistence } from "@/hooks/useRouteScrollPersistence";
+import { CursorAmbientGlow } from "@/components/effects/CursorAmbientGlow";
 
-/** Layout: scroll restoration + custom landing/detail scroll helpers; all routes render in `<Outlet />`. */
+/** Layout: providers + routed content; all routes render in `<Outlet />`. */
 function AppShell() {
   return (
     <>
-      <ScrollRestoration />
-      <ScrollToTopOnRouteChange />
       <AuthProvider>
         <AdminViewAsAlumniProvider>
           <ThemeToggleFixedFallback />
@@ -86,85 +85,108 @@ function AppShell() {
   );
 }
 
-const router = createBrowserRouter(
-  createRoutesFromElements(
-    <Route path="/" element={<AppShell />}>
-      <Route index element={<Index />} />
-      <Route path="core-features" element={<CoreFeatures />} />
-      <Route path="member/:id" element={<MemberDetail />} />
-      <Route path="memories/:id" element={<MemoryDetail />} />
-      <Route path="achievements/:id" element={<AchievementDetail />} />
-      <Route path="committee/member/:id" element={<CommitteeMemberProfile />} />
-      <Route path="register" element={<Register />} />
-      <Route path="login" element={<Login />} />
-      <Route path="forgot-password" element={<ForgotPassword />} />
-      <Route path="reset-password" element={<ResetPassword />} />
-      <Route path="admin/login" element={<AdminLogin />} />
-      <Route path="verify-otp" element={<VerifyOTP />} />
-      <Route element={<ProtectedRoute />}>
-        <Route path="set-password" element={<SetPassword />} />
-      </Route>
-      <Route element={<ProtectedRoute allowUnapproved />}>
-        <Route element={<DashboardLayout />}>
-          <Route path="pending-verification" element={<PendingVerification />} />
-        </Route>
-      </Route>
+function AppRoutes() {
+  const location = useLocation();
+  const state = location.state as { backgroundLocation?: Location } | null;
+  const backgroundLocation = state?.backgroundLocation;
+  useRouteScrollPersistence({ keyPrefix: "HPC_SCROLL:route", enabled: !backgroundLocation });
 
-      <Route element={<ProtectedRoute requiredRole="alumni" />}>
-        <Route element={<DashboardLayout />}>
-          <Route path="dashboard" element={<AlumniDashboard />} />
-          <Route path="committee" element={<Committee />} />
-          <Route path="directory" element={<Directory />} />
-          <Route path="directory/:id" element={<DirectoryProfile />} />
-          <Route path="elections" element={<Elections />} />
-          <Route path="events" element={<Events />} />
-          <Route path="events/:id" element={<EventDetail />} />
-          <Route path="donations" element={<Donations />} />
-          <Route path="documents" element={<Documents />} />
-        </Route>
-      </Route>
+  return (
+    <>
+      <Routes location={backgroundLocation || location}>
+        <Route path="/" element={<AppShell />}>
+          <Route index element={<Index />} />
+          <Route path="core-features" element={<CoreFeatures />} />
+          <Route path="member/:id" element={<MemberDetail />} />
+          <Route path="memories/:id" element={<MemoryDetail />} />
+          <Route path="achievements/:id" element={<AchievementDetail />} />
+          <Route path="committee/member/:id" element={<CommitteeMemberProfile />} />
+          <Route path="register" element={<Register />} />
+          <Route path="login" element={<Login />} />
+          <Route path="forgot-password" element={<ForgotPassword />} />
+          <Route path="reset-password" element={<ResetPassword />} />
+          <Route path="admin/login" element={<AdminLogin />} />
+          <Route path="verify-otp" element={<VerifyOTP />} />
+          <Route element={<ProtectedRoute />}>
+            <Route path="set-password" element={<SetPassword />} />
+          </Route>
+          <Route element={<ProtectedRoute allowUnapproved />}>
+            <Route element={<DashboardLayout />}>
+              <Route path="pending-verification" element={<PendingVerification />} />
+            </Route>
+          </Route>
 
-      <Route element={<ProtectedRoute />}>
-        <Route element={<DashboardLayout />}>
-          <Route path="profile" element={<Profile />} />
-          <Route path="notices" element={<Notices />} />
-          <Route path="notices/:id" element={<NoticeDetail />} />
-        </Route>
-      </Route>
+          <Route element={<ProtectedRoute requiredRole="alumni" />}>
+            <Route element={<DashboardLayout />}>
+              <Route path="dashboard" element={<AlumniDashboard />} />
+              <Route path="committee" element={<Committee />} />
+              <Route path="directory" element={<Directory />} />
+              <Route path="directory/:id" element={<DirectoryProfile />} />
+              <Route path="elections" element={<Elections />} />
+              <Route path="events" element={<Events />} />
+              <Route path="events/:id" element={<EventDetail />} />
+              <Route path="donations" element={<Donations />} />
+              <Route path="documents" element={<Documents />} />
+            </Route>
+          </Route>
 
-      <Route element={<ProtectedRoute requiredRole="admin" />}>
-        <Route element={<DashboardLayout />}>
-          <Route path="admin/dashboard" element={<AdminDashboard />} />
-          <Route path="admin/users" element={<AdminUsers />} />
-          <Route path="admin/users/:id" element={<AdminUserProfile />} />
-          <Route path="admin/committee" element={<AdminCommittee />} />
-          <Route path="admin/elections" element={<AdminElections />} />
-          <Route path="admin/candidates" element={<AdminCandidates />} />
-          <Route path="admin/winners" element={<AdminWinners />} />
-          <Route path="admin/achievements" element={<AdminAchievements />} />
-          <Route path="admin/events" element={<AdminEvents />} />
-          <Route path="admin/donations" element={<AdminDonations />} />
-          <Route path="admin/notices" element={<AdminNotices />} />
-          <Route path="admin/documents" element={<AdminDocuments />} />
-          <Route path="admin/audit-logs" element={<AdminAuditLogs />} />
-          <Route path="admin/settings" element={<AdminSettings />} />
-          <Route path="admin/landing-editor" element={<AdminLandingEditor />} />
-          <Route path="admin/memories" element={<AdminMemories />} />
-        </Route>
-      </Route>
+          <Route element={<ProtectedRoute />}>
+            <Route element={<DashboardLayout />}>
+              <Route path="profile" element={<Profile />} />
+              <Route path="notices" element={<Notices />} />
+              <Route path="notices/:id" element={<NoticeDetail />} />
+            </Route>
+          </Route>
 
-      <Route path="*" element={<NotFound />} />
-    </Route>
-  ),
-  { future: { v7_relativeSplatPath: true } }
-);
+          <Route element={<ProtectedRoute requiredRole="admin" />}>
+            <Route element={<DashboardLayout />}>
+              <Route path="admin/dashboard" element={<AdminDashboard />} />
+              <Route path="admin/users" element={<AdminUsers />} />
+              <Route path="admin/users/:id" element={<AdminUserProfile />} />
+              <Route path="admin/committee" element={<AdminCommittee />} />
+              <Route path="admin/elections" element={<AdminElections />} />
+              <Route path="admin/candidates" element={<AdminCandidates />} />
+              <Route path="admin/winners" element={<AdminWinners />} />
+              <Route path="admin/achievements" element={<AdminAchievements />} />
+              <Route path="admin/events" element={<AdminEvents />} />
+              <Route path="admin/donations" element={<AdminDonations />} />
+              <Route path="admin/notices" element={<AdminNotices />} />
+              <Route path="admin/documents" element={<AdminDocuments />} />
+              <Route path="admin/audit-logs" element={<AdminAuditLogs />} />
+              <Route path="admin/settings" element={<AdminSettings />} />
+              <Route path="admin/landing-editor" element={<AdminLandingEditor />} />
+              <Route path="admin/memories" element={<AdminMemories />} />
+            </Route>
+          </Route>
+
+          <Route path="*" element={<NotFound />} />
+        </Route>
+      </Routes>
+
+      {backgroundLocation ? (
+        <Routes>
+          <Route path="/" element={<AppShell />}>
+            <Route path="memories/:id" element={<MemoryDetail />} />
+            <Route path="achievements/:id" element={<AchievementDetail />} />
+            <Route path="member/:id" element={<MemberDetail />} />
+            <Route path="committee/member/:id" element={<CommitteeMemberProfile />} />
+            <Route path="directory/:id" element={<DirectoryProfile />} />
+          </Route>
+        </Routes>
+      ) : null}
+    </>
+  );
+}
 
 const App = () => (
   <ThemeProvider>
+    <CursorAmbientGlow />
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <RouterProvider router={router} />
+      <BrowserRouter>
+        <AppRoutes />
+      </BrowserRouter>
     </TooltipProvider>
   </ThemeProvider>
 );

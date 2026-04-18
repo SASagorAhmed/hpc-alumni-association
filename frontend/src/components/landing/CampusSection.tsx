@@ -59,7 +59,7 @@ const CampusSection = ({ content }: CampusProps) => {
               <h3 className={sectionSubheadingClass}>Student Clubs & Organizations</h3>
               <div className="flex flex-wrap gap-2">
                 {clubs.map((club: string) => (
-                  <span key={club} className="fs-body max-w-full min-w-0 break-words rounded-full border border-border bg-card px-3 py-1.5 font-medium text-muted-foreground shadow-sm transition-all duration-300 hover:border-primary/40 hover:bg-primary/5 hover:text-foreground [overflow-wrap:anywhere]">{club}</span>
+                  <span key={club} className="fs-body max-w-full min-w-0 break-words rounded-full border border-border bg-card px-3 py-1.5 font-medium text-landing-description shadow-sm transition-all duration-300 hover:border-primary/40 hover:bg-primary/5 hover:text-foreground [overflow-wrap:anywhere]">{club}</span>
                 ))}
               </div>
             </motion.div>
@@ -75,7 +75,7 @@ const CampusSection = ({ content }: CampusProps) => {
                   <h4 className={activityTitleClass}>{cat.title.toUpperCase()}</h4>
                   <ul className="space-y-2">
                     {cat.items.map((item: string) => (
-                      <li key={item} className="fs-body break-words leading-relaxed text-muted-foreground [overflow-wrap:anywhere]">
+                      <li key={item} className="fs-body break-words leading-relaxed text-landing-description [overflow-wrap:anywhere]">
                         {item}
                       </li>
                     ))}

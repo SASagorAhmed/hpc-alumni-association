@@ -11,7 +11,6 @@ import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { API_BASE_URL } from "@/api-production/api.js";
 import { cachedJsonFetch } from "@/lib/requestCache";
-import { saveNavScrollRestore } from "@/lib/navScrollRestore";
 import AutoRepairBoundary from "@/components/ui/AutoRepairBoundary";
 
 interface Notice {
@@ -84,7 +83,7 @@ const AlumniDashboard = () => {
   }, []);
 
   return (
-    <div className="mx-auto w-full max-w-screen-2xl space-y-6">
+    <div className="hpc-alumni-dashboard-root mx-auto w-full max-w-screen-2xl space-y-6">
         {/* Welcome */}
         <div>
           <h1 className="text-2xl font-bold text-foreground">Welcome back, {user?.name}!</h1>
@@ -96,9 +95,9 @@ const AlumniDashboard = () => {
             </div>
           )}
           {user?.profilePending && user?.profileReviewNote ? (
-            <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-center text-amber-900">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-700">Correction feedback</p>
-              <p className="mt-1.5 text-sm font-medium leading-relaxed">{user.profileReviewNote}</p>
+            <div className="mt-3 rounded-lg border border-amber-400/45 bg-amber-500/10 px-4 py-3 text-center text-amber-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-200/95">Correction feedback</p>
+              <p className="mt-1.5 text-sm font-medium leading-relaxed text-amber-50/95">{user.profileReviewNote}</p>
             </div>
           ) : null}
         </div>
@@ -114,8 +113,8 @@ const AlumniDashboard = () => {
             <CardContent className="px-3.5 pb-3.5 sm:px-4 sm:pb-4">
               {dashboardLoading ? (
                 <div className="space-y-3">
-                  <div className="h-20 animate-pulse rounded-lg border border-border bg-muted/35" />
-                  <div className="h-20 animate-pulse rounded-lg border border-border bg-muted/35" />
+                  <div className="hpc-alumni-dashboard-glass-skeleton h-20 animate-pulse rounded-lg border" />
+                  <div className="hpc-alumni-dashboard-glass-skeleton h-20 animate-pulse rounded-lg border" />
                 </div>
               ) : notices.length > 0 ? (
                 <div className="space-y-3">
@@ -123,8 +122,7 @@ const AlumniDashboard = () => {
                     <Link
                       to={`/notices/${n.id}`}
                       key={n.id}
-                      className="block p-3 rounded-lg bg-muted/50 border border-border hover:border-primary/30 transition-colors"
-                      onClick={() => saveNavScrollRestore()}
+                      className="hpc-alumni-dashboard-glass-row block rounded-lg border p-3 transition-colors hover:border-primary/35"
                     >
                       <div className="flex items-center gap-2">
                         <h4 className="text-sm font-medium text-foreground">{n.title}</h4>
@@ -139,7 +137,7 @@ const AlumniDashboard = () => {
                   ))}
                 </div>
               ) : (
-                <div className="h-32 rounded-lg bg-muted flex items-center justify-center">
+                <div className="hpc-alumni-dashboard-glass-empty flex h-32 items-center justify-center rounded-lg border">
                   <p className="text-sm text-muted-foreground">No notices available</p>
                 </div>
               )}
@@ -155,8 +153,8 @@ const AlumniDashboard = () => {
             <CardContent className="px-3.5 pb-3.5 sm:px-4 sm:pb-4">
               {dashboardLoading ? (
                 <div className="space-y-3">
-                  <div className="h-20 animate-pulse rounded-lg border border-border bg-muted/35" />
-                  <div className="h-20 animate-pulse rounded-lg border border-border bg-muted/35" />
+                  <div className="hpc-alumni-dashboard-glass-skeleton h-20 animate-pulse rounded-lg border" />
+                  <div className="hpc-alumni-dashboard-glass-skeleton h-20 animate-pulse rounded-lg border" />
                 </div>
               ) : events.length > 0 ? (
                 <div className="space-y-3">
@@ -164,8 +162,7 @@ const AlumniDashboard = () => {
                     <Link
                       to={`/events/${e.id}`}
                       key={e.id}
-                      className="block p-3 rounded-lg bg-muted/50 border border-border hover:border-primary/30 transition-colors"
-                      onClick={() => saveNavScrollRestore()}
+                      className="hpc-alumni-dashboard-glass-row block rounded-lg border p-3 transition-colors hover:border-primary/35"
                     >
                       <h4 className="text-sm font-medium text-foreground">{e.title}</h4>
                       <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
@@ -186,7 +183,7 @@ const AlumniDashboard = () => {
                   ))}
                 </div>
               ) : (
-                <div className="h-32 rounded-lg bg-muted flex items-center justify-center">
+                <div className="hpc-alumni-dashboard-glass-empty flex h-32 items-center justify-center rounded-lg border">
                   <p className="text-sm text-muted-foreground">No upcoming events</p>
                 </div>
               )}
@@ -194,22 +191,17 @@ const AlumniDashboard = () => {
           </Card>
         </div>
 
-        {/* Achievement Banner Slider */}
-        <div className="rounded-2xl border border-border p-0 overflow-hidden">
-          <AutoRepairBoundary title="Achievement banner">
-            <AchievementBanner embedded />
-          </AutoRepairBoundary>
-        </div>
+        <AutoRepairBoundary title="Achievement banner">
+          <AchievementBanner embedded />
+        </AutoRepairBoundary>
 
-        {/* Executive Committee */}
-        <div className="rounded-2xl border border-border p-0 overflow-hidden">
-          <AutoRepairBoundary title="Committee section">
-            <CommitteeSection embedded />
-          </AutoRepairBoundary>
-        </div>
+        {/* Executive Committee — one glass panel from AdministrationBanner when embedded (no extra outer frame). */}
+        <AutoRepairBoundary title="Committee section" className="min-w-0">
+          <CommitteeSection embedded />
+        </AutoRepairBoundary>
 
         {/* Achievements of Our Alumni */}
-        <div className="rounded-2xl border border-border p-0 overflow-hidden">
+        <div className="hpc-alumni-dashboard-section-frame overflow-hidden rounded-2xl border p-0">
           <AutoRepairBoundary title="Achievements section">
             <AchievementsSection embedded />
           </AutoRepairBoundary>
@@ -224,7 +216,7 @@ const AlumniDashboard = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="px-3.5 pb-3.5 sm:px-4 sm:pb-4">
-              <div className="h-32 rounded-lg bg-muted flex items-center justify-center">
+              <div className="hpc-alumni-dashboard-glass-empty flex h-32 items-center justify-center rounded-lg border">
                 <p className="text-sm text-muted-foreground">No active elections</p>
               </div>
             </CardContent>

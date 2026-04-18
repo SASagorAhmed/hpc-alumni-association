@@ -1,14 +1,20 @@
 import { useState, useEffect, useLayoutEffect, useRef, type CSSProperties } from "react";
 import { motion } from "framer-motion";
-import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link, useLocation } from "react-router-dom";
 import { Calendar, ImageIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { API_BASE_URL } from "@/api-production/api.js";
 import { isIosSafariViewport } from "@/lib/iosSafari";
 import { BREAKPOINT_MOBILE_MAX, layoutCanvasScale, mqStackedMobile } from "@/lib/breakpoints";
-import { saveNavScrollRestore } from "@/lib/navScrollRestore";
+import {
+  fetchMemoriesPublicList,
+  fetchPublicMemoryById,
+  memoriesPublicListQueryKey,
+  memoryDetailQueryKey,
+  type MemoryPublicRecord,
+} from "@/lib/publicDataQueries";
+import { usePersistedState } from "@/hooks/usePersistedState";
 
 const CATEGORIES = [
   "All",
@@ -25,16 +31,17 @@ const MEMORIES_DESIGN_W = 1024;
 /** Same as committee / achievements: proportional zoom below this width on very small phones. */
 const MOBILE_REF_W = 480;
 
-interface MemoryItem {
-  id: string;
-  title: string;
-  category: string;
-  photo_url?: string | null;
-  description?: string | null;
-  event_date?: string | null;
-}
+function MemoryGridCard({ memory, i }: { memory: MemoryPublicRecord; i: number }) {
+  const location = useLocation();
+  const queryClient = useQueryClient();
+  const prefetchDetail = () => {
+    queryClient.prefetchQuery({
+      queryKey: memoryDetailQueryKey(memory.id),
+      queryFn: () => fetchPublicMemoryById(memory.id),
+      staleTime: 1000 * 60 * 5,
+    });
+  };
 
-function MemoryGridCard({ memory, i }: { memory: MemoryItem; i: number }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -44,8 +51,12 @@ function MemoryGridCard({ memory, i }: { memory: MemoryItem; i: number }) {
     >
       <Link
         to={`/memories/${memory.id}`}
+        state={{ backgroundLocation: location }}
+        onPointerEnter={prefetchDetail}
+        onMouseEnter={prefetchDetail}
+        onFocus={prefetchDetail}
+        onTouchStart={prefetchDetail}
         className="group relative flex min-w-0 flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-all duration-300 hover:border-primary/40 hover:shadow-lg"
-        onClick={() => saveNavScrollRestore()}
       >
         <div className="relative aspect-[4/3] overflow-hidden bg-muted">
           {memory.photo_url ? (
@@ -62,7 +73,7 @@ function MemoryGridCard({ memory, i }: { memory: MemoryItem; i: number }) {
           )}
           {memory.description && (
             <div className="absolute inset-0 flex min-w-0 items-end bg-foreground/70 p-3 opacity-0 transition-opacity duration-300 group-hover:opacity-100 sm:p-4">
-              <p className="line-clamp-4 break-words fs-ui text-primary-foreground [overflow-wrap:anywhere]">
+              <p className="line-clamp-4 break-normal [word-break:normal] [overflow-wrap:normal] fs-ui text-primary-foreground">
                 {memory.description}
               </p>
             </div>
@@ -95,8 +106,8 @@ function MemoryGridCard({ memory, i }: { memory: MemoryItem; i: number }) {
 }
 
 const MemoriesSection = () => {
-  const [activeCategory, setActiveCategory] = useState("All");
-  const [visibleCount, setVisibleCount] = useState(6);
+  const [activeCategory, setActiveCategory] = usePersistedState<string>("landing:memories:category", "All");
+  const [visibleCount, setVisibleCount] = usePersistedState<number>("landing:memories:visible-count", 6);
   const gridOuterRef = useRef<HTMLDivElement>(null);
   const gridInnerRef = useRef<HTMLDivElement>(null);
   const [gridScale, setGridScale] = useState(1);
@@ -109,13 +120,12 @@ const MemoriesSection = () => {
     typeof window !== "undefined" ? window.innerWidth : 1024
   );
 
-  const { data: memories = [] } = useQuery({
-    queryKey: ["memories-public"],
-    queryFn: async () => {
-      const res = await fetch(`${API_BASE_URL}/api/public/memories?published=true`);
-      if (!res.ok) throw new Error("Failed to load memories");
-      return res.json() as Promise<MemoryItem[]>;
-    },
+  const { data: memories = [], isPending: isLoadingMemories } = useQuery({
+    queryKey: memoriesPublicListQueryKey,
+    queryFn: fetchMemoriesPublicList,
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 30,
+    placeholderData: (previousData) => previousData,
   });
 
   useEffect(() => {
@@ -181,7 +191,46 @@ const MemoriesSection = () => {
     };
   }, [gridReady, visibleCount, activeCategory, isNarrowViewport]);
 
-  if (memories.length === 0) return null;
+  if (isLoadingMemories && memories.length === 0) {
+    return (
+      <section id="memories" className="border-t border-border/60 bg-background py-16 md:py-24">
+        <div className="layout-container">
+          <div className="mb-10 text-center">
+            <p className="fs-eyebrow mb-2 font-semibold uppercase tracking-wider text-primary">HPC Alumni Gallery</p>
+            <h2 className="mb-3 fs-title font-bold text-foreground">Our Alumni Memories &amp; Events</h2>
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, idx) => (
+              <div key={`memory-skeleton-${idx}`} className="overflow-hidden rounded-xl border border-border bg-card">
+                <div className="animate-pulse">
+                  <div className="aspect-[4/3] bg-muted" />
+                  <div className="space-y-2 p-4">
+                    <div className="h-3 w-16 rounded bg-muted" />
+                    <div className="h-4 w-4/5 rounded bg-muted" />
+                    <div className="h-4 w-3/5 rounded bg-muted" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (!isLoadingMemories && memories.length === 0) {
+    return (
+      <section id="memories" className="border-t border-border/60 bg-background py-16 md:py-24">
+        <div className="layout-container">
+          <div className="mb-6 text-center">
+            <p className="fs-eyebrow mb-2 font-semibold uppercase tracking-wider text-primary">HPC Alumni Gallery</p>
+            <h2 className="mb-3 fs-title font-bold text-foreground">Our Alumni Memories &amp; Events</h2>
+          </div>
+          <p className="py-8 text-center text-landing-description">No memories are available right now.</p>
+        </div>
+      </section>
+    );
+  }
 
   const isMobileGrid = isNarrowViewport && narrowGridW < 540;
   const mobileZoom = isMobileGrid && narrowGridW < MOBILE_REF_W ? narrowGridW / MOBILE_REF_W : 1;
@@ -200,7 +249,7 @@ const MemoriesSection = () => {
         >
           <p className="fs-eyebrow mb-2 font-semibold uppercase tracking-wider text-primary">HPC Alumni Gallery</p>
           <h2 className="mb-3 fs-title font-bold text-foreground">Our Alumni Memories &amp; Events</h2>
-          <p className="w-full max-w-none text-justify text-muted-foreground hyphens-auto">
+          <p className="fs-banner-message-body w-full max-w-none text-justify text-landing-description [text-align-last:left] hyphens-none break-normal [word-break:normal] [overflow-wrap:normal]">
             Explore the memorable moments of the Hamdard Public College Alumni Association through our gallery of events,
             reunions, and celebrations. These images reflect the strong bonds, shared experiences, and vibrant community spirit
             of HPC alumni.
@@ -320,7 +369,7 @@ const MemoriesSection = () => {
         )}
 
         {filtered.length === 0 && (
-          <p className="py-12 text-center text-muted-foreground">No memories found in this category.</p>
+          <p className="py-12 text-center text-landing-description">No memories found in this category.</p>
         )}
       </div>
     </section>

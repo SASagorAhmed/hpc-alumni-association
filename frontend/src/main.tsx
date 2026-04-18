@@ -5,6 +5,7 @@ import App from "./App.tsx";
 import { queryClient } from "@/lib/queryClient";
 import { ACHIEVEMENT_BANNER_QUERY_KEY, fetchAchievementBannerData } from "@/hooks/useAchievementBannerData";
 import { fetchLandingContent, LANDING_CONTENT_QUERY_KEY } from "@/hooks/useLandingContent";
+import { alumniDirectoryQueryKey, achievementsPublicListQueryKey, memoriesPublicListQueryKey } from "@/lib/publicDataQueries";
 import "./loadFonts";
 import "./index.css";
 
@@ -36,7 +37,14 @@ createRoot(document.getElementById("root")!).render(
       dehydrateOptions: {
         shouldDehydrateQuery: (query) => {
           const k = query.queryKey[0];
-          return k === LANDING_CONTENT_QUERY_KEY[0] || k === ACHIEVEMENT_BANNER_QUERY_KEY[0];
+          return (
+            k === LANDING_CONTENT_QUERY_KEY[0] ||
+            k === ACHIEVEMENT_BANNER_QUERY_KEY[0] ||
+            k === memoriesPublicListQueryKey[0] ||
+            k === achievementsPublicListQueryKey[0] ||
+            k === alumniDirectoryQueryKey[0] ||
+            k === "committee-active-public"
+          );
         },
       },
     }}

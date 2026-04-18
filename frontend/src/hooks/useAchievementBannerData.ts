@@ -28,6 +28,8 @@ export interface AchievementBannerSettings {
   banner_theme?: "default" | "theme2" | "theme3";
 }
 
+const ACHIEVEMENT_BANNER_CACHE_KEY = "hpc:achievement-banner-cache";
+
 const warnedInvalidDateKeys = new Set<string>();
 
 function parseAchievementWindowDate(
@@ -131,13 +133,54 @@ export async function fetchAchievementBannerData(): Promise<{
   return { settings, achievements };
 }
 
+function readCachedBannerData():
+  | {
+      settings: AchievementBannerSettings;
+      achievements: Achievement[];
+    }
+  | undefined {
+  if (typeof window === "undefined") return undefined;
+  try {
+    const raw = window.sessionStorage.getItem(ACHIEVEMENT_BANNER_CACHE_KEY);
+    if (!raw) return undefined;
+    const parsed = JSON.parse(raw) as Partial<{
+      settings: AchievementBannerSettings;
+      achievements: Achievement[];
+    }>;
+    if (!parsed || !parsed.settings || !Array.isArray(parsed.achievements)) return undefined;
+    return {
+      settings: parsed.settings,
+      achievements: parsed.achievements,
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+function writeCachedBannerData(data: {
+  settings: AchievementBannerSettings;
+  achievements: Achievement[];
+}): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(ACHIEVEMENT_BANNER_CACHE_KEY, JSON.stringify(data));
+  } catch {
+    // ignore cache write failure
+  }
+}
+
 export function useAchievementBannerData(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ACHIEVEMENT_BANNER_QUERY_KEY,
     queryFn: fetchAchievementBannerData,
-    staleTime: 1000 * 30,
-    refetchInterval: 1000 * 60,
-    refetchIntervalInBackground: true,
+    // Longer stability window avoids frequent top-of-page banner reshapes.
+    staleTime: 1000 * 60 * 5,
+    refetchOnWindowFocus: false,
+    placeholderData: (previousData) => previousData,
+    initialData: readCachedBannerData,
+    onSuccess: (data) => {
+      writeCachedBannerData(data);
+    },
     enabled: options?.enabled !== false,
   });
 }

@@ -276,7 +276,7 @@ const AdminUserProfile = () => {
               {fields.map(([k, v]) => (
                 <div key={k}>
                   <p className="text-xs text-muted-foreground">{k}</p>
-                  <p className="break-words text-sm font-medium">{String(v || "-")}</p>
+                  <p className="break-normal [word-break:normal] [overflow-wrap:normal] text-sm font-medium">{String(v || "-")}</p>
                 </div>
               ))}
             </div>

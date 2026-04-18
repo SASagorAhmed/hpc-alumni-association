@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -7,11 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, User, X, Briefcase, GraduationCap, Phone, Droplets, Facebook, Instagram, Linkedin, Award, Crown } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useQuery } from "@tanstack/react-query";
-import { API_BASE_URL } from "@/api-production/api.js";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSyncedQueryState } from "@/hooks/useSyncedQueryState";
 import { AlumniPhotoLightbox } from "@/components/alumni/AlumniPhotoLightbox";
-import { saveNavScrollRestore } from "@/lib/navScrollRestore";
+import { alumniDirectoryQueryKey, fetchAlumniDirectory } from "@/lib/publicDataQueries";
 
 const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 const GENDERS = ["Male", "Female", "Other"];
@@ -58,17 +57,13 @@ interface AlumniProfile {
   social_links: { facebook?: string; instagram?: string; linkedin?: string } | null;
 }
 
-const fetchAlumni = async (): Promise<AlumniProfile[]> => {
-  const res = await fetch(`${API_BASE_URL}/api/public/directory/alumni`, { method: "GET" });
-  if (!res.ok) throw new Error(`Failed to load directory (${res.status})`);
-  const data = (await res.json()) as AlumniProfile[];
-  return Array.isArray(data) ? data : [];
-};
-
-const DIRECTORY_FILTER_KEYS = ["q", "batch", "blood", "gender", "prof", "uni", "faculty", "sort"] as const;
+const DIRECTORY_FILTER_KEYS = ["q", "batch", "blood", "gender", "prof", "uni", "faculty", "sort", "page", "ps"] as const;
+const PAGE_SIZE_OPTIONS = [12, 18, 24, 36] as const;
 
 const Directory = () => {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const location = useLocation();
   const [, setSearchParams] = useSearchParams();
   const [photoLightbox, setPhotoLightbox] = useState<{ src: string; name: string } | null>(null);
   const [search, setSearch] = useSyncedQueryState("q", "");
@@ -79,12 +74,21 @@ const Directory = () => {
   const [filterUniversity, setFilterUniversity] = useSyncedQueryState("uni", "");
   const [filterFaculty, setFilterFaculty] = useSyncedQueryState("faculty", "");
   const [sortParam, setSortParam] = useSyncedQueryState("sort", "name_asc");
+  const [pageParam, setPageParam] = useSyncedQueryState("page", "1");
+  const [pageSizeParam, setPageSizeParam] = useSyncedQueryState("ps", "18");
   const sort = SORT_VALUES.has(sortParam) ? sortParam : "name_asc";
+  const pageSize = PAGE_SIZE_OPTIONS.includes(Number(pageSizeParam) as (typeof PAGE_SIZE_OPTIONS)[number])
+    ? Number(pageSizeParam)
+    : 18;
+  const page = Math.max(1, Number.parseInt(pageParam, 10) || 1);
 
   const { data: alumni = [], isLoading } = useQuery({
-    queryKey: ["alumni-directory"],
-    queryFn: fetchAlumni,
+    queryKey: alumniDirectoryQueryKey,
+    queryFn: fetchAlumniDirectory as () => Promise<AlumniProfile[]>,
     enabled: !!user?.verified,
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 30,
+    placeholderData: (previousData) => previousData,
   });
 
   // Derive unique filter options
@@ -183,12 +187,21 @@ const Directory = () => {
     }
     return sorted;
   }, [alumni, search, filterBatch, filterBlood, filterGender, filterProfession, filterUniversity, filterFaculty, sort]);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const activePage = Math.min(page, totalPages);
+  useEffect(() => {
+    if (page !== activePage) setPageParam(String(activePage));
+  }, [activePage, page, setPageParam]);
+  const pagedFiltered = useMemo(() => {
+    const start = (activePage - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [activePage, filtered, pageSize]);
 
   // Unverified gate
   if (!user?.verified) {
     return (
       <div className="mx-auto w-full max-w-screen-md px-2 py-12 text-center space-y-4 sm:px-3">
-        <div className="w-16 h-16 mx-auto rounded-full bg-muted flex items-center justify-center">
+        <div className="hpc-alumni-dashboard-glass-skeleton mx-auto flex h-16 w-16 items-center justify-center rounded-full border">
           <User className="w-8 h-8 text-muted-foreground" />
         </div>
         <h2 className="text-xl font-bold text-foreground">Verification Required</h2>
@@ -278,11 +291,27 @@ const Directory = () => {
 
       {/* Sort + count bar */}
       <div className="flex items-center justify-between">
-        <p className="text-xs text-muted-foreground">{filtered.length} result{filtered.length !== 1 ? "s" : ""}</p>
-        <Select value={sort} onValueChange={setSortParam}>
-          <SelectTrigger className="w-40 text-xs h-8"><SelectValue /></SelectTrigger>
-          <SelectContent>{SORT_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
-        </Select>
+        <p className="text-xs text-muted-foreground">
+          {filtered.length} result{filtered.length !== 1 ? "s" : ""} · page {activePage}/{totalPages}
+        </p>
+        <div className="flex items-center gap-2">
+          <Select value={String(pageSize)} onValueChange={setPageSizeParam}>
+            <SelectTrigger className="w-24 text-xs h-8">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PAGE_SIZE_OPTIONS.map((size) => (
+                <SelectItem key={size} value={String(size)}>
+                  {size}/page
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={sort} onValueChange={setSortParam}>
+            <SelectTrigger className="w-40 text-xs h-8"><SelectValue /></SelectTrigger>
+            <SelectContent>{SORT_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Results */}
@@ -303,14 +332,36 @@ const Directory = () => {
         </Card>
       ) : (
         <div className="hpc-ios-touch-text-root grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((a) => (
+          {pagedFiltered.map((a) => {
+            return (
             <Link
               key={a.id}
               to={`/directory/${a.id}`}
+              state={{ backgroundLocation: location }}
+              onPointerEnter={() => {
+                queryClient.prefetchQuery({
+                  queryKey: alumniDirectoryQueryKey,
+                  queryFn: fetchAlumniDirectory,
+                  staleTime: 1000 * 60 * 5,
+                });
+              }}
+              onMouseEnter={() => {
+                queryClient.prefetchQuery({
+                  queryKey: alumniDirectoryQueryKey,
+                  queryFn: fetchAlumniDirectory,
+                  staleTime: 1000 * 60 * 5,
+                });
+              }}
+              onTouchStart={() => {
+                queryClient.prefetchQuery({
+                  queryKey: alumniDirectoryQueryKey,
+                  queryFn: fetchAlumniDirectory,
+                  staleTime: 1000 * 60 * 5,
+                });
+              }}
               className="h-full min-w-0"
-              onClick={() => saveNavScrollRestore()}
             >
-              <Card className="h-full min-w-0 hover:shadow-md transition-shadow cursor-pointer group">
+              <Card className="alumni-directory-neon-card h-full min-w-0 cursor-pointer transition-[box-shadow,border-color] group hover:shadow-md">
               <CardContent className="flex h-full min-h-[236px] min-w-0 flex-col p-4">
                 <div className="flex min-w-0 items-start gap-4">
                   <button
@@ -340,12 +391,12 @@ const Directory = () => {
                     <h3 className="font-semibold text-base text-foreground leading-snug line-clamp-2 group-hover:text-primary transition-colors [overflow-wrap:anywhere]">
                       {a.name}
                     </h3>
-                    <p className="min-w-0 break-words text-xs text-muted-foreground [overflow-wrap:anywhere]">Batch: {a.batch || "—"} {a.roll ? `| Roll: ${a.roll}` : ""}</p>
+                    <p className="min-w-0 break-normal [word-break:normal] [overflow-wrap:normal] text-xs text-muted-foreground">Batch: {a.batch || "—"} {a.roll ? `| Roll: ${a.roll}` : ""}</p>
                   </div>
                 </div>
                 <div className="mt-3 flex min-h-[26px] min-w-0 flex-wrap gap-1.5">
                   {Number(a.is_site_admin) ? (
-                    <Badge className="max-w-full min-w-0 truncate px-1.5 py-0 text-[10px] bg-violet-600/95 hover:bg-violet-600 text-white border-0">
+                    <Badge className="max-w-full min-w-0 truncate px-1.5 py-0 text-[10px] bg-orange-600/95 hover:bg-orange-600 text-white border-0">
                       <Crown className="w-2.5 h-2.5 mr-0.5 shrink-0" />
                       Administrator
                     </Badge>
@@ -388,9 +439,36 @@ const Directory = () => {
               </CardContent>
             </Card>
             </Link>
-          ))}
+          );
+          })}
         </div>
       )}
+
+      {filtered.length > 0 && totalPages > 1 ? (
+        <div className="flex items-center justify-center gap-2 py-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={activePage <= 1}
+            onClick={() => setPageParam(String(activePage - 1))}
+          >
+            Prev
+          </Button>
+          <span className="text-xs text-muted-foreground">
+            Page {activePage} of {totalPages}
+          </span>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={activePage >= totalPages}
+            onClick={() => setPageParam(String(activePage + 1))}
+          >
+            Next
+          </Button>
+        </div>
+      ) : null}
 
       <AlumniPhotoLightbox
         open={!!photoLightbox}

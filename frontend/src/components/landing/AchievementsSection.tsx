@@ -1,13 +1,18 @@
 import { useState, useEffect, useLayoutEffect, useRef, useCallback } from "react";
 import { motion } from "framer-motion";
-import { Link } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link, useLocation } from "react-router-dom";
 import { Award, Calendar, GraduationCap, Camera, Building2, ChevronRight, PartyPopper } from "lucide-react";
-import { API_BASE_URL } from "@/api-production/api.js";
 import { ACHIEVEMENT_BANNER_CROP_ASPECT } from "@/lib/achievementCrop";
 import { layoutCanvasScale, mqStackedMobile } from "@/lib/breakpoints";
-import { saveNavScrollRestore } from "@/lib/navScrollRestore";
 import { cn } from "@/lib/utils";
 import type { AchievementPublicRecord } from "@/lib/achievementPublic";
+import {
+  achievementDetailQueryKey,
+  achievementsPublicListQueryKey,
+  fetchAchievementsPublicList,
+  fetchPublicAchievementById,
+} from "@/lib/publicDataQueries";
 
 type Achievement = AchievementPublicRecord;
 
@@ -25,6 +30,8 @@ function AchievementGridCard({
   onMediaSettled?: () => void;
   mobileReadable?: boolean;
 }) {
+  const location = useLocation();
+  const queryClient = useQueryClient();
   const [imageFailed, setImageFailed] = useState(false);
   const reportedRef = useRef(false);
 
@@ -38,6 +45,13 @@ function AchievementGridCard({
     reportedRef.current = true;
     onMediaSettled?.();
   };
+  const prefetchDetail = () => {
+    queryClient.prefetchQuery({
+      queryKey: achievementDetailQueryKey(a.id),
+      queryFn: () => fetchPublicAchievementById(a.id),
+      staleTime: 1000 * 60 * 5,
+    });
+  };
 
   return (
     <motion.div
@@ -49,8 +63,12 @@ function AchievementGridCard({
     >
       <Link
         to={`/achievements/${a.id}`}
-        onClick={() => saveNavScrollRestore()}
-        className="group relative flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all duration-300 hover:border-primary/50 hover:shadow-lg"
+        state={{ backgroundLocation: location }}
+        onPointerEnter={prefetchDetail}
+        onMouseEnter={prefetchDetail}
+        onFocus={prefetchDetail}
+        onTouchStart={prefetchDetail}
+        className="achievement-alumni-landing-card group relative flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all duration-300 hover:border-orange-400/45 hover:shadow-[0_0_28px_-8px_rgba(255,149,0,0.28),0_8px_32px_-12px_rgba(0,209,255,0.12)]"
         style={{ background: "var(--achievement-card-bg)" }}
       >
         <div className="h-1 shrink-0" style={{ background: "var(--achievement-card-accent-bar)" }} />
@@ -82,7 +100,7 @@ function AchievementGridCard({
             mobileReadable && "gap-2.5 p-3.5"
           )}
         >
-          <span className="fs-caption font-semibold uppercase tracking-wider text-amber-600">
+          <span className="fs-caption bg-gradient-to-r from-cyan-300 via-orange-300 to-amber-200 bg-clip-text font-semibold uppercase tracking-wider text-transparent">
             #{String(i + 1).padStart(2, "0")} Achievement
           </span>
 
@@ -96,7 +114,7 @@ function AchievementGridCard({
           </h3>
 
           {a.achievement_title && (
-            <span className="inline-flex max-w-full items-center justify-center break-words rounded-full bg-primary px-2.5 py-0.5 fs-caption font-semibold text-primary-foreground [overflow-wrap:anywhere]">
+            <span className="inline-flex max-w-full items-center justify-center break-words rounded-full border border-orange-400/35 bg-gradient-to-r from-orange-500/90 via-amber-500/90 to-yellow-500/85 px-2.5 py-0.5 fs-caption font-semibold text-white shadow-[0_0_16px_-4px_rgba(251,146,60,0.45)] [overflow-wrap:anywhere]">
               {a.achievement_title}
             </span>
           )}
@@ -124,14 +142,16 @@ function AchievementGridCard({
 
           {a.message?.trim() ? (
             <div className="mt-1 w-full min-w-0 flex-1 border-t border-border pt-2">
-              <div className="rounded-lg border border-primary/20 bg-primary/5 p-2.5 text-left">
-                <div className="mb-1 flex items-center gap-1.5">
-                  <PartyPopper className="h-3 w-3 shrink-0 text-primary" aria-hidden />
-                  <span className="fs-caption font-semibold uppercase tracking-wider text-primary">Congratulations</span>
+              <div className="rounded-lg border border-cyan-400/25 bg-orange-500/5 p-2.5">
+                <div className="mb-1 flex items-center gap-1.5 text-left">
+                  <PartyPopper className="h-3 w-3 shrink-0 text-cyan-400" aria-hidden />
+                  <span className="fs-caption bg-gradient-to-r from-orange-300 to-amber-200 bg-clip-text font-semibold uppercase tracking-wider text-transparent">
+                    Congratulations
+                  </span>
                 </div>
                 <p
                   className={cn(
-                    "line-clamp-4 break-words text-xs leading-relaxed text-foreground/85 [overflow-wrap:anywhere]",
+                    "line-clamp-4 text-pretty text-justify [text-align-last:left] hyphens-none break-normal text-xs leading-relaxed text-foreground/85 [word-break:normal] [overflow-wrap:normal]",
                     mobileReadable && "text-sm leading-[1.55]"
                   )}
                 >
@@ -142,9 +162,12 @@ function AchievementGridCard({
           ) : null}
 
           <div className={cn("mt-auto flex w-full shrink-0 justify-center border-t border-border pt-2", mobileReadable && "pt-2.5")}>
-            <span className={cn("inline-flex items-center gap-1 text-xs font-medium text-primary", mobileReadable && "text-sm")}>
-              Read full story
-              <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden />
+            <span className={cn("inline-flex items-center gap-1 text-xs font-medium", mobileReadable && "text-sm")}>
+              <span className="bg-gradient-to-r from-cyan-300 to-orange-300 bg-clip-text text-transparent">Read full story</span>
+              <ChevronRight
+                className="h-3.5 w-3.5 text-cyan-400 transition-transform group-hover:translate-x-0.5 group-hover:text-orange-300"
+                aria-hidden
+              />
             </span>
           </div>
         </div>
@@ -157,8 +180,12 @@ const sectionShellClass =
   "scroll-mt-20 border-t border-border/60 bg-background py-10 sm:scroll-mt-[5.5rem] sm:py-20";
 
 const AchievementsSection = ({ embedded = false }: { embedded?: boolean }) => {
-  const [achievements, setAchievements] = useState<Achievement[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: achievements = [], isPending: loading } = useQuery({
+    queryKey: achievementsPublicListQueryKey,
+    queryFn: fetchAchievementsPublicList,
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 30,
+  });
   const [visibleCount, setVisibleCount] = useState(3);
   const gridOuterRef = useRef<HTMLDivElement>(null);
   const gridInnerRef = useRef<HTMLDivElement>(null);
@@ -239,23 +266,6 @@ const AchievementsSection = ({ embedded = false }: { embedded?: boolean }) => {
     };
   }, [gridReady, visibleCount, isNarrowViewport, mediaSettleTick]);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/public/achievements?active=true`);
-        const data = res.ok ? await res.json().catch(() => []) : [];
-        if (Array.isArray(data)) {
-          // Cards in the Achievements section should remain visible as long as they are published.
-          // Banner time windows (start/end) are handled separately in the banner component.
-          setAchievements(data as Achievement[]);
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
-
   const headerBlock = (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
@@ -264,14 +274,14 @@ const AchievementsSection = ({ embedded = false }: { embedded?: boolean }) => {
       transition={{ duration: 0.5 }}
       className="text-center mb-12"
     >
-      <div className="fs-ui mb-3 inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-4 py-1.5 font-medium text-primary">
-        <Award className="h-4 w-4" />
+      <div className="fs-ui mb-3 inline-flex items-center gap-2 rounded-full border border-cyan-400/30 bg-gradient-to-r from-orange-500/18 via-amber-500/12 to-cyan-500/12 px-4 py-1.5 font-medium text-amber-200 shadow-[0_0_20px_-6px_rgba(255,149,0,0.35)]">
+        <Award className="h-4 w-4 text-orange-300" />
         HPC Alumni Achievements
       </div>
       <h2 className="fs-title font-bold text-foreground font-outfit-section">
         Achievements of HPC Alumni
       </h2>
-      <p className="fs-body mt-3 w-full max-w-none text-muted-foreground text-justify hyphens-auto">
+      <p className="fs-banner-message-body mt-3 w-full max-w-none text-landing-description text-justify [text-align-last:left] hyphens-none break-normal [word-break:normal] [overflow-wrap:normal]">
         We proudly celebrate the outstanding achievements of Hamdard Public College alumni who have excelled in diverse fields such as education, business, technology, research, and public service. Our alumni continue to make meaningful contributions both nationally and internationally, reflecting the values and excellence of HPC.
         <br />
         <br />
@@ -282,7 +292,7 @@ const AchievementsSection = ({ embedded = false }: { embedded?: boolean }) => {
 
   if (loading) {
     return (
-      <section id="achievements" className={embedded ? "scroll-mt-20 bg-background py-6 sm:scroll-mt-[5.5rem] sm:py-8" : sectionShellClass}>
+      <section id="achievements" className={embedded ? "scroll-mt-20 bg-transparent py-6 sm:scroll-mt-[5.5rem] sm:py-8" : sectionShellClass}>
         <div className={embedded ? "w-full" : "layout-container"}>
           {headerBlock}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -310,14 +320,14 @@ const AchievementsSection = ({ embedded = false }: { embedded?: boolean }) => {
       <section id="achievements" className={embedded ? "scroll-mt-20 bg-background py-6 sm:scroll-mt-[5.5rem] sm:py-8" : sectionShellClass}>
         <div className={embedded ? "w-full" : "layout-container"}>
           {headerBlock}
-          <p className="text-center text-sm text-muted-foreground">No achievements to show yet.</p>
+          <p className="text-center text-sm text-landing-description">No achievements to show yet.</p>
         </div>
       </section>
     );
   }
 
   return (
-    <section id="achievements" className={embedded ? "scroll-mt-20 bg-background py-6 sm:scroll-mt-[5.5rem] sm:py-8" : sectionShellClass}>
+    <section id="achievements" className={embedded ? "scroll-mt-20 bg-transparent py-6 sm:scroll-mt-[5.5rem] sm:py-8" : sectionShellClass}>
       <div className={embedded ? "w-full" : "layout-container"}>
         {headerBlock}
 
@@ -372,13 +382,13 @@ const AchievementsSection = ({ embedded = false }: { embedded?: boolean }) => {
               <>
                 <button
                   onClick={() => setVisibleCount((prev) => prev + 6)}
-                  className="px-5 py-2 rounded-full border border-primary text-primary text-sm font-medium hover:bg-primary/10 transition-colors"
+                  className="metaverse-cta-pill px-5 py-2 rounded-full text-sm font-medium transition-[filter,box-shadow]"
                 >
                   See More ({achievements.length - visibleCount} remaining)
                 </button>
                 <button
                   onClick={() => setVisibleCount(achievements.length)}
-                  className="text-sm font-medium text-primary underline underline-offset-4 hover:text-primary/80 transition-colors"
+                  className="text-sm font-medium text-cyan-300 underline underline-offset-4 hover:text-orange-300 transition-colors"
                 >
                   See All
                 </button>

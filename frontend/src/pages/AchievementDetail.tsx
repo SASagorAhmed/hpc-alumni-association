@@ -1,5 +1,6 @@
-import { useEffect, useState, type ReactNode } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useState, type ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useParams, useNavigate, useLocation, type Location } from "react-router-dom";
 import type { LucideIcon } from "lucide-react";
 import {
   ArrowLeft,
@@ -15,12 +16,12 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useHistorySyncOverlay } from "@/hooks/useHistorySyncOverlay";
-import { API_BASE_URL } from "@/api-production/api.js";
-import Navbar from "@/components/landing/Navbar";
-import Footer from "@/components/landing/Footer";
+import { FullScreenRouteLayer } from "@/components/routing/FullScreenRouteLayer";
+import { preserveTopNavbarForBackground } from "@/lib/fullScreenLayerPreserveNavbar";
+import { PublicMetaverseChrome } from "@/components/layout/PublicMetaverseChrome";
 import { JustifiedDetailText } from "@/components/landing/JustifiedDetailText";
 import type { AchievementPublicRecord } from "@/lib/achievementPublic";
-import { setBackToAchievementsSection } from "@/lib/navScrollRestore";
+import { achievementDetailQueryKey, fetchPublicAchievementById } from "@/lib/publicDataQueries";
 
 function DetailRow({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: string | null | undefined }) {
   const v = value != null ? String(value).trim() : "";
@@ -47,23 +48,29 @@ function detailBox(title: string, children: ReactNode) {
 
 export default function AchievementDetail() {
   const { id } = useParams<{ id: string }>();
-  const [a, setA] = useState<AchievementPublicRecord | null>(null);
-  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const backgroundLocation = (location.state as { backgroundLocation?: Location } | null)?.backgroundLocation;
+  const isLayer = Boolean(backgroundLocation);
+  const preserveTopNavbar = preserveTopNavbarForBackground(backgroundLocation);
   const [imgOpen, setImgOpen] = useState(false);
+  const { data: a = null, isPending: loading } = useQuery<AchievementPublicRecord | null>({
+    queryKey: achievementDetailQueryKey(id ?? ""),
+    queryFn: () => fetchPublicAchievementById(id ?? ""),
+    enabled: Boolean(id),
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 30,
+  });
 
   useHistorySyncOverlay(imgOpen, () => setImgOpen(false));
 
-  useEffect(() => {
-    if (!id) return;
-    setLoading(true);
-    fetch(`${API_BASE_URL}/api/public/achievements/${id}`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        setA(data);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, [id]);
+  const handleBack = () => {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      navigate(-1);
+      return;
+    }
+    navigate("/");
+  };
 
   const dateLabel =
     a?.achievement_date != null && String(a.achievement_date).trim()
@@ -76,21 +83,16 @@ export default function AchievementDetail() {
       (x) => x != null && String(x).trim()
     );
 
-  return (
-    <div className="flex min-h-screen flex-col bg-background">
-      <Navbar />
-
-      <main className="flex-1 w-full">
-        {/* pt clears fixed Navbar so “Back” isn’t covered */}
-        <div className="mx-auto max-w-4xl px-4 pb-8 pt-20 sm:px-6 sm:pb-10 sm:pt-24 lg:px-8">
-          <Link
-            to="/"
-            onClick={() => setBackToAchievementsSection()}
+  const detailContent = (
+    <div className="layout-container w-full min-w-0 pb-8 pt-4 sm:pb-10 sm:pt-5">
+          <button
+            type="button"
+            onClick={handleBack}
             className="mb-8 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
             <ArrowLeft className="h-4 w-4" />
             Back to Achievements
-          </Link>
+          </button>
 
           {loading && (
             <div className="flex items-center justify-center py-32 text-sm text-muted-foreground">Loading…</div>
@@ -99,13 +101,13 @@ export default function AchievementDetail() {
           {!loading && !a && (
             <div className="flex flex-col items-center justify-center gap-4 py-32">
               <p className="text-base text-muted-foreground">Achievement not found.</p>
-              <Link
-                to="/"
-                onClick={() => setBackToAchievementsSection()}
+              <button
+                type="button"
+                onClick={handleBack}
                 className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
               >
                 <ArrowLeft className="h-4 w-4" /> Go back
-              </Link>
+              </button>
             </div>
           )}
 
@@ -169,7 +171,7 @@ export default function AchievementDetail() {
                       <Briefcase className="h-4 w-4 text-primary" aria-hidden />
                       Professional &amp; alumni details
                     </h2>
-                    <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                       <DetailRow icon={Hash} label="Alumni ID" value={a.alumni_ref_id} />
                       <DetailRow icon={BookOpen} label="Section" value={a.section} />
                       <DetailRow icon={GraduationCap} label="Session" value={a.session} />
@@ -199,10 +201,16 @@ export default function AchievementDetail() {
               </div>
             </article>
           )}
-        </div>
-      </main>
+    </div>
+  );
 
-      <Footer />
+  const page = (
+    <PublicMetaverseChrome
+      showNavbar={!isLayer}
+      showFooter={!isLayer}
+      overlayMode={isLayer}
+    >
+      {detailContent}
 
       {imgOpen && a?.photo_url && (
         <div
@@ -225,6 +233,16 @@ export default function AchievementDetail() {
           </button>
         </div>
       )}
-    </div>
+    </PublicMetaverseChrome>
   );
+
+  if (isLayer) {
+    return (
+      <FullScreenRouteLayer preserveTopNavbar={preserveTopNavbar}>
+        {page}
+      </FullScreenRouteLayer>
+    );
+  }
+
+  return page;
 }

@@ -51,9 +51,9 @@ export default function NoticeDetail() {
   if (loading) {
     return (
       <div className="mx-auto max-w-3xl space-y-4 py-8">
-        <div className="h-4 w-40 animate-pulse rounded bg-muted/60" />
-        <div className="h-48 animate-pulse rounded-xl border border-border/60 bg-muted/30" />
-        <div className="h-24 animate-pulse rounded-lg bg-muted/30" />
+        <div className="hpc-alumni-dashboard-glass-skeleton h-4 w-40 animate-pulse rounded border-0" />
+        <div className="hpc-alumni-dashboard-glass-skeleton h-48 animate-pulse rounded-xl border border-border/60" />
+        <div className="hpc-alumni-dashboard-glass-skeleton h-24 animate-pulse rounded-lg border border-border/60" />
       </div>
     );
   }
@@ -110,7 +110,7 @@ export default function NoticeDetail() {
         <Card className="mt-8 overflow-hidden border-border/80 shadow-sm">
           <CardContent className="space-y-6 p-6 sm:p-8">
             {notice.image_url && (
-              <div className="-mx-6 overflow-hidden border-b border-border/80 bg-muted/20 sm:-mx-8">
+              <div className="-mx-6 overflow-hidden border-b border-border/80 bg-white/[0.04] sm:-mx-8">
                 <img
                   src={notice.image_url}
                   alt=""
@@ -126,7 +126,7 @@ export default function NoticeDetail() {
             )}
 
             {notice.content && (
-              <div className="prose prose-sm max-w-none text-foreground prose-p:leading-relaxed prose-headings:font-semibold dark:prose-invert">
+              <div className="prose prose-sm prose-invert max-w-none text-foreground prose-p:leading-relaxed prose-headings:font-semibold">
                 <div className="whitespace-pre-wrap text-[15px] leading-relaxed">{notice.content}</div>
               </div>
             )}
@@ -139,7 +139,7 @@ export default function NoticeDetail() {
                     <a
                       href={notice.attachment_url}
                       download={`${notice.title}.pdf`}
-                      className="inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-background px-4 py-2.5 text-sm font-medium text-primary shadow-sm transition-colors hover:bg-muted/50"
+                      className="inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-background/60 px-4 py-2.5 text-sm font-medium text-primary shadow-sm backdrop-blur-sm transition-colors hover:bg-white/10"
                     >
                       <Download className="h-4 w-4" /> Download attachment
                     </a>

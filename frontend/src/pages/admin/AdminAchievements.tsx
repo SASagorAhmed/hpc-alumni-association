@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useMemo } from "react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,9 @@ import { API_BASE_URL } from "@/api-production/api.js";
 import { getAuthToken } from "@/lib/authToken";
 import { queryClient } from "@/lib/queryClient";
 import { ACHIEVEMENT_BANNER_QUERY_KEY } from "@/hooks/useAchievementBannerData";
+import { useSyncedQueryState } from "@/hooks/useSyncedQueryState";
+import { usePersistedFormDraft } from "@/hooks/usePersistedFormDraft";
+import { usePersistedState } from "@/hooks/usePersistedState";
 
 interface Achievement {
   id: string;
@@ -96,7 +100,8 @@ const emptyForm = {
 const AdminAchievements = () => {
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [settings, setSettings] = useState<AchievementSettings | null>(null);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useSyncedQueryState("q", "");
+  const [tabParam, setTabParam] = useSyncedQueryState("tab", "achievements");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
@@ -107,8 +112,13 @@ const AdminAchievements = () => {
   const cropObjectUrlRef = React.useRef<string | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const token = getAuthToken();
-  const [alumniIdInput, setAlumniIdInput] = useState("");
+  const [alumniIdInput, setAlumniIdInput] = usePersistedState<string>("admin:achievements:alumni-id-input", "");
   const [importingAlumniProfile, setImportingAlumniProfile] = useState(false);
+  const [draftForm, setDraftForm, clearDraftForm] = usePersistedFormDraft(emptyForm, {
+    storageKey: "admin:achievements:new-draft",
+    delayMs: 300,
+  });
+  const activeTab = tabParam === "settings" ? "settings" : "achievements";
 
   const revokeCropPreview = React.useCallback(() => {
     if (cropObjectUrlRef.current) {
@@ -270,15 +280,25 @@ const AdminAchievements = () => {
 
   useEffect(() => { fetchData(); }, []);
 
-  const filtered = achievements.filter((a) =>
-    a.name.toLowerCase().includes(search.toLowerCase()) ||
-    a.achievement_title.toLowerCase().includes(search.toLowerCase())
+  useEffect(() => {
+    if (!dialogOpen || editId) return;
+    setDraftForm(form);
+  }, [dialogOpen, editId, form, setDraftForm]);
+
+  const filtered = useMemo(
+    () =>
+      achievements.filter(
+        (a) =>
+          a.name.toLowerCase().includes(search.toLowerCase()) ||
+          a.achievement_title.toLowerCase().includes(search.toLowerCase())
+      ),
+    [achievements, search]
   );
 
   const openAdd = () => {
     setEditId(null);
     setAlumniIdInput("");
-    setForm(emptyForm);
+    setForm(draftForm);
     setDialogOpen(true);
   };
 
@@ -286,7 +306,10 @@ const AdminAchievements = () => {
   const openAddFromAlumniId = () => {
     setEditId(null);
     setAlumniIdInput("");
-    setForm({ ...emptyForm, message: BANNER_DEFAULT_CONGRATULATIONS_MESSAGE });
+    setForm({
+      ...draftForm,
+      message: draftForm.message || BANNER_DEFAULT_CONGRATULATIONS_MESSAGE,
+    });
     setDialogOpen(true);
   };
 
@@ -465,6 +488,7 @@ const AdminAchievements = () => {
         toast({ title: "Error creating", description: String(await readErr(res)), variant: "destructive" });
       } else {
         toast({ title: "Achievement created" });
+        clearDraftForm();
       }
     }
     setLoading(false);
@@ -563,7 +587,7 @@ const AdminAchievements = () => {
           </div>
         </div>
 
-        <Tabs defaultValue="achievements">
+        <Tabs value={activeTab} onValueChange={(next) => setTabParam(next === "settings" ? "settings" : "achievements")}>
           <TabsList className="w-full justify-start sm:w-auto sm:justify-center">
             <TabsTrigger value="achievements" className="gap-1.5"><Award className="w-3.5 h-3.5" /> Achievements</TabsTrigger>
             <TabsTrigger value="settings" className="gap-1.5"><Settings className="w-3.5 h-3.5" /> Banner Settings</TabsTrigger>

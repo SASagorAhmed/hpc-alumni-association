@@ -41,5 +41,6 @@ export function fitLargestFontSingleLine(el: HTMLElement, minPx: number, maxPx: 
 }
 
 export function setOverflowSingleLineFit(el: HTMLElement) {
-  el.style.overflow = "visible";
+  /** `hidden` is required for `text-overflow: ellipsis` and keeps single-line card headings inside the flex column. */
+  el.style.overflow = "hidden";
 }

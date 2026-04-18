@@ -51,7 +51,7 @@ const HistorySection = () => {
               <div className={`ml-12 w-full md:ml-0 md:w-[calc(50%-32px)] ${i % 2 === 0 ? "md:pr-0 md:text-right" : "md:pl-0"}`}>
                 <span className="text-gradient-hpc fs-ui mb-1 inline-block font-mono font-bold">{item.year}</span>
                 <h3 className="fs-card-title font-semibold text-foreground">{item.title}</h3>
-                <p className="fs-ui mt-1 text-muted-foreground text-justify hyphens-auto">{item.description}</p>
+                <p className="fs-ui mt-1 text-landing-description text-justify">{item.description}</p>
               </div>
             </motion.div>
           ))}

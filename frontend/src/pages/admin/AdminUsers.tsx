@@ -59,6 +59,7 @@ type Filter = "all" | "pending" | "verified" | "unverified" | "blocked";
 
 const FILTER_VALUES: readonly Filter[] = ["all", "pending", "verified", "unverified", "blocked"];
 const FILTER_SET = new Set<string>(FILTER_VALUES);
+const PAGE_SIZE = 20;
 
 const initialsFromName = (name: string | null | undefined) => {
   const safe = String(name || "").trim();
@@ -77,7 +78,9 @@ const AdminUsers = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useSyncedQueryState("q", "");
   const [filterRaw, setFilterRaw] = useSyncedQueryState("f", "all");
+  const [pageParam, setPageParam] = useSyncedQueryState("page", "1");
   const filter: Filter = FILTER_SET.has(filterRaw) ? (filterRaw as Filter) : "all";
+  const page = Math.max(1, Number.parseInt(pageParam, 10) || 1);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [authUnauthorized, setAuthUnauthorized] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
@@ -155,6 +158,15 @@ const AdminUsers = () => {
     unverified: profiles.filter((p) => !(p.verified && p.approved) && !p.blocked).length,
     blocked: profiles.filter((p) => p.blocked).length,
   }), [profiles]);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const activePage = Math.min(page, totalPages);
+  useEffect(() => {
+    if (page !== activePage) setPageParam(String(activePage));
+  }, [activePage, page, setPageParam]);
+  const pagedUsers = useMemo(() => {
+    const start = (activePage - 1) * PAGE_SIZE;
+    return filtered.slice(start, start + PAGE_SIZE);
+  }, [activePage, filtered]);
 
   const updateUser = async (id: string, updates: Record<string, unknown>, successMsg: string) => {
     setActionLoading(id);
@@ -311,7 +323,7 @@ const AdminUsers = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filtered.map((p) => {
+                    {pagedUsers.map((p) => {
                       const rowIsSelf = Boolean(myId && p.id === myId);
                       return (
                       <TableRow key={p.id}>
@@ -442,7 +454,7 @@ const AdminUsers = () => {
 
               {/* Mobile cards */}
               <div className="md:hidden divide-y divide-border">
-                {filtered.map((p) => {
+                {pagedUsers.map((p) => {
                   const rowIsSelf = Boolean(myId && p.id === myId);
                   return (
                   <div key={p.id} className="p-4 space-y-3 overflow-x-hidden">
@@ -571,6 +583,31 @@ const AdminUsers = () => {
           )}
         </CardContent>
       </Card>
+      {filtered.length > 0 && totalPages > 1 ? (
+        <div className="flex items-center justify-center gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={activePage <= 1}
+            onClick={() => setPageParam(String(activePage - 1))}
+          >
+            Prev
+          </Button>
+          <span className="text-xs text-muted-foreground">
+            Page {activePage} of {totalPages}
+          </span>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={activePage >= totalPages}
+            onClick={() => setPageParam(String(activePage + 1))}
+          >
+            Next
+          </Button>
+        </div>
+      ) : null}
 
       <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
         <DialogContent className="max-w-md">

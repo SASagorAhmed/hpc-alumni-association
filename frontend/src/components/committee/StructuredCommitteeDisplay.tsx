@@ -1,13 +1,16 @@
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAdaptiveStaticHeadingLine } from "@/components/committee/committeeAdaptiveCardText";
-import { saveNavScrollRestore } from "@/lib/navScrollRestore";
+import { shortNameForCard } from "@/components/committee/committeeCardDisplay";
 import { motion } from "framer-motion";
 import { GraduationCap, User, Crown, Mail, Phone, Hash } from "lucide-react";
 import { Camera } from "lucide-react";
+import { fetchPublicMemberById, memberDetailQueryKey } from "@/lib/publicDataQueries";
 
 export interface CommitteeMemberRow {
   id: string;
   name: string;
+  nickname?: string | null;
   /** Optional shorter label for cards when full name is too long */
   name_short?: string | null;
   designation: string;
@@ -18,6 +21,7 @@ export interface CommitteeMemberRow {
   email?: string | null;
   candidate_number?: string | null;
   institution: string | null;
+  university_short_name?: string | null;
   /** Optional shorter label for cards when full university name is too long */
   institution_short?: string | null;
   college_name?: string | null;
@@ -75,12 +79,21 @@ const MemberRow = ({
   /** Committee post name (e.g. Bangla) — always shown under the member name */
   postTitle?: string;
 }) => {
+  const location = useLocation();
+  const queryClient = useQueryClient();
   const size = highlighted ? "min-w-[140px] w-[140px] h-[140px]" : "min-w-[120px] w-[120px] h-[120px]";
   const { ref: nameTitleRef, text: nameTitleDisplay } = useAdaptiveStaticHeadingLine(
     member.name,
-    member.name_short,
+    shortNameForCard(member),
     18
   );
+  const prefetchDetail = () => {
+    queryClient.prefetchQuery({
+      queryKey: memberDetailQueryKey(member.id),
+      queryFn: () => fetchPublicMemberById(member.id),
+      staleTime: 1000 * 60 * 5,
+    });
+  };
   return (
     <motion.article
       initial={{ opacity: 0, y: 10 }}
@@ -92,8 +105,12 @@ const MemberRow = ({
     >
       <Link
         to={`/member/${member.id}`}
+        state={{ backgroundLocation: location }}
+        onPointerEnter={prefetchDetail}
+        onMouseEnter={prefetchDetail}
+        onFocus={prefetchDetail}
+        onTouchStart={prefetchDetail}
         className={`relative shrink-0 overflow-hidden rounded-2xl border-2 border-border/80 bg-muted ${size}`}
-        onClick={() => saveNavScrollRestore()}
       >
         {member.photo_url ? (
           <img src={member.photo_url} alt="" className="h-full w-full object-cover" />
@@ -109,10 +126,18 @@ const MemberRow = ({
         )}
       </Link>
       <div className="flex min-w-0 flex-1 flex-col justify-center gap-1">
-        <Link to={`/member/${member.id}`} className="group" onClick={() => saveNavScrollRestore()}>
+        <Link
+          to={`/member/${member.id}`}
+          state={{ backgroundLocation: location }}
+          onPointerEnter={prefetchDetail}
+          onMouseEnter={prefetchDetail}
+          onFocus={prefetchDetail}
+          onTouchStart={prefetchDetail}
+          className="group"
+        >
           <h3
             ref={nameTitleRef}
-            className="fs-card-title-lg font-bold text-foreground transition-colors group-hover:text-primary font-outfit-section"
+            className="fs-card-title-lg min-w-0 overflow-hidden text-ellipsis whitespace-nowrap font-bold text-foreground transition-colors group-hover:text-primary font-outfit-section"
             title={member.name}
           >
             {nameTitleDisplay}

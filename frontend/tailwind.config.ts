@@ -21,7 +21,8 @@ export default {
         "2xl": "1441px",
       },
       fontFamily: {
-        sans: ["'Public Sans'", "system-ui", "-apple-system", "sans-serif"],
+        sans: ["'Outfit'", "'Public Sans'", "system-ui", "-apple-system", "sans-serif"],
+        display: ["'Syne'", "'Outfit'", "ui-sans-serif", "system-ui", "sans-serif"],
         mono: ["'Geist Mono'", "'SF Mono'", "'Fira Code'", "monospace"],
       },
       colors: {
@@ -115,5 +116,5 @@ export default {
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [require("tailwindcss-animate"), require("@tailwindcss/typography")],
 } satisfies Config;

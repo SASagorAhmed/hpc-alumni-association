@@ -79,8 +79,7 @@ const VerifyOTP = () => {
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center p-4"
-      style={{ background: 'linear-gradient(135deg, #065F46, #059669, #064E3B)' }}
+      className="flex min-h-screen items-center justify-center p-4 hpc-auth-premium-canvas"
     >
       <div className="w-full max-w-md">
         <div className="text-center mb-6">
@@ -92,7 +91,7 @@ const VerifyOTP = () => {
             </div>
           </Link>
         </div>
-        <Card className="shadow-card bg-card/95 backdrop-blur-sm">
+        <Card className="shadow-card border-white/15 bg-card/95 backdrop-blur-md">
           <CardHeader className="text-center">
             <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-2">
               <MailCheck className="w-6 h-6 text-primary" />

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams, type Location } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,8 @@ import { API_BASE_URL } from "@/api-production/api.js";
 import { AlumniPhotoLightbox } from "@/components/alumni/AlumniPhotoLightbox";
 import { cn } from "@/lib/utils";
 import { displayCollegeNameOrNull } from "@/lib/collegeDisplay";
+import { alumniDirectoryQueryKey, fetchAlumniDirectory } from "@/lib/publicDataQueries";
+import { FullScreenRouteLayer } from "@/components/routing/FullScreenRouteLayer";
 
 interface AlumniProfile {
   id: string;
@@ -40,19 +42,18 @@ interface AlumniProfile {
   social_links: { facebook?: string; instagram?: string; linkedin?: string } | null;
 }
 
-const fetchAlumni = async (): Promise<AlumniProfile[]> => {
-  const res = await fetch(`${API_BASE_URL}/api/public/directory/alumni`, { method: "GET" });
-  if (!res.ok) throw new Error(`Failed to load directory (${res.status})`);
-  const data = (await res.json()) as AlumniProfile[];
-  return Array.isArray(data) ? data : [];
-};
-
 const DirectoryProfile = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const isLayer = Boolean((location.state as { backgroundLocation?: Location } | null)?.backgroundLocation);
   const [photoOpen, setPhotoOpen] = useState(false);
   const { data: alumni = [], isLoading } = useQuery({
-    queryKey: ["alumni-directory"],
-    queryFn: fetchAlumni,
+    queryKey: alumniDirectoryQueryKey,
+    queryFn: fetchAlumniDirectory as () => Promise<AlumniProfile[]>,
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 30,
+    placeholderData: (previousData) => previousData,
   });
 
   const selected = useMemo(() => alumni.find((a) => a.id === id) || null, [alumni, id]);
@@ -60,15 +61,21 @@ const DirectoryProfile = () => {
   if (isLoading) return <div className="py-10 text-center text-muted-foreground">Loading profile...</div>;
   if (!selected) return <div className="py-10 text-center text-muted-foreground">Profile not found.</div>;
 
-  return (
+  const handleBack = () => {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      navigate(-1);
+      return;
+    }
+    navigate("/directory");
+  };
+
+  const profilePage = (
     <div className="mx-auto max-w-4xl space-y-4 px-2 sm:px-0">
-      <Button asChild variant="outline" size="sm">
-        <Link to="/directory">
+      <Button type="button" variant="outline" size="sm" onClick={handleBack}>
           <ArrowLeft className="mr-1 h-4 w-4" /> Back to Directory
-        </Link>
       </Button>
 
-      <Card className="overflow-hidden">
+      <Card className="alumni-directory-neon-card overflow-hidden">
         <CardContent className="space-y-6 p-6 sm:p-8">
           <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start">
             <button
@@ -98,7 +105,7 @@ const DirectoryProfile = () => {
               <h1 className="text-2xl font-bold leading-tight tracking-tight text-foreground sm:text-3xl [overflow-wrap:anywhere]">
                 {selected.name}
               </h1>
-              <p className="mt-2 text-base text-muted-foreground [overflow-wrap:anywhere]">
+              <p className="mt-2 text-base text-muted-foreground">
                 Batch: {selected.batch || "—"}
                 {selected.roll ? ` · Roll: ${selected.roll}` : ""}
               </p>
@@ -110,7 +117,7 @@ const DirectoryProfile = () => {
 
           <div className="flex flex-wrap justify-center gap-2 sm:justify-start">
             {Number(selected.is_site_admin) ? (
-              <Badge className="max-w-full min-w-0 whitespace-normal bg-violet-600/95 py-1 text-white border-0 text-left">
+              <Badge className="max-w-full min-w-0 whitespace-normal bg-orange-600/95 py-1 text-white border-0 text-left">
                 <Crown className="mr-1 h-3 w-3 shrink-0" />
                 Site administrator
               </Badge>
@@ -204,6 +211,12 @@ const DirectoryProfile = () => {
       />
     </div>
   );
+
+  if (isLayer) {
+    return <FullScreenRouteLayer>{profilePage}</FullScreenRouteLayer>;
+  }
+
+  return profilePage;
 };
 
 const DetailSection = ({ title, children }: { title: string; children: React.ReactNode }) => (

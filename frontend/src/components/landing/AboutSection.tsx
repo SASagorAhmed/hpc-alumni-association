@@ -44,7 +44,7 @@ const AboutSection = ({ content }: AboutProps) => {
             <h2 className="font-outfit-section mb-5 fs-title font-bold tracking-tight text-foreground">
               {heading.includes("Legacy") ? <>Building a <span className="text-primary">Legacy</span> Together</> : heading}
             </h2>
-            <div className="space-y-3.5 fs-body text-muted-foreground text-pretty [&_p]:text-justify [&_p]:hyphens-auto">
+            <div className="space-y-3.5 fs-banner-message-body text-landing-description text-pretty [&_p]:text-justify [&_p]:[text-align-last:left] [&_p]:hyphens-none [&_p]:break-normal [&_p]:[word-break:normal] [&_p]:[overflow-wrap:normal]">
               {paragraphs.map((p: string, i: number) => <p key={i}>{p}</p>)}
             </div>
           </motion.div>
@@ -55,7 +55,7 @@ const AboutSection = ({ content }: AboutProps) => {
                   <obj.icon size={20} className={iconColors[i % 4]} />
                 </div>
                 <h3 className="fs-card-title mb-1 font-semibold text-foreground">{obj.title}</h3>
-                <p className="fs-ui text-muted-foreground text-justify hyphens-auto">{obj.description}</p>
+                <p className="fs-ui text-landing-description text-justify">{obj.description}</p>
               </motion.div>
             ))}
           </motion.div>

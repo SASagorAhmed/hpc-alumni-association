@@ -1,54 +1,50 @@
-import { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useParams, useNavigate, useLocation, type Location } from "react-router-dom";
 import { useHistorySyncOverlay } from "@/hooks/useHistorySyncOverlay";
+import { FullScreenRouteLayer } from "@/components/routing/FullScreenRouteLayer";
+import { preserveTopNavbarForBackground } from "@/lib/fullScreenLayerPreserveNavbar";
 import { ArrowLeft, Calendar, Tag, ImageIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { API_BASE_URL } from "@/api-production/api.js";
-import Navbar from "@/components/landing/Navbar";
-import Footer from "@/components/landing/Footer";
-
-interface Memory {
-  id: string;
-  title: string;
-  category: string;
-  description: string | null;
-  photo_url: string | null;
-  event_date: string | null;
-  published: boolean;
-  display_order: number;
-}
+import { PublicMetaverseChrome } from "@/components/layout/PublicMetaverseChrome";
+import { fetchPublicMemoryById, memoryDetailQueryKey } from "@/lib/publicDataQueries";
 
 export default function MemoryDetail() {
   const { id } = useParams<{ id: string }>();
-  const [memory, setMemory] = useState<Memory | null>(null);
-  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const backgroundLocation = (location.state as { backgroundLocation?: Location } | null)?.backgroundLocation;
+  const isLayer = Boolean(backgroundLocation);
+  const preserveTopNavbar = preserveTopNavbarForBackground(backgroundLocation);
   const [imgOpen, setImgOpen] = useState(false);
+  const { data: memory = null, isPending: loading } = useQuery({
+    queryKey: memoryDetailQueryKey(id ?? ""),
+    queryFn: () => fetchPublicMemoryById(id ?? ""),
+    enabled: Boolean(id),
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 30,
+  });
 
   useHistorySyncOverlay(imgOpen, () => setImgOpen(false));
 
-  useEffect(() => {
-    if (!id) return;
-    setLoading(true);
-    fetch(`${API_BASE_URL}/api/public/memories/${id}`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => { setMemory(data); setLoading(false); })
-      .catch(() => setLoading(false));
-  }, [id]);
+  const handleBack = () => {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      navigate(-1);
+      return;
+    }
+    navigate("/");
+  };
 
-  return (
-    <div className="flex min-h-screen flex-col bg-background">
-      <Navbar />
-
-      <main className="flex-1 w-full">
-        {/* pt clears fixed Navbar (z-50) so “Back” isn’t covered */}
-        <div className="mx-auto w-full max-w-4xl min-w-0 px-4 pb-8 pt-20 sm:px-6 sm:pb-10 sm:pt-24 lg:px-8">
-        <Link
-          to="/#memories"
+  const detailContent = (
+    <div className="layout-container w-full min-w-0 pb-8 pt-4 sm:pb-10 sm:pt-5">
+        <button
+          type="button"
+          onClick={handleBack}
           className="mb-8 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4 shrink-0" />
           Back to Memories
-        </Link>
+        </button>
 
         {loading && (
           <div className="flex items-center justify-center py-32 text-muted-foreground text-sm">
@@ -59,12 +55,13 @@ export default function MemoryDetail() {
         {!loading && !memory && (
           <div className="flex flex-col items-center justify-center py-32 gap-4">
             <p className="text-muted-foreground text-base">Memory not found.</p>
-            <Link
-              to="/#memories"
+            <button
+              type="button"
+              onClick={handleBack}
               className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
             >
               <ArrowLeft className="w-4 h-4" /> Go back
-            </Link>
+            </button>
           </div>
         )}
 
@@ -124,25 +121,31 @@ export default function MemoryDetail() {
             )}
           </article>
         )}
-        </div>
-      </main>
+      </div>
+  );
 
-      <Footer />
+  const page = (
+    <PublicMetaverseChrome
+      showNavbar={!isLayer}
+      showFooter={!isLayer}
+      overlayMode={isLayer}
+    >
+      {detailContent}
 
-      {/* Lightbox — click photo to view full screen */}
       {imgOpen && memory?.photo_url && (
         <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 p-4 cursor-zoom-out"
+          className="fixed inset-0 z-[9999] flex cursor-zoom-out items-center justify-center bg-black/90 p-4"
           onClick={() => setImgOpen(false)}
         >
           <img
             src={memory.photo_url}
             alt={memory.title}
-            className="max-w-full max-h-full object-contain rounded-lg shadow-2xl select-none"
+            className="max-h-full max-w-full select-none rounded-lg object-contain shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           />
           <button
-            className="absolute top-4 right-4 text-white/80 hover:text-white text-3xl font-light leading-none"
+            type="button"
+            className="absolute right-4 top-4 text-3xl font-light leading-none text-white/80 hover:text-white"
             onClick={() => setImgOpen(false)}
             aria-label="Close"
           >
@@ -150,6 +153,16 @@ export default function MemoryDetail() {
           </button>
         </div>
       )}
-    </div>
+    </PublicMetaverseChrome>
   );
+
+  if (isLayer) {
+    return (
+      <FullScreenRouteLayer preserveTopNavbar={preserveTopNavbar}>
+        {page}
+      </FullScreenRouteLayer>
+    );
+  }
+
+  return page;
 }

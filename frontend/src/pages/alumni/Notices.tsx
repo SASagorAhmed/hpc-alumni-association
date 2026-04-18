@@ -9,7 +9,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useNotices, NOTICE_TYPES } from "@/hooks/useNotices";
 import { FileText, Search, Pin, AlertTriangle, ExternalLink, Calendar, Megaphone } from "lucide-react";
 import { format } from "date-fns";
-import { saveNavScrollRestore } from "@/lib/navScrollRestore";
 import { cn } from "@/lib/utils";
 
 export default function Notices() {
@@ -39,7 +38,7 @@ export default function Notices() {
               Official announcements from the association—pinned items appear first. Use the filters to narrow by type.
             </p>
           </div>
-          <div className="flex items-center gap-2 rounded-lg border border-border/80 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+          <div className="hpc-alumni-dashboard-glass-row flex items-center gap-2 rounded-lg border border-border/80 px-3 py-2 text-xs text-muted-foreground">
             <Megaphone className="h-4 w-4 shrink-0 text-primary" aria-hidden />
             <span>
               Showing <strong className="text-foreground">{filtered.length}</strong>
@@ -75,7 +74,7 @@ export default function Notices() {
                 ))}
               </SelectContent>
             </Select>
-            <div className="flex h-10 items-center gap-2 rounded-md border border-border/80 bg-muted/20 px-3 lg:shrink-0">
+            <div className="hpc-alumni-dashboard-glass-row flex h-10 items-center gap-2 rounded-md border border-border/80 px-3 lg:shrink-0">
               <Checkbox
                 id="notices-pinned-only"
                 checked={showPinnedOnly}
@@ -92,13 +91,13 @@ export default function Notices() {
       {loading ? (
         <div className="grid gap-4 sm:grid-cols-2">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-28 animate-pulse rounded-xl border border-border/60 bg-muted/30" />
+            <div key={i} className="hpc-alumni-dashboard-glass-skeleton h-28 animate-pulse rounded-xl border border-border/60" />
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <Card className="border-dashed border-border/80 bg-muted/10">
+        <Card className="border-dashed border-border/80 bg-transparent">
           <CardContent className="flex flex-col items-center px-6 py-14 text-center">
-            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-muted/50">
+            <div className="hpc-alumni-dashboard-glass-empty mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border">
               <FileText className="h-7 w-7 text-muted-foreground" />
             </div>
             <p className="text-base font-medium text-foreground">No notices match your filters</p>
@@ -143,7 +142,7 @@ export default function Notices() {
 
 function NoticeCard({ notice: n }: { notice: ReturnType<typeof useNotices>["notices"][0] }) {
   return (
-    <Link to={`/notices/${n.id}`} onClick={() => saveNavScrollRestore()} className="group block h-full min-h-0 outline-none">
+    <Link to={`/notices/${n.id}`} className="group block h-full min-h-0 outline-none">
       <Card
         className={cn(
           "h-full border-border/80 shadow-sm transition-all duration-200 hover:border-primary/35 hover:shadow-md",

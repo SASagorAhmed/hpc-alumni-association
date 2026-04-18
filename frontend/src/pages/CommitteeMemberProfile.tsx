@@ -1,70 +1,41 @@
-import { useEffect, useState } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useEffect } from "react";
+import { useParams, Link, useNavigate, useLocation, type Location } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import {
   ArrowLeft, GraduationCap, Briefcase, Phone, Mail, MapPin,
   Hash, Building2, Facebook, Instagram, Linkedin, Star, Lock,
   MessageSquareQuote, Lightbulb, Crown, UserCheck, Trophy,
 } from "lucide-react";
-import { API_BASE_URL } from "@/api-production/api.js";
-import { getAuthToken } from "@/lib/authToken";
 import { useAuth } from "@/contexts/AuthContext";
-import Navbar from "@/components/landing/Navbar";
-import Footer from "@/components/landing/Footer";
+import { committeeMemberProfileQueryKey, fetchPublicCommitteeMemberProfile } from "@/lib/publicDataQueries";
+import { PublicMetaverseChrome } from "@/components/layout/PublicMetaverseChrome";
 import { inferBoardSectionFromTitle } from "@/components/committee/boardSections";
 import { displayCollegeName } from "@/lib/collegeDisplay";
-
-interface MemberProfile {
-  id: string;
-  name: string;
-  designation: string | null;
-  category: string | null;
-  batch: string | null;
-  alumni_id: string | null;
-  college_name: string | null;
-  institution: string | null;
-  job_status: string | null;
-  profession: string | null;
-  about: string | null;
-  wishing_message: string | null;
-  winner_about: string | null;
-  photo_url: string | null;
-  term_name: string | null;
-  post_title: string | null;
-  /** `governing_body` vs other sections — drives wishing layout (do not mix with “Congratulations” styling). */
-  board_section?: string | null;
-  // sensitive — only present if approved
-  phone?: string | null;
-  email?: string | null;
-  location?: string | null;
-  expertise?: string | null;
-  facebook_url?: string | null;
-  instagram_url?: string | null;
-  linkedin_url?: string | null;
-  isApproved?: boolean;
-}
+import { FullScreenRouteLayer } from "@/components/routing/FullScreenRouteLayer";
+import { preserveTopNavbarForBackground } from "@/lib/fullScreenLayerPreserveNavbar";
 
 export default function CommitteeMemberProfile() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [member, setMember] = useState<MemberProfile | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
-
-  useEffect(() => {
-    if (!id) return;
-    setLoading(true);
-    const token = getAuthToken();
-    fetch(`${API_BASE_URL}/api/public/committee/member/${id}`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    })
-      .then((res) => {
-        if (res.status === 404) { setNotFound(true); return null; }
-        return res.ok ? res.json() : null;
-      })
-      .then((data) => { setMember(data); setLoading(false); })
-      .catch(() => setLoading(false));
-  }, [id]);
+  const location = useLocation();
+  const backgroundLocation = (location.state as { backgroundLocation?: Location } | null)?.backgroundLocation;
+  const isLayer = Boolean(backgroundLocation);
+  const preserveTopNavbar = preserveTopNavbarForBackground(backgroundLocation);
+  const viewerKey = user?.id ?? "guest";
+  const {
+    data: member,
+    isPending: loading,
+    isError,
+  } = useQuery({
+    queryKey: committeeMemberProfileQueryKey(id ?? "", viewerKey),
+    queryFn: () => fetchPublicCommitteeMemberProfile(id ?? ""),
+    enabled: Boolean(id),
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 30,
+    placeholderData: (previousData) => previousData,
+  });
+  const notFound = !loading && !isError && member === null;
 
   useEffect(() => {
     // Prevent individual committee profile pages from appearing in search results.
@@ -113,21 +84,21 @@ export default function CommitteeMemberProfile() {
   const showLock = !hasSensitive;
 
   const handleBackToCommittee = () => {
-    // Prefer real back navigation when available; otherwise go to landing committee section.
+    // Prefer real back navigation when available; otherwise go to landing page.
     if (typeof window !== "undefined" && window.history.length > 1) {
       navigate(-1);
     } else {
-      navigate("/#committee");
+      navigate("/");
     }
   };
 
-  return (
-    <div className="min-h-screen flex flex-col bg-background">
-      <Navbar />
-      <main className="flex-1">
-        {/* Content */}
-        <div className="layout-container pt-10 sm:pt-12 pb-16">
-          {/* Back button (in-flow). Extra top padding prevents navbar overlap. */}
+  const page = (
+    <PublicMetaverseChrome
+      showNavbar={!isLayer}
+      showFooter={!isLayer}
+      overlayMode={isLayer}
+    >
+        <div className="layout-container pb-16 sm:pb-20">
           <div className="mb-4">
             <button
               type="button"
@@ -147,14 +118,27 @@ export default function CommitteeMemberProfile() {
           {notFound && !loading && (
             <div className="flex flex-col items-center justify-center py-32 gap-4">
               <p className="text-muted-foreground">Member not found.</p>
-              <Link to="/#committee" className="text-primary text-sm underline underline-offset-4">
+              <Link to="/" className="text-primary text-sm underline underline-offset-4">
                 Back to committee
               </Link>
             </div>
           )}
 
+          {isError && !loading && (
+            <div className="flex flex-col items-center justify-center py-32 gap-4">
+              <p className="text-muted-foreground">Could not load this profile.</p>
+              <button
+                type="button"
+                onClick={handleBackToCommittee}
+                className="text-primary text-sm font-semibold underline underline-offset-4"
+              >
+                Go back
+              </button>
+            </div>
+          )}
+
           {member && !loading && (
-            <div className="mx-auto max-w-3xl">
+            <div className="w-full min-w-0 max-w-none">
 
               {/* ── Hero card ── */}
               <div
@@ -415,8 +399,12 @@ export default function CommitteeMemberProfile() {
             </div>
           )}
         </div>
-      </main>
-      <Footer />
-    </div>
+    </PublicMetaverseChrome>
   );
+
+  if (isLayer) {
+    return <FullScreenRouteLayer preserveTopNavbar={preserveTopNavbar}>{page}</FullScreenRouteLayer>;
+  }
+
+  return page;
 }

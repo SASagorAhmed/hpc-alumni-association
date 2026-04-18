@@ -12,6 +12,77 @@ interface ActiveElection {
   countdownLabel: string;
 }
 
+const ACTIVE_ELECTIONS_CACHE_KEY = "hpc:active-elections-cache";
+const ACTIVE_ELECTIONS_DISMISSED_IDS_KEY = "hpc:active-elections-dismissed-ids";
+
+function readCachedActiveElections(): ActiveElection[] {
+  try {
+    const raw = sessionStorage.getItem(ACTIVE_ELECTIONS_CACHE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as Array<{
+      id?: string;
+      title?: string;
+      stage?: "applications_open" | "voting_live";
+      countdownTarget?: string | null;
+      countdownLabel?: string;
+    }>;
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter(
+        (item) =>
+          item &&
+          typeof item.id === "string" &&
+          typeof item.title === "string" &&
+          (item.stage === "applications_open" || item.stage === "voting_live")
+      )
+      .map((item) => ({
+        id: item.id as string,
+        title: item.title as string,
+        stage: item.stage as "applications_open" | "voting_live",
+        countdownTarget: item.countdownTarget ? new Date(item.countdownTarget) : null,
+        countdownLabel: typeof item.countdownLabel === "string" ? item.countdownLabel : "",
+      }));
+  } catch {
+    return [];
+  }
+}
+
+function writeCachedActiveElections(items: ActiveElection[]): void {
+  try {
+    sessionStorage.setItem(
+      ACTIVE_ELECTIONS_CACHE_KEY,
+      JSON.stringify(
+        items.map((item) => ({
+          ...item,
+          countdownTarget: item.countdownTarget ? item.countdownTarget.toISOString() : null,
+        }))
+      )
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
+function readDismissedIds(): Set<string> {
+  try {
+    const raw = sessionStorage.getItem(ACTIVE_ELECTIONS_DISMISSED_IDS_KEY);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return new Set();
+    return new Set(parsed.filter((value): value is string => typeof value === "string"));
+  } catch {
+    return new Set();
+  }
+}
+
+function writeDismissedIds(ids: Set<string>): void {
+  try {
+    sessionStorage.setItem(ACTIVE_ELECTIONS_DISMISSED_IDS_KEY, JSON.stringify(Array.from(ids).slice(-30)));
+  } catch {
+    /* ignore */
+  }
+}
+
 function getTimeLeft(target: Date) {
   const diff = target.getTime() - Date.now();
   if (diff <= 0) return null;
@@ -26,8 +97,8 @@ function getTimeLeft(target: Date) {
 }
 
 export default function ActiveElectionBanner() {
-  const [elections, setElections] = useState<ActiveElection[]>([]);
-  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  const [elections, setElections] = useState<ActiveElection[]>(() => readCachedActiveElections());
+  const [dismissed, setDismissed] = useState<Set<string>>(() => readDismissedIds());
   const [, setTick] = useState(0);
 
   useEffect(() => {
@@ -51,6 +122,7 @@ export default function ActiveElectionBanner() {
         }
       }
       setElections(active);
+      writeCachedActiveElections(active);
     };
     fetchElections();
   }, []);
@@ -105,7 +177,12 @@ export default function ActiveElectionBanner() {
               <button
                 onClick={(ev) => {
                   ev.preventDefault();
-                  setDismissed((prev) => new Set(prev).add(e.id));
+                  setDismissed((prev) => {
+                    const next = new Set(prev);
+                    next.add(e.id);
+                    writeDismissedIds(next);
+                    return next;
+                  });
                 }}
                 className="p-1 rounded hover:bg-white/20 transition-colors shrink-0 ml-2"
               >

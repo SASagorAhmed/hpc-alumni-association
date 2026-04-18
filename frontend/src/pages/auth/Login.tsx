@@ -12,6 +12,7 @@ import { API_BASE_URL } from "@/api-production/api.js";
 import { Checkbox } from "@/components/ui/checkbox";
 import { clearAuthToken, setAuthToken } from "@/lib/authToken";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { usePersistedFormDraft } from "@/hooks/usePersistedFormDraft";
 
 /** Written before Google redirect; read when OAuth returns (same tab). */
 const OAUTH_REMEMBER_KEY = "hpc_oauth_remember_me";
@@ -46,7 +47,10 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
-  const [form, setForm] = useState({ email: "", password: "" });
+  const [form, setForm, clearLoginDraft] = usePersistedFormDraft(
+    { email: "", password: "" },
+    { storageKey: "auth:login:draft", delayMs: 120 }
+  );
   const [emailVerifyBanner, setEmailVerifyBanner] = useState<"verified" | "already_verified" | null>(null);
 
   useEffect(() => {
@@ -212,9 +216,11 @@ const Login = () => {
     const result = await login(form.email, form.password, rememberMe);
     setLoading(false);
     if (result.success) {
+      clearLoginDraft();
       toast.success(result.message);
       navigate("/dashboard");
     } else if (result.needsOtp) {
+      clearLoginDraft();
       toast.warning(result.message);
       navigate("/verify-otp");
     } else {
@@ -223,12 +229,12 @@ const Login = () => {
   };
 
   return (
-    <div
-      className="relative min-h-screen flex items-center justify-center p-4"
-      style={{ background: 'linear-gradient(135deg, #065F46, #059669, #064E3B)' }}
-    >
+    <div className="relative flex min-h-screen items-center justify-center p-4 hpc-auth-premium-canvas">
       <div className="absolute top-4 left-4 z-10">
-        <Link to="/" className="inline-flex items-center gap-1 text-sm text-white/80 hover:text-amber-300 transition-colors">
+        <Link
+          to="/"
+          className="hpc-auth-card-desc inline-flex items-center gap-1 text-sm font-semibold text-white/85 transition-colors hover:text-amber-200"
+        >
           ← Back to Home
         </Link>
       </div>
@@ -236,19 +242,21 @@ const Login = () => {
         <div className="text-center mb-6">
           <Link to="/" className="inline-flex items-center gap-3">
             <img src={hpcLogo} alt="HPC Logo" className="h-10 w-10" />
-            <div className="leading-tight text-left">
-              <span className="block text-[16px] font-bold text-white">Hamdard Public College</span>
-              <span className="block text-amber-400 text-[13px] font-extrabold tracking-wider">ALUMNI ASSOCIATION</span>
+            <div className="text-left leading-tight">
+              <span className="hpc-auth-brand-title block text-[16px] text-white">Hamdard Public College</span>
+              <span className="hpc-auth-brand-subtitle mt-px block bg-gradient-to-r from-amber-300 via-orange-400 to-yellow-300 bg-clip-text text-[13px] text-transparent">
+                ALUMNI ASSOCIATION
+              </span>
             </div>
           </Link>
         </div>
-        <Card className="shadow-card bg-card/95 backdrop-blur-sm">
+        <Card className="shadow-card border-white/15 bg-card/95 backdrop-blur-md">
           <CardHeader className="text-center">
-            <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-2">
-              <LogIn className="w-6 h-6 text-primary" />
+            <div className="hpc-auth-icon-ring mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full border border-cyan-400/35 bg-gradient-to-br from-amber-400/25 via-orange-500/15 to-cyan-400/20">
+              <LogIn className="h-6 w-6 text-amber-400 drop-shadow-[0_0_10px_rgba(251,191,36,0.35)]" strokeWidth={2.25} aria-hidden />
             </div>
-            <CardTitle className="text-xl">Login</CardTitle>
-            <CardDescription>Sign in to your alumni account</CardDescription>
+            <CardTitle className="hpc-auth-card-title text-xl">Login</CardTitle>
+            <CardDescription className="hpc-auth-card-desc">Sign in to your alumni account</CardDescription>
           </CardHeader>
           <CardContent>
             {emailVerifyBanner === "verified" ? (
@@ -271,7 +279,9 @@ const Login = () => {
             ) : null}
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-1.5">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email" className="hpc-auth-card-desc font-semibold text-foreground">
+                  Email
+                </Label>
                 <Input
                   id="email"
                   type="email"
@@ -282,7 +292,9 @@ const Login = () => {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password" className="hpc-auth-card-desc font-semibold text-foreground">
+                  Password
+                </Label>
                 <div className="relative">
                   <Input
                     id="password"
@@ -292,8 +304,13 @@ const Login = () => {
                     value={form.password}
                     onChange={(e) => setForm({ ...form, password: e.target.value })}
                   />
-                  <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={() => setShowPassword(!showPassword)}>
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  <button
+                    type="button"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md text-slate-500 transition-colors hover:text-amber-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/50"
+                    onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" strokeWidth={2.25} /> : <Eye className="h-4 w-4" strokeWidth={2.25} />}
                   </button>
                 </div>
                 <div className="flex items-center justify-between gap-3 pt-1">
@@ -302,17 +319,21 @@ const Login = () => {
                       id="remember-me"
                       checked={rememberMe}
                       onCheckedChange={(v) => setRememberMe(v === true)}
+                      className="border-amber-500/70 text-[#1a0d04] shadow-[0_0_12px_rgba(251,191,36,0.15)] data-[state=checked]:border-amber-500 data-[state=checked]:bg-gradient-to-br data-[state=checked]:from-amber-500 data-[state=checked]:to-orange-600 data-[state=checked]:text-[#1a0d04] data-[state=checked]:shadow-[0_0_14px_rgba(251,146,60,0.35)] focus-visible:ring-amber-400/60"
                     />
-                    <Label htmlFor="remember-me" className="text-sm font-normal cursor-pointer leading-none">
+                    <Label htmlFor="remember-me" className="hpc-auth-card-desc cursor-pointer text-sm font-medium leading-none">
                       Remember me
                     </Label>
                   </div>
-                  <Link to="/forgot-password" className="text-sm text-primary font-medium hover:underline shrink-0">
+                  <Link
+                    to="/forgot-password"
+                    className="hpc-auth-card-desc shrink-0 text-sm font-semibold text-amber-700 hover:text-amber-600 hover:underline dark:text-amber-400 dark:hover:text-amber-300"
+                  >
                     Forgot password?
                   </Link>
                 </div>
               </div>
-              <Button type="submit" size="lg" className="w-full bg-gradient-hpc hover:opacity-90 text-primary-foreground font-semibold" disabled={loading}>
+              <Button type="submit" size="lg" className="hpc-auth-btn-primary w-full min-h-11" disabled={loading}>
                 {loading ? "Please wait..." : "Login"}
               </Button>
 
@@ -320,7 +341,7 @@ const Login = () => {
                 type="button"
                 size="lg"
                 variant="outline"
-                className="w-full"
+                className="hpc-auth-btn-secondary w-full min-h-11 gap-2 [&_svg]:shrink-0"
                 onClick={() => {
                   try {
                     sessionStorage.setItem(OAUTH_REMEMBER_KEY, rememberMe ? "1" : "0");
@@ -330,17 +351,24 @@ const Login = () => {
                   window.location.href = `${API_BASE_URL}/api/auth/google`;
                 }}
               >
-                <GoogleMark />
+                <GoogleMark className="h-5 w-5 shrink-0" />
                 Continue with Google
               </Button>
 
-              <div className="text-center space-y-2 text-sm text-muted-foreground">
+              <div className="hpc-auth-card-desc space-y-2 text-center text-sm text-muted-foreground">
                 <p>
-                  Don't have an account?{" "}
-                  <Link to="/register" className="text-primary font-medium hover:underline">Register</Link>
+                  Don&apos;t have an account?{" "}
+                  <Link to="/register" className="font-semibold text-amber-700 hover:text-amber-600 hover:underline dark:text-amber-400 dark:hover:text-amber-300">
+                    Register
+                  </Link>
                 </p>
                 <p>
-                  <Link to="/admin/login" className="text-muted-foreground hover:text-primary hover:underline">Admin Login</Link>
+                  <Link
+                    to="/admin/login"
+                    className="font-medium text-muted-foreground transition-colors hover:text-amber-700 hover:underline dark:hover:text-amber-400"
+                  >
+                    Admin Login
+                  </Link>
                 </p>
               </div>
             </form>

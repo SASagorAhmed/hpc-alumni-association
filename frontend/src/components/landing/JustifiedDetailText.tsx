@@ -18,7 +18,7 @@ export function JustifiedDetailText({ text, className }: { text: string; classNa
   }, [text]);
 
   const bodyClass =
-    "text-justify [text-align-last:left] hyphens-none break-words text-pretty whitespace-pre-line fs-body leading-relaxed text-foreground/90";
+    "text-justify [text-align-last:left] hyphens-none break-normal [word-break:normal] [overflow-wrap:normal] text-pretty whitespace-pre-line fs-body leading-relaxed text-foreground/90";
 
   if (paragraphs.length === 0) return null;
   if (paragraphs.length === 1) {
