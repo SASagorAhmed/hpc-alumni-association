@@ -27,6 +27,18 @@ async function ensureProfileDirectoryVisibleColumn(pool) {
   }
 }
 
+function normalizeDirectoryRow(r) {
+  if (!r) return r;
+  if (typeof r.social_links === "string") {
+    try {
+      return { ...r, social_links: JSON.parse(r.social_links) };
+    } catch (_e) {
+      return r;
+    }
+  }
+  return r;
+}
+
 // GET /api/public/directory/alumni
 // Visibility rules:
 // - verified = true OR approved = true (some deployments only set `verified`)
@@ -68,11 +80,11 @@ router.get("/directory/alumni", async (req, res) => {
         p.admin_committee_designation,
         p.created_at,
         p.social_links,
-        (
-          SELECT COUNT(*)
-          FROM user_roles ur
+        EXISTS (
+          SELECT 1 FROM user_roles ur
           WHERE ur.user_id = p.id AND ur.role = 'admin'
-        ) > 0 AS is_site_admin
+          LIMIT 1
+        ) AS is_site_admin
       FROM profiles p
       WHERE (p.verified = true OR p.approved = true)
         AND (p.blocked = false OR p.blocked IS NULL)
@@ -80,20 +92,74 @@ router.get("/directory/alumni", async (req, res) => {
       ORDER BY p.name ASC`
     );
 
-    const normalized = (rows || []).map((r) => {
-      if (typeof r.social_links === "string") {
-        try {
-          return { ...r, social_links: JSON.parse(r.social_links) };
-        } catch (_e) {
-          return r;
-        }
-      }
-      return r;
-    });
+    const normalized = (rows || []).map((r) => normalizeDirectoryRow(r));
 
     return res.status(200).json(normalized);
   } catch (e) {
     return res.status(500).json({ ok: false, error: e.message || "Failed to load directory" });
+  }
+});
+
+// GET /api/public/directory/alumni/:id — one row (fast); same visibility rules as the list route.
+router.get("/directory/alumni/:id", async (req, res) => {
+  try {
+    const id = String(req.params.id || "").trim();
+    if (!id) return res.status(400).json({ ok: false, error: "Missing id" });
+
+    const pool = getOrCreatePool();
+    if (!pool) return res.status(503).json({ ok: false, error: "MySQL not configured" });
+    await ensureProfileFacultyColumn(pool);
+    await ensureAdminCommitteeDesignationColumn(pool);
+    await ensureProfileNicknameUniShortColumns(pool);
+
+    const [rows] = await pool.query(
+      `SELECT
+        p.id,
+        p.name,
+        p.nickname,
+        p.photo,
+        p.batch,
+        p.roll,
+        p.gender,
+        p.blood_group,
+        p.department,
+        p.faculty,
+        p.university,
+        p.university_short_name,
+        p.job_status,
+        p.job_title,
+        p.company,
+        p.phone,
+        p.address,
+        p.bio,
+        p.additional_info,
+        p.profession,
+        p.session,
+        p.passing_year,
+        p.college_name,
+        p.registration_number,
+        p.admin_committee_designation,
+        p.created_at,
+        p.social_links,
+        EXISTS (
+          SELECT 1 FROM user_roles ur
+          WHERE ur.user_id = p.id AND ur.role = 'admin'
+          LIMIT 1
+        ) AS is_site_admin
+      FROM profiles p
+      WHERE p.id = ?
+        AND (p.verified = true OR p.approved = true)
+        AND (p.blocked = false OR p.blocked IS NULL)
+        AND (p.directory_visible = 1 OR p.directory_visible IS NULL)
+      LIMIT 1`,
+      [id]
+    );
+
+    const row = rows?.[0];
+    if (!row) return res.status(404).json({ ok: false, error: "Not found" });
+    return res.status(200).json(normalizeDirectoryRow(row));
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message || "Failed to load directory profile" });
   }
 });
 

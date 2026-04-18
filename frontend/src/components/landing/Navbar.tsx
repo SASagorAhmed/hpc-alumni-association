@@ -1,4 +1,12 @@
-import { useState, useEffect, useCallback, useMemo, useId, type MouseEvent } from "react";
+import {
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useCallback,
+  useMemo,
+  useId,
+  type MouseEvent,
+} from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, Menu, X, LogOut } from "lucide-react";
 import { Link, useLocation, useNavigate, type Location } from "react-router-dom";
@@ -8,7 +16,11 @@ import { useAdminViewAsAlumni } from "@/contexts/AdminViewAsAlumniContext";
 import { cn } from "@/lib/utils";
 import { getAuthToken } from "@/lib/authToken";
 import { primeJsonCache } from "@/lib/requestCache";
-import { consumeFreshLandingNavTarget, setLandingNavIntent } from "@/lib/landingNavIntent";
+import {
+  clearLandingNavIntent,
+  consumeFreshLandingNavTarget,
+  setLandingNavIntent,
+} from "@/lib/landingNavIntent";
 import { captureRegisterBackSnapshot } from "@/lib/registerBackSnapshot";
 import hpcLogo from "@/assets/hpc-logo.png";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -17,6 +29,11 @@ import type { AchievementPublicRecord } from "@/lib/achievementPublic";
 import { useCommitteeMemberProfilePrefetch } from "@/hooks/useCommitteeMemberProfilePrefetch";
 import { useLandingContent } from "@/hooks/useLandingContent";
 import { API_BASE_URL } from "@/api-production/api.js";
+import { acquireDocumentScrollLock } from "@/lib/documentScrollLock";
+import {
+  persistLandingScrollSnapshotEarly,
+  resolveLandingAnchor,
+} from "@/hooks/useRouteScrollPersistence";
 
 const navLinks = [
   { label: "Home", href: "#" },
@@ -27,6 +44,15 @@ const navLinks = [
   { label: "Community", href: "#community" },
   { label: "Contact", href: "#contact" },
 ];
+/** Frozen landing behind modal layers — `useLocation()` can be `/` while `window.location` stays on the detail path. */
+const HOME_BACKGROUND_LOCATION: Location = {
+  pathname: "/",
+  search: "",
+  hash: "",
+  state: null,
+  key: "default",
+};
+
 const NAVBAR_SCROLL_OFFSET = 72;
 const SECTION_SWITCH_BIAS_PX = 220;
 const LANDING_SECTION_IDS_FOR_ACTIVE = [
@@ -55,10 +81,40 @@ function landingHrefToScrollId(href: string) {
   return href.replace("#", "");
 }
 
-type NavDropItem = { key: string; label: string; to: string; external?: boolean };
+/** Prefer over `window.scrollY` alone — some restores read 0 until layout settles. */
+function getWindowScrollY() {
+  return Math.max(
+    window.scrollY || 0,
+    window.pageYOffset || 0,
+    document.documentElement?.scrollTop || 0,
+    document.body?.scrollTop || 0
+  );
+}
+
+/** Map persisted landing `sectionId` to a real top-nav `href` (Join has no link → Community). */
+function landingSnapshotSectionToNavHref(sectionId: string): string | null {
+  if ((LANDING_SECTION_IDS_FOR_ACTIVE as readonly string[]).includes(sectionId)) {
+    return sectionIdToNavHref(sectionId as (typeof LANDING_SECTION_IDS_FOR_ACTIVE)[number]);
+  }
+  if (sectionId === "join") return "#community";
+  if (sectionId === "about" || sectionId === "goals" || sectionId === "features") return "#";
+  return null;
+}
+
+type NavDropItem = {
+  key: string;
+  label: string;
+  to: string;
+  external?: boolean;
+  /** Modal layer over landing — must match `App.tsx` overlay routes (`state.backgroundLocation`). */
+  routerState?: { backgroundLocation: Location };
+};
 
 /** Rows for nav: one per assigned member; label is always post title + member name (when name exists). */
-function committeeAssignedNavItems(structured: StructuredCommitteePayload | null | undefined) {
+function committeeAssignedNavItems(
+  structured: StructuredCommitteePayload | null | undefined,
+  overlayRouterState: { backgroundLocation: Location }
+) {
   if (!structured?.posts?.length) return [] as NavDropItem[];
   const out: NavDropItem[] = [];
   for (const post of structured.posts) {
@@ -73,13 +129,17 @@ function committeeAssignedNavItems(structured: StructuredCommitteePayload | null
         key: `${post.id}-${member.id}`,
         label,
         to: `/committee/member/${member.id}`,
+        routerState: overlayRouterState,
       });
     }
   }
   return out;
 }
 
-function achievementNavItemsFrom(rows: AchievementPublicRecord[] | undefined) {
+function achievementNavItemsFrom(
+  rows: AchievementPublicRecord[] | undefined,
+  overlayRouterState: { backgroundLocation: Location }
+) {
   if (!rows?.length) return [] as NavDropItem[];
   const out: NavDropItem[] = [];
   for (const a of rows) {
@@ -88,7 +148,7 @@ function achievementNavItemsFrom(rows: AchievementPublicRecord[] | undefined) {
     if (!title) continue;
     const name = String(a.name || "").trim();
     const label = name ? `${title} — ${name}` : title;
-    out.push({ key: a.id, label, to: `/achievements/${a.id}` });
+    out.push({ key: a.id, label, to: `/achievements/${a.id}`, routerState: overlayRouterState });
   }
   return out;
 }
@@ -126,14 +186,17 @@ function formatMemoryNavLabel(m: MemoryPublicNavRow): string {
   return `${dateStr} — ${title}`;
 }
 
-function memoryNavItemsFrom(rows: MemoryPublicNavRow[] | undefined) {
+function memoryNavItemsFrom(
+  rows: MemoryPublicNavRow[] | undefined,
+  overlayRouterState: { backgroundLocation: Location }
+) {
   if (!rows?.length) return [] as NavDropItem[];
   const out: NavDropItem[] = [];
   for (const m of rows) {
     if (!m?.id) continue;
     const label = formatMemoryNavLabel(m).trim();
     if (!label) continue;
-    out.push({ key: m.id, label, to: `/memories/${m.id}` });
+    out.push({ key: m.id, label, to: `/memories/${m.id}`, routerState: overlayRouterState });
   }
   return out;
 }
@@ -222,6 +285,8 @@ function DesktopNavDropdown({
                 key={item.key}
                 role="menuitem"
                 to={item.to}
+                {...(item.routerState ? { state: item.routerState } : {})}
+                onPointerDown={() => onMenuItemIntent?.(item)}
                 onPointerEnter={() => onMenuItemIntent?.(item)}
                 onMouseEnter={() => onMenuItemIntent?.(item)}
                 onFocus={() => onMenuItemIntent?.(item)}
@@ -283,7 +348,7 @@ function MobileNavDropSection({
             e.stopPropagation();
             setSubOpen((v) => !v);
           }}
-          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+          className="inline-flex h-11 min-h-[44px] w-11 min-w-[44px] shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground touch-manipulation"
         >
           <ChevronDown
             className={cn("nav-icon-inline shrink-0 transition-transform duration-200", subOpen && "rotate-180")}
@@ -320,7 +385,9 @@ function MobileNavDropSection({
                   <Link
                     key={item.key}
                     to={item.to}
+                    {...(item.routerState ? { state: item.routerState } : {})}
                     onClick={onItemNavigate}
+                    onPointerDown={() => onMenuItemIntent?.(item)}
                     onPointerEnter={() => onMenuItemIntent?.(item)}
                     onMouseEnter={() => onMenuItemIntent?.(item)}
                     onFocus={() => onMenuItemIntent?.(item)}
@@ -354,6 +421,26 @@ const Navbar = ({ landingMetaverse = true }: NavbarProps) => {
   const showThemeToggle = false; // Keep code for later; hidden for now.
   const isLandingRoute = location.pathname === "/";
 
+  /** Router `state` for public detail links so `App.tsx` keeps `/` mounted under the overlay. */
+  const detailOverlayRouterState = useMemo((): { backgroundLocation: Location } => {
+    const st = location.state as { backgroundLocation?: Location } | null | undefined;
+    if (st?.backgroundLocation) {
+      return { backgroundLocation: st.backgroundLocation };
+    }
+    if (location.pathname === "/") {
+      return { backgroundLocation: location };
+    }
+    return {
+      backgroundLocation: {
+        pathname: "/",
+        search: "",
+        hash: "",
+        state: null,
+        key: "default",
+      },
+    };
+  }, [location]);
+
   const { data: committeeStructured } = useQuery({
     queryKey: ["committee-active-public"],
     queryFn: async (): Promise<StructuredCommitteePayload | null> => {
@@ -367,7 +454,10 @@ const Navbar = ({ landingMetaverse = true }: NavbarProps) => {
     refetchOnWindowFocus: false,
     enabled: isLandingRoute,
   });
-  const committeeNavItems = committeeAssignedNavItems(committeeStructured);
+  const committeeNavItems = useMemo(
+    () => committeeAssignedNavItems(committeeStructured, detailOverlayRouterState),
+    [committeeStructured, detailOverlayRouterState]
+  );
 
   const { data: achievementsRaw } = useQuery({
     queryKey: ["public-achievements-active"],
@@ -382,8 +472,8 @@ const Navbar = ({ landingMetaverse = true }: NavbarProps) => {
     enabled: isLandingRoute,
   });
   const achievementNavItems = useMemo(
-    () => achievementNavItemsFrom(achievementsRaw),
-    [achievementsRaw]
+    () => achievementNavItemsFrom(achievementsRaw, detailOverlayRouterState),
+    [achievementsRaw, detailOverlayRouterState]
   );
 
   const { data: noticesRaw } = useQuery({
@@ -411,7 +501,10 @@ const Navbar = ({ landingMetaverse = true }: NavbarProps) => {
     refetchOnWindowFocus: false,
     enabled: isLandingRoute,
   });
-  const memoryNavItems = useMemo(() => memoryNavItemsFrom(memoriesRaw), [memoriesRaw]);
+  const memoryNavItems = useMemo(
+    () => memoryNavItemsFrom(memoriesRaw, detailOverlayRouterState),
+    [memoriesRaw, detailOverlayRouterState]
+  );
 
   const { data: landingContent } = useLandingContent({ enabled: isLandingRoute });
   const communityNavItems = useMemo(
@@ -461,8 +554,14 @@ const Navbar = ({ landingMetaverse = true }: NavbarProps) => {
   }, [dashboardPath, user]);
 
   const handleDashboardTap = useCallback(() => {
+    if (landingMetaverse) {
+      persistLandingScrollSnapshotEarly("HPC_SCROLL:route", location);
+    }
+    // Stale nav intent (last clicked #section, 1.5s TTL) is not the same as current scroll; if we leave it set,
+    // `Index` re-applies that hash on remount and overrides session scroll restore (wrong for scrolled-to notices, etc.).
+    clearLandingNavIntent();
     prefetchDashboardDestination();
-  }, [prefetchDashboardDestination]);
+  }, [landingMetaverse, location, prefetchDashboardDestination]);
 
   const prefetchCommitteeProfile = useCommitteeMemberProfilePrefetch();
   const onCommitteeNavItemIntent = useCallback(
@@ -526,11 +625,24 @@ const Navbar = ({ landingMetaverse = true }: NavbarProps) => {
           /* ignore */
         }
       };
-      if (location.pathname !== "/") {
+      const browserPathname =
+        typeof window !== "undefined" ? window.location.pathname : location.pathname;
+      const routeState = location.state as { backgroundLocation?: Location } | null;
+      const resolvedBackground =
+        routeState?.backgroundLocation ??
+        (location.pathname === "/" && browserPathname !== "/"
+          ? HOME_BACKGROUND_LOCATION
+          : null);
+
+      if (browserPathname !== "/") {
         pushLandingTarget();
-        const state = location.state as { backgroundLocation?: Location } | null;
-        if (state?.backgroundLocation) {
-          navigate(-1);
+        if (resolvedBackground) {
+          const bg = resolvedBackground;
+          navigate({ pathname: bg.pathname, search: bg.search, hash: bg.hash }, { replace: true, state: {} });
+          const runScroll = () => {
+            scrollToLandingSection(href);
+          };
+          requestAnimationFrame(runScroll);
           return;
         }
         navigate("/");
@@ -541,7 +653,7 @@ const Navbar = ({ landingMetaverse = true }: NavbarProps) => {
       // duplicate scroll paths and active-section desync.
       scrollToLandingSection(href);
     },
-    [location.pathname, navigate, scrollToLandingSection]
+    [location, navigate, scrollToLandingSection]
   );
 
   const handleLandingNavClick = useCallback(
@@ -570,20 +682,20 @@ const Navbar = ({ landingMetaverse = true }: NavbarProps) => {
     scrollToLandingSection(pendingTarget);
   }, [location.pathname, scrollToLandingSection]);
 
+  // Close only on route changes — do NOT depend on `mobileOpen` or opening the menu re-runs this and closes it immediately.
   useEffect(() => {
-    if (mobileOpen) setMobileOpen(false);
-  }, [location.pathname, mobileOpen]);
+    setMobileOpen(false);
+  }, [location.pathname]);
 
-  useEffect(() => {
-    if (!mobileOpen) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+  useLayoutEffect(() => {
+    if (!mobileOpen || typeof window === "undefined") return;
+    const releaseScrollLock = acquireDocumentScrollLock();
     const closeIfDesktop = () => {
       if (window.matchMedia("(min-width: 1025px)").matches) setMobileOpen(false);
     };
     window.addEventListener("resize", closeIfDesktop);
     return () => {
-      document.body.style.overflow = prev;
+      releaseScrollLock();
       window.removeEventListener("resize", closeIfDesktop);
     };
   }, [mobileOpen]);
@@ -594,13 +706,20 @@ const Navbar = ({ landingMetaverse = true }: NavbarProps) => {
     let raf = 0;
     let settleRaf = 0;
     const resolveActiveSection = () => {
-      const scrollY = window.scrollY;
+      const scrollY = getWindowScrollY();
       // Switch section when previous section is effectively out of view
       // (user preference), not too early at heading touch.
       const activationY = scrollY + NAVBAR_SCROLL_OFFSET + SECTION_SWITCH_BIAS_PX;
 
       if (scrollY < NAVBAR_SCROLL_OFFSET) {
         setActiveSection((prev) => (prev === "#" ? prev : "#"));
+        return;
+      }
+
+      // Match `resolveLandingAnchor` (scroll snapshot) — Navbar’s shorter id list can disagree around Join/Contact.
+      const anchor = resolveLandingAnchor(scrollY);
+      if (anchor?.sectionId === "contact") {
+        setActiveSection((prev) => (prev === "#contact" ? prev : "#contact"));
         return;
       }
 
@@ -644,10 +763,19 @@ const Navbar = ({ landingMetaverse = true }: NavbarProps) => {
       tick();
     };
 
+    const onRouteScrollRestored = ((event: Event) => {
+      const id = (event as CustomEvent<{ landingSectionId?: string }>).detail?.landingSectionId;
+      if (typeof id === "string" && id.trim()) {
+        const href = landingSnapshotSectionToNavHref(id.trim());
+        if (href) setActiveSection((prev) => (prev === href ? prev : href));
+      }
+      runSettlePass();
+    }) as EventListener;
+
     window.addEventListener("scroll", scheduleResolve, { passive: true });
     window.addEventListener("resize", scheduleResolve);
     window.addEventListener("load", runSettlePass as EventListener);
-    window.addEventListener("hpc:route-scroll-restored", runSettlePass as EventListener);
+    window.addEventListener("hpc:route-scroll-restored", onRouteScrollRestored);
     window.addEventListener("pageshow", runSettlePass as EventListener);
     runSettlePass();
 
@@ -657,7 +785,7 @@ const Navbar = ({ landingMetaverse = true }: NavbarProps) => {
       window.removeEventListener("scroll", scheduleResolve);
       window.removeEventListener("resize", scheduleResolve);
       window.removeEventListener("load", runSettlePass as EventListener);
-      window.removeEventListener("hpc:route-scroll-restored", runSettlePass as EventListener);
+      window.removeEventListener("hpc:route-scroll-restored", onRouteScrollRestored);
       window.removeEventListener("pageshow", runSettlePass as EventListener);
     };
   }, [
@@ -669,25 +797,43 @@ const Navbar = ({ landingMetaverse = true }: NavbarProps) => {
   ]);
 
   return (
-    <nav
-      className={cn(
-        "fixed top-0 left-0 right-0 z-50 border-b",
-        landingMetaverse
-          ? "landing-navbar-metaverse border-cyan-400/25"
-          : "border-border/30 backdrop-blur-md"
-      )}
-      style={!landingMetaverse ? { background: "var(--navbar-bg)" } : undefined}
-      data-navbar-text-scale="1.1"
-    >
+    <>
+      {mobileOpen ? (
+        <button
+          type="button"
+          aria-label="Close navigation menu"
+          className="fixed inset-0 z-[125] bg-black/35 backdrop-blur-[1px] lg:hidden touch-manipulation"
+          onClick={() => setMobileOpen(false)}
+        />
+      ) : null}
+      <nav
+        className={cn(
+          "fixed top-0 left-0 right-0 border-b touch-manipulation",
+          mobileOpen ? "z-[130]" : "z-50",
+          landingMetaverse
+            ? "landing-navbar-metaverse border-cyan-400/25"
+            : "border-border/30 backdrop-blur-md"
+        )}
+        style={!landingMetaverse ? { background: "var(--navbar-bg)" } : undefined}
+        data-navbar-text-scale="1.1"
+      >
       <div className="layout-container flex h-11 items-center justify-between sm:h-12">
         <Link
           to="/"
           className="flex min-w-0 max-w-[min(100%,14rem)] shrink-0 items-center gap-1 sm:max-w-[16rem] md:gap-1.5"
           onClick={(e) => {
-            if (location.pathname === "/") {
+            const overlayBg = (location.state as { backgroundLocation?: Location } | null)?.backgroundLocation;
+            const browserPath =
+              typeof window !== "undefined" ? window.location.pathname : location.pathname;
+            const onTrueHomeChrome =
+              location.pathname === "/" && browserPath === "/" && !overlayBg;
+            if (onTrueHomeChrome) {
               e.preventDefault();
               setActiveSection("#");
+              return;
             }
+            e.preventDefault();
+            runLandingNavigation("#");
           }}
         >
           <img src={hpcLogo} alt="HPC Logo" className="h-6 w-6 shrink-0 sm:h-7 sm:w-7 md:h-8 md:w-8" />
@@ -902,7 +1048,7 @@ const Navbar = ({ landingMetaverse = true }: NavbarProps) => {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.14, ease: "easeOut" }}
+            transition={{ duration: 0.06, ease: "easeOut" }}
             className={cn(
               "overflow-hidden border-t border-border/50 bg-card lg:hidden",
               landingMetaverse && "landing-nav-mobile-drawer-metaverse border-cyan-500/20"
@@ -1051,6 +1197,7 @@ const Navbar = ({ landingMetaverse = true }: NavbarProps) => {
         )}
       </AnimatePresence>
     </nav>
+    </>
   );
 };
 

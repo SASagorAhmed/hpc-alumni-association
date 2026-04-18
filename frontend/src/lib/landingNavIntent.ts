@@ -29,6 +29,14 @@ export function consumeFreshLandingNavTarget(): string | null {
   return href;
 }
 
+/** Read pending landing target without clearing (child layout runs before parent). */
+export function peekFreshLandingNavTarget(): string | null {
+  if (!hasFreshLandingNavIntent()) return null;
+  const href = pendingTargetHref;
+  if (typeof href !== "string" || href.length === 0) return null;
+  return href;
+}
+
 export function shouldSkipLandingRestore(): boolean {
   return hasFreshLandingNavIntent();
 }

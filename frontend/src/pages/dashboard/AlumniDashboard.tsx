@@ -39,10 +39,7 @@ const AlumniDashboard = () => {
   useEffect(() => {
     let cancelled = false;
     const fetchData = async () => {
-      // Avoid a full skeleton flash when cache resolves quickly.
-      const showLoadingTimer = window.setTimeout(() => {
-        if (!cancelled) setDashboardLoading(true);
-      }, 120);
+      if (!cancelled) setDashboardLoading(true);
       try {
         const [noticesData, eventsData] = await Promise.all([
           cachedJsonFetch<Notice[]>({
@@ -72,7 +69,6 @@ const AlumniDashboard = () => {
           setEvents(upcoming.slice(0, 5));
         }
       } finally {
-        window.clearTimeout(showLoadingTimer);
         if (!cancelled) setDashboardLoading(false);
       }
     };

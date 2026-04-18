@@ -30,29 +30,15 @@ export interface AchievementBannerSettings {
 
 const ACHIEVEMENT_BANNER_CACHE_KEY = "hpc:achievement-banner-cache";
 
-const warnedInvalidDateKeys = new Set<string>();
-
 function parseAchievementWindowDate(
   raw: string | null | undefined,
-  field: "start_date" | "end_date",
-  id: string
+  _field: "start_date" | "end_date",
+  _id: string
 ): number | null {
   const value = raw?.trim();
   if (!value) return null;
   const ms = Date.parse(value);
   if (Number.isFinite(ms)) return ms;
-  if (import.meta.env.DEV) {
-    const key = `${id}:${field}:${value}`;
-    if (!warnedInvalidDateKeys.has(key)) {
-      warnedInvalidDateKeys.add(key);
-      // Keep this warning dev-only to avoid noisy production logs.
-      console.warn(`[achievement-banner] Ignoring item with invalid ${field}:`, {
-        id,
-        field,
-        value,
-      });
-    }
-  }
   return Number.NaN;
 }
 

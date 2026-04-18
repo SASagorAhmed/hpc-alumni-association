@@ -1,6 +1,10 @@
-import { Navigate, Outlet } from "react-router-dom";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { Loader2 } from "lucide-react";
 import { useAuth, UserRole } from "@/contexts/AuthContext";
 import { useAdminViewAsAlumni } from "@/contexts/AdminViewAsAlumniContext";
+
+/** Alumni directory list + profile: avoid full dashboard skeleton during auth bootstrap. */
+const ALUMNI_DIRECTORY_SHELL_PATH = /^\/directory(?:\/[^/]+)?\/?$/;
 
 interface ProtectedRouteProps {
   children?: React.ReactNode;
@@ -9,10 +13,19 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute = ({ children, requiredRole, allowUnapproved = false }: ProtectedRouteProps) => {
+  const { pathname } = useLocation();
   const { user, isLoading, isAuthReady } = useAuth();
   const { viewAsAlumni } = useAdminViewAsAlumni();
+  const directoryShellBootstrap = ALUMNI_DIRECTORY_SHELL_PATH.test(pathname);
 
   if (!isAuthReady || isLoading) {
+    if (directoryShellBootstrap) {
+      return (
+        <div className="flex min-h-[50vh] items-center justify-center bg-background px-4" aria-busy="true" aria-label="Loading">
+          <Loader2 className="h-7 w-7 animate-spin text-muted-foreground" />
+        </div>
+      );
+    }
     return (
       <div className="min-h-screen bg-background">
         <div className="mx-auto flex h-11 max-w-7xl items-center border-b border-border/70 px-4 lg:px-6">

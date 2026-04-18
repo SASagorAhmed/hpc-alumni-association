@@ -35,6 +35,7 @@ import { API_BASE_URL } from "@/api-production/api.js";
 import { getAuthToken } from "@/lib/authToken";
 import { primeJsonCache } from "@/lib/requestCache";
 import { queryClient } from "@/lib/queryClient";
+import { ALUMNI_DIRECTORY_STALE_MS, alumniDirectoryQueryKey, fetchAlumniDirectory } from "@/lib/publicDataQueries";
 import { ACHIEVEMENT_BANNER_QUERY_KEY, fetchAchievementBannerData } from "@/hooks/useAchievementBannerData";
 import { fetchLandingContent, LANDING_CONTENT_QUERY_KEY } from "@/hooks/useLandingContent";
 import TopNoticeBar from "@/components/notices/TopNoticeBar";
@@ -145,6 +146,7 @@ const SidebarContent = ({
           <li key={href}>
             <Link
               to={href}
+              onPointerDown={() => onPrefetchRoute?.(href)}
               onMouseEnter={() => onPrefetchRoute?.(href)}
               onFocus={() => onPrefetchRoute?.(href)}
               onTouchStart={() => onPrefetchRoute?.(href)}
@@ -241,6 +243,16 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     };
   }, [alumniMetaverseShell]);
 
+  /** Warm directory list before the user opens `/directory` (same query as Directory.tsx). */
+  useEffect(() => {
+    if (!user?.verified || !useAlumniShell) return;
+    void queryClient.prefetchQuery({
+      queryKey: alumniDirectoryQueryKey,
+      queryFn: fetchAlumniDirectory,
+      staleTime: ALUMNI_DIRECTORY_STALE_MS,
+    });
+  }, [user?.verified, useAlumniShell]);
+
   useEffect(() => {
     if (!isAdmin) return;
     if (!viewAsAlumni) {
@@ -310,6 +322,13 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       });
 
     switch (href) {
+      case "/directory":
+        void queryClient.prefetchQuery({
+          queryKey: alumniDirectoryQueryKey,
+          queryFn: fetchAlumniDirectory,
+          staleTime: ALUMNI_DIRECTORY_STALE_MS,
+        });
+        break;
       case "/admin/dashboard":
       case "/admin/users":
         enqueue("/api/admin/users");

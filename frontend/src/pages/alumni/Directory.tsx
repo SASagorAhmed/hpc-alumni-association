@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSyncedQueryState } from "@/hooks/useSyncedQueryState";
 import { AlumniPhotoLightbox } from "@/components/alumni/AlumniPhotoLightbox";
-import { alumniDirectoryQueryKey, fetchAlumniDirectory } from "@/lib/publicDataQueries";
+import {
+  ALUMNI_DIRECTORY_STALE_MS,
+  alumniDirectoryMemberQueryKey,
+  alumniDirectoryQueryKey,
+  fetchAlumniDirectory,
+  fetchAlumniDirectoryMember,
+} from "@/lib/publicDataQueries";
 
 const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 const GENDERS = ["Male", "Female", "Other"];
@@ -82,14 +88,47 @@ const Directory = () => {
     : 18;
   const page = Math.max(1, Number.parseInt(pageParam, 10) || 1);
 
-  const { data: alumni = [], isLoading } = useQuery({
+  const prefetchDirectoryList = useCallback(() => {
+    const st = queryClient.getQueryState(alumniDirectoryQueryKey);
+    if (st?.fetchStatus === "fetching") return;
+    void queryClient.prefetchQuery({
+      queryKey: alumniDirectoryQueryKey,
+      queryFn: fetchAlumniDirectory,
+      staleTime: ALUMNI_DIRECTORY_STALE_MS,
+    });
+  }, [queryClient]);
+
+  const prefetchDirectoryMember = useCallback(
+    (memberId: string) => {
+      const k = alumniDirectoryMemberQueryKey(memberId);
+      const st = queryClient.getQueryState(k);
+      if (st?.fetchStatus === "fetching") return;
+      void queryClient.prefetchQuery({
+        queryKey: k,
+        queryFn: () => fetchAlumniDirectoryMember(memberId),
+        staleTime: ALUMNI_DIRECTORY_STALE_MS,
+      });
+    },
+    [queryClient]
+  );
+
+  const { data, isPending, isFetching } = useQuery({
     queryKey: alumniDirectoryQueryKey,
     queryFn: fetchAlumniDirectory as () => Promise<AlumniProfile[]>,
-    enabled: !!user?.verified,
-    staleTime: 1000 * 60 * 5,
-    gcTime: 1000 * 60 * 30,
-    placeholderData: (previousData) => previousData,
+    // Alumni route is gated by `ProtectedRoute` (approved + verified); avoid `enabled: !!verified` flashing while user hydrates.
+    enabled: Boolean(user),
+    staleTime: ALUMNI_DIRECTORY_STALE_MS,
+    gcTime: 1000 * 60 * 120,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+    placeholderData: (previousData) =>
+      previousData ?? (queryClient.getQueryData(alumniDirectoryQueryKey) as AlumniProfile[] | undefined),
   });
+  /** Prefer live `data`, then same-key cache so first paint matches prefetch / list (no skeleton flash). */
+  const cacheList = queryClient.getQueryData(alumniDirectoryQueryKey) as AlumniProfile[] | undefined;
+  const alumni = data ?? cacheList ?? [];
+  const showDirectorySkeleton =
+    alumni.length === 0 && data === undefined && (isPending || isFetching);
 
   // Derive unique filter options
   const batches = useMemo(() => [...new Set(alumni.map((a) => a.batch).filter(Boolean))].sort(), [alumni]);
@@ -197,21 +236,6 @@ const Directory = () => {
     return filtered.slice(start, start + pageSize);
   }, [activePage, filtered, pageSize]);
 
-  // Unverified gate
-  if (!user?.verified) {
-    return (
-      <div className="mx-auto w-full max-w-screen-md px-2 py-12 text-center space-y-4 sm:px-3">
-        <div className="hpc-alumni-dashboard-glass-skeleton mx-auto flex h-16 w-16 items-center justify-center rounded-full border">
-          <User className="w-8 h-8 text-muted-foreground" />
-        </div>
-        <h2 className="text-xl font-bold text-foreground">Verification Required</h2>
-        <p className="text-muted-foreground">
-          Your account is not verified yet. Once admin verifies your account, you will be able to access the Alumni Directory.
-        </p>
-      </div>
-    );
-  }
-
   return (
     <div className="mx-auto w-full max-w-screen-2xl space-y-4">
       {/* Header */}
@@ -234,7 +258,7 @@ const Directory = () => {
       </div>
 
       {/* Filter panel */}
-      <Card>
+      <Card className="transition-none">
         <CardContent className="p-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-foreground">Filters</h3>
@@ -315,14 +339,14 @@ const Directory = () => {
       </div>
 
       {/* Results */}
-      {isLoading ? (
+      {showDirectorySkeleton ? (
         <div className="hpc-ios-touch-text-root grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {[1, 2, 3, 4, 5, 6].map((i) => (
-            <Card key={i} className="animate-pulse"><CardContent className="p-4 h-40" /></Card>
+            <Card key={i} className="animate-pulse transition-none"><CardContent className="p-4 h-40" /></Card>
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <Card>
+        <Card className="transition-none">
           <CardContent className="p-12 text-center">
             <User className="w-10 h-10 mx-auto text-muted-foreground mb-3" />
             <p className="text-sm text-muted-foreground font-medium">
@@ -337,36 +361,27 @@ const Directory = () => {
             <Link
               key={a.id}
               to={`/directory/${a.id}`}
-              state={{ backgroundLocation: location }}
-              onPointerEnter={() => {
-                queryClient.prefetchQuery({
-                  queryKey: alumniDirectoryQueryKey,
-                  queryFn: fetchAlumniDirectory,
-                  staleTime: 1000 * 60 * 5,
-                });
+              state={{ backgroundLocation: location, directoryPreviewMember: a }}
+              onPointerDown={() => {
+                prefetchDirectoryList();
+                prefetchDirectoryMember(a.id);
               }}
-              onMouseEnter={() => {
-                queryClient.prefetchQuery({
-                  queryKey: alumniDirectoryQueryKey,
-                  queryFn: fetchAlumniDirectory,
-                  staleTime: 1000 * 60 * 5,
-                });
+              onPointerEnter={() => {
+                prefetchDirectoryList();
+                prefetchDirectoryMember(a.id);
               }}
               onTouchStart={() => {
-                queryClient.prefetchQuery({
-                  queryKey: alumniDirectoryQueryKey,
-                  queryFn: fetchAlumniDirectory,
-                  staleTime: 1000 * 60 * 5,
-                });
+                prefetchDirectoryList();
+                prefetchDirectoryMember(a.id);
               }}
               className="h-full min-w-0"
             >
-              <Card className="alumni-directory-neon-card h-full min-w-0 cursor-pointer transition-[box-shadow,border-color] group hover:shadow-md">
+              <Card className="alumni-directory-neon-card h-full min-w-0 cursor-pointer transition-none group hover:shadow-md">
               <CardContent className="flex h-full min-h-[236px] min-w-0 flex-col p-4">
                 <div className="flex min-w-0 items-start gap-4">
                   <button
                     type="button"
-                    className="group/photo relative h-24 w-24 shrink-0 cursor-zoom-in overflow-hidden rounded-full bg-primary/10 ring-2 ring-primary/20 transition-[box-shadow,transform] hover:ring-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-default sm:h-28 sm:w-28"
+                    className="group/photo relative h-24 w-24 shrink-0 cursor-zoom-in overflow-hidden rounded-full bg-primary/10 ring-2 ring-primary/20 hover:ring-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-default sm:h-28 sm:w-28"
                     disabled={!a.photo}
                     aria-label={a.photo ? `View full photo of ${a.name}` : `No photo for ${a.name}`}
                     onClick={(e) => {
@@ -379,7 +394,7 @@ const Directory = () => {
                       <img
                         src={a.photo}
                         alt=""
-                        className="h-full w-full object-cover transition-transform duration-200 group-hover/photo:scale-105"
+                        className="h-full w-full object-cover"
                       />
                     ) : (
                       <span className="flex h-full w-full items-center justify-center">
@@ -388,7 +403,7 @@ const Directory = () => {
                     )}
                   </button>
                   <div className="min-w-0 flex-1">
-                    <h3 className="font-semibold text-base text-foreground leading-snug line-clamp-2 group-hover:text-primary transition-colors [overflow-wrap:anywhere]">
+                    <h3 className="font-semibold text-base text-foreground leading-snug line-clamp-2 group-hover:text-primary [overflow-wrap:anywhere]">
                       {a.name}
                     </h3>
                     <p className="min-w-0 break-normal [word-break:normal] [overflow-wrap:normal] text-xs text-muted-foreground">Batch: {a.batch || "—"} {a.roll ? `| Roll: ${a.roll}` : ""}</p>
@@ -491,17 +506,17 @@ const SocialIcons = ({ links, size = "sm" }: { links?: { facebook?: string; inst
   return (
     <div className={cls}>
       {links.facebook && (
-        <a href={links.facebook} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-muted-foreground hover:text-primary transition-colors">
+        <a href={links.facebook} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-muted-foreground hover:text-primary">
           <Facebook className={iconSize} />
         </a>
       )}
       {links.instagram && (
-        <a href={links.instagram} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-muted-foreground hover:text-primary transition-colors">
+        <a href={links.instagram} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-muted-foreground hover:text-primary">
           <Instagram className={iconSize} />
         </a>
       )}
       {links.linkedin && (
-        <a href={links.linkedin} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-muted-foreground hover:text-primary transition-colors">
+        <a href={links.linkedin} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-muted-foreground hover:text-primary">
           <Linkedin className={iconSize} />
         </a>
       )}

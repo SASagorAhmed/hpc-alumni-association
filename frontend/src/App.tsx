@@ -14,7 +14,6 @@ import { AdminViewAsAlumniProvider } from "@/contexts/AdminViewAsAlumniContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { ThemeToggleFixedFallback } from "@/components/ThemeToggleFixedFallback";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import { SplashGate } from "@/components/splash/SplashGate";
 import AutoRepairBoundary from "@/components/ui/AutoRepairBoundary";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import Index from "./pages/Index.tsx";
@@ -67,20 +66,14 @@ import AdminUserProfile from "./pages/admin/AdminUserProfile.tsx";
 import { useRouteScrollPersistence } from "@/hooks/useRouteScrollPersistence";
 import { CursorAmbientGlow } from "@/components/effects/CursorAmbientGlow";
 
-/** Layout: providers + routed content; all routes render in `<Outlet />`. */
+/** Routed shell: auth lives once above `<AppRoutes />` so stacked overlay routes share the same session. */
 function AppShell() {
   return (
     <>
-      <AuthProvider>
-        <AdminViewAsAlumniProvider>
-          <ThemeToggleFixedFallback />
-          <SplashGate>
-            <AutoRepairBoundary title="Page content">
-              <Outlet />
-            </AutoRepairBoundary>
-          </SplashGate>
-        </AdminViewAsAlumniProvider>
-      </AuthProvider>
+      <ThemeToggleFixedFallback />
+      <AutoRepairBoundary title="Page content">
+        <Outlet />
+      </AutoRepairBoundary>
     </>
   );
 }
@@ -170,7 +163,9 @@ function AppRoutes() {
             <Route path="achievements/:id" element={<AchievementDetail />} />
             <Route path="member/:id" element={<MemberDetail />} />
             <Route path="committee/member/:id" element={<CommitteeMemberProfile />} />
-            <Route path="directory/:id" element={<DirectoryProfile />} />
+            <Route element={<ProtectedRoute requiredRole="alumni" />}>
+              <Route path="directory/:id" element={<DirectoryProfile />} />
+            </Route>
           </Route>
         </Routes>
       ) : null}
@@ -185,7 +180,11 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <AppRoutes />
+        <AuthProvider>
+          <AdminViewAsAlumniProvider>
+            <AppRoutes />
+          </AdminViewAsAlumniProvider>
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </ThemeProvider>

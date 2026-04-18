@@ -1,4 +1,4 @@
-/** Non-sensitive display fields only — speeds splash / nav greeting; cleared on logout. */
+/** Non-sensitive display fields only — speeds nav greeting; cleared on logout. */
 const KEY = "hpc_user_display_v1";
 
 export type UserDisplayCache = {

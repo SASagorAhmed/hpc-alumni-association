@@ -106,6 +106,7 @@ const MemberRow = ({
       <Link
         to={`/member/${member.id}`}
         state={{ backgroundLocation: location }}
+        onPointerDown={prefetchDetail}
         onPointerEnter={prefetchDetail}
         onMouseEnter={prefetchDetail}
         onFocus={prefetchDetail}
@@ -129,6 +130,7 @@ const MemberRow = ({
         <Link
           to={`/member/${member.id}`}
           state={{ backgroundLocation: location }}
+          onPointerDown={prefetchDetail}
           onPointerEnter={prefetchDetail}
           onMouseEnter={prefetchDetail}
           onFocus={prefetchDetail}

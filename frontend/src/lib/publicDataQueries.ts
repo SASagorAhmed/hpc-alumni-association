@@ -30,6 +30,9 @@ export const memoriesPublicListQueryKey = ["memories-public"] as const;
 export const achievementsPublicListQueryKey = ["achievements-public"] as const;
 export const alumniDirectoryQueryKey = ["alumni-directory"] as const;
 
+/** Full list is stable until admin invalidates; avoids multi‑second refetch on every profile open. */
+export const ALUMNI_DIRECTORY_STALE_MS = 1000 * 60 * 60 * 24;
+
 export const memoryDetailQueryKey = (id: string) => ["memory-detail", id] as const;
 export const achievementDetailQueryKey = (id: string) => ["achievement-detail", id] as const;
 export const memberDetailQueryKey = (id: string) => ["committee-member", id] as const;
@@ -125,4 +128,15 @@ export async function fetchAlumniDirectory(): Promise<AlumniDirectoryRecord[]> {
   if (!res.ok) throw new Error(`Failed to load directory (${res.status})`);
   const data = (await res.json()) as AlumniDirectoryRecord[];
   return Array.isArray(data) ? data : [];
+}
+
+/** One alumni row — use on profile/detail so we never wait on the full list download. */
+export const alumniDirectoryMemberQueryKey = (id: string) => [...alumniDirectoryQueryKey, "member", id] as const;
+
+export async function fetchAlumniDirectoryMember(id: string): Promise<AlumniDirectoryRecord | null> {
+  const enc = encodeURIComponent(id);
+  const res = await fetch(`${API_BASE_URL}/api/public/directory/alumni/${enc}`, { method: "GET" });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`Failed to load directory profile (${res.status})`);
+  return (await res.json()) as AlumniDirectoryRecord;
 }

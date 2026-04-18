@@ -19,7 +19,7 @@ import Footer from "@/components/landing/Footer";
 import { LandingRgbroAmbience } from "@/components/landing/LandingRgbroAmbience";
 import { useLandingContent } from "@/hooks/useLandingContent";
 import AutoRepairBoundary from "@/components/ui/AutoRepairBoundary";
-import { consumeFreshLandingNavTarget } from "@/lib/landingNavIntent";
+import { peekFreshLandingNavTarget } from "@/lib/landingNavIntent";
 
 function landingHrefToScrollId(href: string) {
   if (href === "#community") return "academics";
@@ -59,7 +59,7 @@ const Index = () => {
 
   useLayoutEffect(() => {
     if (typeof window === "undefined") return;
-    const targetHref = consumeFreshLandingNavTarget();
+    const targetHref = peekFreshLandingNavTarget();
     if (!targetHref) return;
     applyLandingTarget(targetHref);
   }, [applyLandingTarget]);
@@ -70,8 +70,9 @@ const Index = () => {
       const custom = event as CustomEvent<string>;
       const href = typeof custom.detail === "string" ? custom.detail : "";
       if (!href) return;
-      const freshTarget = consumeFreshLandingNavTarget();
-      applyLandingTarget(freshTarget || href);
+      // Do not consume here: intent must stay set until route scroll persistence
+      // runs so session restore does not overwrite navbar-driven section scroll.
+      applyLandingTarget(href);
     };
     window.addEventListener("hpc:landing-nav-target", onTarget as EventListener);
     return () => {

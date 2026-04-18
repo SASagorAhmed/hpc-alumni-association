@@ -570,8 +570,10 @@ const NotificationDropdown = ({ compact }: NotificationDropdownProps) => {
 
   const handleClose = useCallback(() => {
     setOpen(false);
-    // Refresh badge after closing so count reflects any reads done inside panel
-    setTimeout(refreshBadge, 300);
+    // Refresh badge after close (next frame so panel state has flushed)
+    requestAnimationFrame(() => {
+      void refreshBadge();
+    });
   }, [refreshBadge]);
 
   const handleNavigate = useCallback((path: string) => {

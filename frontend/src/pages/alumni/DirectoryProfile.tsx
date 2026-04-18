@@ -1,16 +1,22 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useLocation, useNavigate, useParams, type Location } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Award, Briefcase, Crown, Droplets, Facebook, GraduationCap, Instagram, Linkedin, MapPin, Phone, User } from "lucide-react";
-import { API_BASE_URL } from "@/api-production/api.js";
+import { useAuth } from "@/contexts/AuthContext";
 import { AlumniPhotoLightbox } from "@/components/alumni/AlumniPhotoLightbox";
 import { cn } from "@/lib/utils";
 import { displayCollegeNameOrNull } from "@/lib/collegeDisplay";
-import { alumniDirectoryQueryKey, fetchAlumniDirectory } from "@/lib/publicDataQueries";
+import {
+  ALUMNI_DIRECTORY_STALE_MS,
+  alumniDirectoryMemberQueryKey,
+  alumniDirectoryQueryKey,
+  fetchAlumniDirectoryMember,
+} from "@/lib/publicDataQueries";
 import { FullScreenRouteLayer } from "@/components/routing/FullScreenRouteLayer";
+import { preserveTopNavbarForBackground } from "@/lib/fullScreenLayerPreserveNavbar";
 
 interface AlumniProfile {
   id: string;
@@ -42,24 +48,69 @@ interface AlumniProfile {
   social_links: { facebook?: string; instagram?: string; linkedin?: string } | null;
 }
 
+type DirectoryLocationState = {
+  backgroundLocation?: Location;
+  /** Row from directory card — renders detail instantly before list query syncs. */
+  directoryPreviewMember?: AlumniProfile;
+};
+
 const DirectoryProfile = () => {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const isLayer = Boolean((location.state as { backgroundLocation?: Location } | null)?.backgroundLocation);
+  const navState = (location.state as DirectoryLocationState | null) ?? null;
+  const backgroundLocation = navState?.backgroundLocation;
+  const previewMember =
+    id && navState?.directoryPreviewMember?.id === id ? navState.directoryPreviewMember : undefined;
+  const isLayer = Boolean(backgroundLocation);
+  const preserveTopNavbar = preserveTopNavbarForBackground(backgroundLocation);
+  const wrapLayer = (inner: ReactNode) =>
+    isLayer ? (
+      <FullScreenRouteLayer preserveTopNavbar={preserveTopNavbar}>{inner}</FullScreenRouteLayer>
+    ) : (
+      inner
+    );
+
   const [photoOpen, setPhotoOpen] = useState(false);
-  const { data: alumni = [], isLoading } = useQuery({
-    queryKey: alumniDirectoryQueryKey,
-    queryFn: fetchAlumniDirectory as () => Promise<AlumniProfile[]>,
-    staleTime: 1000 * 60 * 5,
-    gcTime: 1000 * 60 * 30,
-    placeholderData: (previousData) => previousData,
+  const cacheList = queryClient.getQueryData(alumniDirectoryQueryKey) as AlumniProfile[] | undefined;
+
+  const {
+    data: memberRow,
+    isPending: memberPending,
+    isFetching: memberFetching,
+  } = useQuery({
+    queryKey: alumniDirectoryMemberQueryKey(id ?? ""),
+    queryFn: () => fetchAlumniDirectoryMember(id ?? ""),
+    enabled: Boolean(user && id),
+    staleTime: ALUMNI_DIRECTORY_STALE_MS,
+    gcTime: 1000 * 60 * 120,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+    placeholderData: () =>
+      (queryClient.getQueryData(alumniDirectoryQueryKey) as AlumniProfile[] | undefined)?.find(
+        (r) => r.id === id
+      ),
   });
 
-  const selected = useMemo(() => alumni.find((a) => a.id === id) || null, [alumni, id]);
+  const listHit = useMemo(
+    () => (id && cacheList ? cacheList.find((a) => a.id === id) ?? null : null),
+    [id, cacheList]
+  );
 
-  if (isLoading) return <div className="py-10 text-center text-muted-foreground">Loading profile...</div>;
-  if (!selected) return <div className="py-10 text-center text-muted-foreground">Profile not found.</div>;
+  const selected = useMemo((): AlumniProfile | null => {
+    if (!id) return null;
+    if (memberRow !== undefined && memberRow !== null) return memberRow as AlumniProfile;
+    if (memberRow === null) return null;
+    return (previewMember ?? listHit) ?? null;
+  }, [id, memberRow, previewMember, listHit]);
+
+  const showProfileSkeleton =
+    memberRow === undefined &&
+    (memberPending || memberFetching) &&
+    !previewMember &&
+    !listHit;
 
   const handleBack = () => {
     if (typeof window !== "undefined" && window.history.length > 1) {
@@ -69,19 +120,54 @@ const DirectoryProfile = () => {
     navigate("/directory");
   };
 
+  if (showProfileSkeleton) {
+    return wrapLayer(
+      <div className="mx-auto max-w-4xl space-y-4 px-2 sm:px-0">
+        <div className="h-9 w-44 animate-pulse rounded-md bg-muted" />
+        <Card className="alumni-directory-neon-card overflow-hidden transition-none">
+          <CardContent className="space-y-6 p-6 sm:p-8">
+            <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start">
+              <div className="h-44 w-44 shrink-0 animate-pulse rounded-2xl bg-muted sm:h-52 sm:w-52" />
+              <div className="flex min-w-0 flex-1 flex-col items-center gap-3 sm:items-start sm:pt-1">
+                <div className="h-9 w-full max-w-xs animate-pulse rounded-md bg-muted" />
+                <div className="h-5 w-40 animate-pulse rounded-md bg-muted" />
+              </div>
+            </div>
+            <div className="space-y-2 pt-2">
+              <div className="h-4 w-full animate-pulse rounded bg-muted" />
+              <div className="h-4 w-[88%] animate-pulse rounded bg-muted" />
+              <div className="h-4 w-[72%] animate-pulse rounded bg-muted" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!selected) {
+    return wrapLayer(
+      <div className="mx-auto max-w-4xl space-y-4 px-2 py-10 text-center sm:px-0">
+        <Button type="button" variant="outline" size="sm" className="mx-auto transition-none active:scale-100" onClick={handleBack}>
+          <ArrowLeft className="mr-1 h-4 w-4" /> Back to Directory
+        </Button>
+        <p className="text-muted-foreground">Profile not found.</p>
+      </div>
+    );
+  }
+
   const profilePage = (
     <div className="mx-auto max-w-4xl space-y-4 px-2 sm:px-0">
-      <Button type="button" variant="outline" size="sm" onClick={handleBack}>
+      <Button type="button" variant="outline" size="sm" className="transition-none active:scale-100" onClick={handleBack}>
           <ArrowLeft className="mr-1 h-4 w-4" /> Back to Directory
       </Button>
 
-      <Card className="alumni-directory-neon-card overflow-hidden">
+      <Card className="alumni-directory-neon-card overflow-hidden transition-none">
         <CardContent className="space-y-6 p-6 sm:p-8">
           <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start">
             <button
               type="button"
               className={cn(
-                "shrink-0 overflow-hidden rounded-2xl bg-primary/10 ring-2 ring-primary/25 transition-[box-shadow,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                "shrink-0 overflow-hidden rounded-2xl bg-primary/10 ring-2 ring-primary/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                 "h-44 w-44 sm:h-52 sm:w-52",
                 selected.photo ? "cursor-zoom-in shadow-md hover:ring-primary/45 hover:shadow-lg" : "cursor-default"
               )}
@@ -212,11 +298,7 @@ const DirectoryProfile = () => {
     </div>
   );
 
-  if (isLayer) {
-    return <FullScreenRouteLayer>{profilePage}</FullScreenRouteLayer>;
-  }
-
-  return profilePage;
+  return wrapLayer(profilePage);
 };
 
 const DetailSection = ({ title, children }: { title: string; children: React.ReactNode }) => (
@@ -243,9 +325,9 @@ const SocialIcons = ({ links }: { links?: { facebook?: string; instagram?: strin
   if (!hasAny) return null;
   return (
     <div className="mt-1 flex items-center gap-3">
-      {links.facebook ? <a href={links.facebook} target="_blank" rel="noopener noreferrer" className="text-muted-foreground transition-colors hover:text-primary"><Facebook className="h-5 w-5" /></a> : null}
-      {links.instagram ? <a href={links.instagram} target="_blank" rel="noopener noreferrer" className="text-muted-foreground transition-colors hover:text-primary"><Instagram className="h-5 w-5" /></a> : null}
-      {links.linkedin ? <a href={links.linkedin} target="_blank" rel="noopener noreferrer" className="text-muted-foreground transition-colors hover:text-primary"><Linkedin className="h-5 w-5" /></a> : null}
+      {links.facebook ? <a href={links.facebook} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary"><Facebook className="h-5 w-5" /></a> : null}
+      {links.instagram ? <a href={links.instagram} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary"><Instagram className="h-5 w-5" /></a> : null}
+      {links.linkedin ? <a href={links.linkedin} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary"><Linkedin className="h-5 w-5" /></a> : null}
     </div>
   );
 };

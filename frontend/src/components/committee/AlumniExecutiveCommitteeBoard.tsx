@@ -412,6 +412,7 @@ export function PresidentHeroCard({
       state={{ backgroundLocation: location }}
       aria-label={`Open profile: ${member.name}`}
       className="block max-w-full"
+      onPointerDown={() => prefetchProfile(member.id)}
       onPointerEnter={() => prefetchProfile(member.id)}
       onMouseEnter={() => prefetchProfile(member.id)}
       onFocus={() => prefetchProfile(member.id)}
@@ -626,6 +627,7 @@ export function ExecutiveMemberCard({
       state={{ backgroundLocation: location }}
       aria-label={`Open profile: ${member.name}`}
       className="block w-full"
+      onPointerDown={() => prefetchProfile(member.id)}
       onPointerEnter={() => prefetchProfile(member.id)}
       onMouseEnter={() => prefetchProfile(member.id)}
       onFocus={() => prefetchProfile(member.id)}
@@ -884,6 +886,7 @@ export function MobilePresidentCard({
       state={{ backgroundLocation: location }}
       aria-label={`Open profile: ${member.name}`}
       className="block w-full min-w-0"
+      onPointerDown={() => prefetchProfile(member.id)}
       onPointerEnter={() => prefetchProfile(member.id)}
       onMouseEnter={() => prefetchProfile(member.id)}
       onFocus={() => prefetchProfile(member.id)}
@@ -1097,6 +1100,7 @@ export function MobileMemberCard({
       state={{ backgroundLocation: location }}
       aria-label={`Open profile: ${member.name}`}
       className="block w-full"
+      onPointerDown={() => prefetchProfile(member.id)}
       onPointerEnter={() => prefetchProfile(member.id)}
       onMouseEnter={() => prefetchProfile(member.id)}
       onFocus={() => prefetchProfile(member.id)}

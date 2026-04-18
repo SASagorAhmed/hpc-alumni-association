@@ -58,12 +58,13 @@ function AchievementGridCard({
       initial={{ opacity: 0, y: 12 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
-      transition={{ duration: 0.5 }}
+      transition={{ duration: 0.22 }}
       className="h-full min-h-0 min-w-0"
     >
       <Link
         to={`/achievements/${a.id}`}
         state={{ backgroundLocation: location }}
+        onPointerDown={prefetchDetail}
         onPointerEnter={prefetchDetail}
         onMouseEnter={prefetchDetail}
         onFocus={prefetchDetail}
@@ -271,7 +272,7 @@ const AchievementsSection = ({ embedded = false }: { embedded?: boolean }) => {
       initial={{ opacity: 0, y: 8 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-50px" }}
-      transition={{ duration: 0.5 }}
+      transition={{ duration: 0.22 }}
       className="text-center mb-12"
     >
       <div className="fs-ui mb-3 inline-flex items-center gap-2 rounded-full border border-cyan-400/30 bg-gradient-to-r from-orange-500/18 via-amber-500/12 to-cyan-500/12 px-4 py-1.5 font-medium text-amber-200 shadow-[0_0_20px_-6px_rgba(255,149,0,0.35)]">

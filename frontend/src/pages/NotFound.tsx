@@ -1,14 +1,7 @@
-import { Link, useLocation } from "react-router-dom";
-import { useEffect } from "react";
+import { Link } from "react-router-dom";
 import { PublicMetaverseChrome } from "@/components/layout/PublicMetaverseChrome";
 
 const NotFound = () => {
-  const location = useLocation();
-
-  useEffect(() => {
-    console.error("404 Error: User attempted to access non-existent route:", location.pathname);
-  }, [location.pathname]);
-
   return (
     <PublicMetaverseChrome>
       <div className="layout-container flex min-h-[min(85dvh,720px)] w-full flex-col items-center justify-center py-12 text-center">

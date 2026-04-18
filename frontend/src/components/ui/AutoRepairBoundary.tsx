@@ -48,7 +48,6 @@ type FinalFailPayload = {
 };
 
 function recordFinalFailure(payload: FinalFailPayload) {
-  console.error("[AutoRepairBoundary] final failure", payload);
   try {
     window.dispatchEvent(new CustomEvent("hpc:auto-repair-final-fail", { detail: payload }));
   } catch {

@@ -76,8 +76,6 @@
 
         if (!snapshot) return;
 
-        document.documentElement.style.visibility = "hidden";
-        window.__HPC_SCROLL_VISIBILITY_LOCK__ = true;
         if (window.location.hash) {
           window.history.replaceState({}, "", window.location.pathname + window.location.search);
         }
